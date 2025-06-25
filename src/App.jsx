@@ -2,16 +2,13 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import { Home, PlusCircle, Eye, DollarSign, TrendingUp, FileText, ArrowLeftRight, Hotel, Users, ChevronsRight, ChevronsLeft, Edit } from 'lucide-react';
 import { db } from './firebase';
-import { collection, getDocs, addDoc, doc, updateDoc } from 'firebase/firestore';\
+import { collection, getDocs, addDoc, doc, updateDoc } from 'firebase/firestore';
 
-
-// --- HELPER FUNCTIONS ---
 const getMonthYear = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleString('default', { month: 'short', year: 'numeric' });
 };
 
-// --- COMPONENTS ---
 const StatCard = ({ title, value, icon, color }) => (
     <div className="bg-white p-4 rounded-lg shadow-md flex items-center">
         <div className={`p-3 rounded-full mr-4 ${color}`}>{icon}</div>
@@ -231,7 +228,6 @@ const App = () => {
         const fetchData = async () => {
             setIsLoading(true);
             try {
-                // This will fail until you set up firebase.js
                 const reservationsCol = collection(db, 'reservations');
                 const reservationSnapshot = await getDocs(reservationsCol);
                 const reservationList = reservationSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
@@ -290,7 +286,7 @@ const App = () => {
 
     const renderPage = () => {
         if (isLoading) {
-            return <div className="p-8 text-center"><h1>Loading data... (Will show an error until Firebase is set up)</h1></div>;
+            return <div className="p-8 text-center"><h1>Loading data...</h1></div>;
         }
         switch (activePage) {
             case 'Dashboard': return <Dashboard reservations={reservations} payments={payments} expenses={expenses} />;
