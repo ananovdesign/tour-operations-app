@@ -1,24 +1,3 @@
-Of course. My apologies for the previous message being cut off.
-
-I understand you want the full code, and you are now ready to connect it to your Firebase database and remove the mock data. That is the perfect next step.
-
-Here is the complete and final code for your src/App.jsx file. This version has all of your new features and is designed to fetch its data live from your Firebase database.
-
-Step 1: Update the App.jsx File
-Follow the simple method we established:
-
-Go to your tour-operations-app repository on the GitHub website.
-
-Navigate to the src folder and click on the App.jsx file.
-
-Click the pencil icon to edit the file.
-
-Select all of the code in the editor and delete it.
-
-Copy the entire code block below and paste it into the empty App.jsx file on GitHub.
-
-JavaScript
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import { Home, PlusCircle, Eye, DollarSign, TrendingUp, FileText, ArrowLeftRight, Hotel, Users, ChevronsRight, ChevronsLeft, Edit, Briefcase, ChevronDown, ChevronUp, Crown, Bus, CalendarCheck, UserPlus, Shield, CheckCircle, XCircle, UserRound, Banknote } from 'lucide-react';
