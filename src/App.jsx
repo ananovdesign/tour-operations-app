@@ -1,2662 +1,2261 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
-import { Home, PlusCircle, Eye, DollarSign, TrendingUp, FileText, ArrowLeftRight, Hotel, Users, ChevronsRight, ChevronsLeft, Edit, Briefcase, ChevronDown, ChevronUp, Crown, Bus, CalendarCheck, UserPlus, FileSignature, Receipt, Package, Truck, Bed, Users2, Shield, Calendar, CreditCard, Tag, User, Car, CheckCircle, XCircle, Search, UserRound, Banknote } from 'lucide-react';
-import { db } from './firebase'; // Import the Firebase config
-import { collection, getDocs } from "firebase/firestore"; // Import Firestore functions
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { initializeApp } from 'firebase/app';
+import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'firebase/auth';
+import {
+  getFirestore, collection, addDoc, getDocs, doc, getDoc, setDoc, updateDoc, deleteDoc,
+  query, where, onSnapshot,
+  serverTimestamp, Timestamp // Import Timestamp for explicit type handling
+} from 'firebase/firestore';
 
-// NOTE: For PDF generation, we use jspdf and jspdf-autotable via CDN in the HTML file.
-// import jsPDF from 'jspdf'; // Removed as per error and CDN usage
-// import 'jspdf-autotable'; // Removed as per error and CDN usage
-
-
-// Mock data for UI development as Firebase is temporarily removed
-// MOCK_TOURS has been removed. Data will now be fetched from Firebase.
-
-const MOCK_RESERVATIONS = [
-    // --- UPDATED MOCK RESERVATIONS WITH NEW FIELDS ---
-    { id: 'DYT100101', creationDate: '2024-01-15', tourName: 'Alpine Adventure', tourType: 'BUS', checkIn: '2024-03-01', checkOut: '2024-03-08', adults: 2, children: 1, tourists: [{ name: 'John', fatherName: 'A', familyName: 'Doe', id: '123', numberOfTourists: 3, roomType: 'Double' }], depositPaid: 'YES', depositAmount: 500, finalPaymentAmount: 2000, owedToHotel: 800, profit: 1200, tourOperator: 'Alpine Tours', status: 'Confirmed', busTourId: 'DYTAL001', customerId: 'CUST001', hotelAccommodation: 'Grand Hotel', foodIncluded: 'YES', place: 'Swiss Alps', transport: 'Bus, Flight' },
-    { id: 'DYT100102', creationDate: '2024-02-20', tourName: 'Coastal Escape', tourType: 'HOTEL ONLY', checkIn: '2024-04-10', checkOut: '2024-04-17', adults: 2, children: 0, tourists: [{ name: 'Jane', fatherName: 'B', familyName: 'Smith', id: '456', numberOfTourists: 2, roomType: 'Twin' }], depositPaid: 'NO', depositAmount: 0, finalPaymentPaid: 'NO', finalPaymentAmount: 1200, owedToHotel: 600, profit: 600, tourOperator: 'Oceanic Stays', status: 'Pending', customerId: 'CUST002', hotelAccommodation: 'Beachfront Inn', foodIncluded: 'NO', place: 'Coastal Town', transport: 'Car' },
-    { id: 'DYT100103', creationDate: '2024-03-01', tourName: 'City Explorer', tourType: 'PARTNER', checkIn: '2024-05-05', checkOut: '2024-05-09', adults: 1, children: 0, tourists: [{ name: 'Peter', fatherName: 'C', familyName: 'Jones', id: '789', numberOfTourists: 1, roomType: 'Single' }], depositPaid: 'YES', depositAmount: 300, finalPaymentPaid: 'YES', finalPaymentAmount: 900, owedToHotel: 400, profit: 500, tourOperator: 'Urban Escapes', status: 'Past', customerId: 'CUST003', hotelAccommodation: 'City Central Hotel', foodIncluded: 'YES', place: 'Major City', transport: 'Train' },
-    { id: 'DYT100104', creationDate: '2024-01-25', tourName: 'Desert Oasis', tourType: 'BUS', checkIn: '2023-11-01', checkOut: '2023-11-07', adults: 3, children: 0, tourists: [{ name: 'Alice', fatherName: 'D', familyName: 'Williams', id: '101', numberOfTourists: 3, roomType: 'Triple' }], depositPaid: 'YES', depositAmount: 600, finalPaymentPaid: 'YES', finalPaymentAmount: 1800, owedToHotel: 1000, profit: 800, tourOperator: 'Desert Tours', status: 'Past', busTourId: 'DYTAL001', customerId: 'CUST001', hotelAccommodation: 'Desert Sands Resort', foodIncluded: 'NO', place: 'Arid Valley', transport: 'Bus' },
-    { id: 'DYT100105', creationDate: '2024-04-05', tourName: 'Mountain Retreat', tourType: 'HOTEL ONLY', checkIn: '2024-06-01', checkOut: '2024-06-05', adults: 2, children: 2, tourists: [{ name: 'Bob', fatherName: 'E', familyName: 'Brown', id: '112', numberOfTourists: 4, roomType: 'Family' }], depositPaid: 'NO', depositAmount: 0, finalPaymentPaid: 'NO', finalPaymentAmount: 1000, owedToHotel: 500, profit: 500, tourOperator: 'Peak Holidays', status: 'Pending', customerId: 'CUST002', hotelAccommodation: 'Mountain Lodge', foodIncluded: 'YES', place: 'High Peaks', transport: 'Car' },
-];
-
-const MOCK_PAYMENTS = [
-    { id: 'pay1', date: '2024-01-20', method: 'BANK', amount: 500, reason: 'Deposit for DYT100101', reservationId: 'DYT100101', vat: 24 },
-    { id: 'pay2', date: '2024-03-05', method: 'CASH', amount: 900, reason: 'Final payment for DYT100103', reservationId: 'DYT100103', vat: 24 },
-    { id: 'pay3', date: '2024-02-25', method: 'BANK', amount: 1800, reason: 'Full payment for DYT100104', reservationId: 'DYT100104', vat: 24 },
-    { id: 'pay4', date: '2024-06-10', method: 'BANK', amount: 750, reason: 'Payment for general services', reservationId: '', vat: 24 },
-    { id: 'pay5', date: '2024-05-20', method: 'CASH', amount: 150, reason: 'Commission for INS001', insuranceId: 'INS001', vat: 0 },
-    { id: 'pay6', date: '2024-06-01', method: 'BANK', amount: 50, reason: 'Commission for INS002', insuranceId: 'INS002', vat: 0 },
-];
-
-const MOCK_EXPENSES = [
-    { id: 'exp1', date: '2024-02-01', method: 'BANK', amount: 300, reason: 'Hotel deposit for DYT100101', reservationId: 'DYT100101', vat: 24 },
-    { id: 'exp2', date: '2024-03-10', method: 'CASH', amount: 200, reason: 'Guide fees for DYT100103', reservationId: 'DYT100103', vat: 24 },
-    { id: 'exp3', date: '2024-01-30', method: 'BANK', amount: 500, reason: 'Transport for DYT100104', reservationId: 'DYT100104', vat: 24 },
-    { id: 'exp4', date: '2024-05-15', method: 'BANK', amount: 150, reason: 'Office supplies', reservationId: '', vat: 24 },
-    { id: 'exp5', date: '2024-05-25', method: 'BANK', amount: 1000, reason: 'Payment to insurer for INS001', insuranceId: 'INS001', vat: 0 },
-];
-
-const MOCK_INSURANCES = [
-    {
-        id: 'INS001',
-        type: 'New Policy',
-        policyDate: '2024-05-10',
-        total: 1200,
-        commission: 200,
-        validUntil: '2025-05-10',
-        customer: { name: 'Alice', familyName: 'Smith', phone: '123-456-7890', id: 'CUST001', address: '123 Main St', city: 'Anytown', postCode: '12345' },
-        policyNumber: 'NP-12345',
-        vehicleNumber: 'ABC-123',
-        insuranceType: 'Car Insurance',
-        paid: 'YES',
-        paidToInsurer: 'YES',
-    },
-    {
-        id: 'INS002',
-        type: 'Policy payment',
-        policyDate: '2024-06-01',
-        total: 300,
-        commission: 50,
-        validUntil: '2024-12-31',
-        customer: { name: 'Bob', familyName: 'Johnson', phone: '098-765-4321', id: 'CUST002', address: '456 Oak Ave', city: 'Sometown', postCode: '67890' },
-        policyNumber: 'PP-67890',
-        vehicleNumber: '',
-        insuranceType: 'Travel Insurance',
-        paid: 'YES',
-        paidToInsurer: 'NO', // This one is not paid to insurer yet
-    },
-    {
-        id: 'INS003',
-        type: 'Toll',
-        policyDate: '2024-04-15',
-        total: 50,
-        commission: 5,
-        validUntil: '2024-04-15', // Tolls typically valid for a day
-        customer: { name: 'Charlie', familyName: 'Brown', phone: '555-123-4567', id: 'CUST003', address: '789 Pine Ln', city: 'Otherville', postCode: '54321' },
-        policyNumber: 'T-001',
-        vehicleNumber: 'XYZ-987',
-        insuranceType: 'Road Toll',
-        paid: 'NO',
-        paidToInsurer: 'NO',
-    },
-];
-
-const MOCK_CUSTOMERS = [
-    { id: 'CUST001', name: 'John', familyName: 'Doe', fatherName: 'A', phone: '123-456-7890', email: 'john.doe@example.com', address: '123 Maple St', city: 'Springfield', postCode: '10001' },
-    { id: 'CUST002', name: 'Jane', familyName: 'Smith', fatherName: 'B', phone: '098-765-4321', email: 'jane.smith@example.com', address: '456 Oak Ave', city: 'Shelbyville', postCode: '20002' },
-    { id: 'CUST003', name: 'Peter', familyName: 'Jones', fatherName: 'C', phone: '555-123-4567', email: 'peter.jones@example.com', address: '789 Pine Ln', city: 'Capitol City', postCode: '30003' },
-    { id: 'CUST004', name: 'Alice', familyName: 'Williams', fatherName: 'D', phone: '111-222-3333', email: 'alice.w@example.com', address: '101 Elm Blvd', city: 'North Haverbrook', postCode: '40004' },
-    { id: 'CUST005', name: 'Bob', familyName: 'Brown', fatherName: 'E', phone: '444-555-6666', email: 'bob.b@example.com', address: '202 Cedar Ct', city: 'Ogdenville', postCode: '50005' },
-];
-
-
-// Helper function to format month and year from a date string
-const getMonthYear = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleString('default', { month: 'short', year: 'numeric' });
-};
-
-// Reusable component for displaying statistical cards
-const StatCard = ({ title, value, icon, color }) => (
-    <div className="bg-white p-4 rounded-lg shadow-md flex items-center border border-gray-200">
-        <div className={`p-3 rounded-full mr-4 ${color}`}>{icon}</div>
-        <div>
-            <p className="text-sm text-gray-500">{title}</p>
-            <p className="text-2xl font-bold text-gray-800">{value}</p>
-        </div>
-    </div>
-);
-
-// Dashboard component displays various analytics and summaries
-const Dashboard = ({ reservations, payments, expenses, tours, insurances }) => {
-    // --- Overall Statistics (Existing) ---
-    const totalReservations = reservations.length;
-    const reservationsByMonth = reservations.reduce((acc, res) => { const month = getMonthYear(res.creationDate); acc[month] = (acc[month] || 0) + 1; return acc; }, {});
-    const reservationsByMonthData = Object.keys(reservationsByMonth).map(key => ({ name: key, Reservations: reservationsByMonth[key] }));
-    const confirmedAndPastReservations = reservations.filter(r => r.status === 'Confirmed' || r.status === 'Past');
-    const totalProfit = confirmedAndPastReservations.reduce((sum, res) => sum + (res.profit || 0), 0);
-    const profitByMonth = confirmedAndPastReservations.reduce((acc, res) => { const month = getMonthYear(res.creationDate); acc[month] = (acc[month] || 0) + (res.profit || 0); return acc; }, {});
-    const profitByMonthData = Object.keys(profitByMonth).map(key => ({ name: key, Profit: profitByMonth[key] }));
-    const avgProfitPerReservation = confirmedAndPastReservations.length > 0 ? (totalProfit / confirmedAndPastReservations.length).toFixed(2) : 0;
-    const totalNights = reservations.reduce((sum, res) => { const checkIn = new Date(res.checkIn); const checkOut = new Date(res.checkOut); if (!checkIn.getTime() || !checkOut.getTime() || checkOut <= checkIn) return sum; const diffTime = Math.abs(checkOut - checkIn); const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); return sum + diffDays; }, 0);
-    const avgStayPerReservation = totalReservations > 0 ? (totalNights / totalReservations).toFixed(1) : 0;
-    const reservationsByStatus = reservations.reduce((acc, res) => { acc[res.status] = (acc[res.status] || 0) + 1; return acc; }, {});
-    const statusData = Object.keys(reservationsByStatus).map(key => ({ name: key, value: reservationsByStatus[key] }));
-    const STATUS_COLORS = { 'Confirmed': '#4caf50', 'Pending': '#ff9800', 'Cancelled': '#f44336', 'Past': '#607d8b' };
-    const operatorBreakdown = reservations.reduce((acc, res) => { acc[res.tourOperator] = (acc[res.tourOperator] || 0) + 1; return acc; }, {});
-    const operatorData = Object.keys(operatorBreakdown).map(key => ({ name: key, value: operatorBreakdown[key] }));
-    const OPERATOR_COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042', '#a4de6c', '#d0ed57', '#83a6ed'];
-
-    // --- SECTION 1: Travel Management Overview ---
-    const travelPayments = payments.filter(p => p.reservationId);
-    const travelExpenses = expenses.filter(e => e.reservationId);
-    const totalTravelIncome = travelPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
-    const totalTravelExpenses = travelExpenses.reduce((sum, e) => sum + (e.amount || 0), 0);
-    const totalTravelProfit = totalTravelIncome - totalTravelExpenses;
-
-    const totalBusTourMaxCapacity = tours.reduce((sum, tour) => sum + (tour.maxPassengers || 0), 0);
-    const totalBusTourBookedPassengers = reservations
-        .filter(res => res.busTourId)
-        .reduce((sum, res) => sum + (res.tourists.reduce((tSum, t) => tSum + (t.numberOfTourists || 0), 0) || 0), 0);
-    const overallBusTourFulfillment = totalBusTourMaxCapacity > 0
-        ? ((totalBusTourBookedPassengers / totalBusTourMaxCapacity) * 100).toFixed(1)
-        : '0.0';
-
-    // --- SECTION 2: Insurance Management Overview ---
-    const insurancePayments = payments.filter(p => p.insuranceId); // Payments directly linked to insurance policies
-    const insuranceExpenses = expenses.filter(e => e.insuranceId); // Expenses directly linked to insurance policies
-    const totalInsuranceCommission = insurances.reduce((sum, ins) => sum + (ins.commission || 0), 0); // Income from insurance is commission
-    const totalInsuranceExpenses = insuranceExpenses.reduce((sum, e) => sum + (e.amount || 0), 0);
-    const totalInsuranceProfit = totalInsuranceCommission - totalInsuranceExpenses;
-    const avgProfitPerInsurance = insurances.length > 0 ? (totalInsuranceProfit / insurances.length).toFixed(2) : 0;
-
-    const paidInsuranceCount = insurances.filter(ins => ins.paid === 'YES').length;
-    const unpaidInsuranceCount = insurances.filter(ins => ins.paid === 'NO').length;
-    const paidToInsurerCount = insurances.filter(ins => ins.paidToInsurer === 'YES').length;
-    const notPaidToInsurerCount = insurances.filter(ins => ins.paidToInsurer === 'NO').length;
-
-    // --- SECTION 3: Combined Cash Flow (Actual Payments) ---
-    // Total income from all payments
-    const overallTotalIncome = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
-    // Total expenses from all expenses
-    const overallTotalExpenses = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
-    const overallNetProfit = overallTotalIncome - overallTotalExpenses;
-
-    const totalBankIncome = payments.filter(p => p.method === 'BANK').reduce((sum, p) => sum + (p.amount || 0), 0);
-    const totalCashIncome = payments.filter(p => p.method === 'CASH').reduce((sum, p) => sum + (p.amount || 0), 0);
-    const totalBankExpenses = expenses.filter(e => e.method === 'BANK').reduce((sum, e) => sum + (e.amount || 0), 0);
-    const totalCashExpenses = expenses.filter(e => e.method === 'CASH').reduce((sum, e) => sum + (e.amount || 0), 0);
-
-    const totalBankBalance = totalBankIncome - totalBankExpenses;
-    const totalCashBalance = totalCashIncome - totalCashExpenses;
-
-    return (
-        <div className="p-4 sm:p-6 lg:p-8 bg-gray-100 min-h-screen">
-            <h1 className="text-3xl font-bold mb-6 text-gray-800">Dashboard Overview</h1>
-
-            {/* General Travel Statistics (from Phase 1 & 2) */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                <StatCard title="Total Reservations" value={totalReservations} icon={<Users className="h-6 w-6 text-white"/>} color="bg-blue-500" />
-                <StatCard title="Total Profit (Reservations)" value={`€${totalProfit.toLocaleString(undefined, {minimumFractionDigits: 2})}`} icon={<TrendingUp className="h-6 w-6 text-white"/>} color="bg-green-500" />
-                <StatCard title="Avg. Profit / Res." value={`€${avgProfitPerReservation}`} icon={<DollarSign className="h-6 w-6 text-white"/>} color="bg-yellow-500" />
-                <StatCard title="Avg. Stay / Res." value={`${avgStayPerReservation} days`} icon={<Hotel className="h-6 w-6 text-white"/>} color="bg-indigo-500" />
-            </div>
-
-            {/* SECTION 1: Travel Management Summary */}
-            <h2 className="text-2xl font-bold mb-4 text-gray-800 border-b pb-2">Travel Management Summary</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-                <StatCard title="Total Travel Income" value={`€${totalTravelIncome.toLocaleString(undefined, {minimumFractionDigits: 2})}`} icon={<ChevronsRight className="h-6 w-6 text-white"/>} color="bg-green-600" />
-                <StatCard title="Total Travel Expenses" value={`€${totalTravelExpenses.toLocaleString(undefined, {minimumFractionDigits: 2})}`} icon={<ChevronsLeft className="h-6 w-6 text-white"/>} color="bg-red-600" />
-                <StatCard title="Travel Net Profit" value={`€${totalTravelProfit.toLocaleString(undefined, {minimumFractionDigits: 2})}`} icon={<TrendingUp className="h-6 w-6 text-white"/>} color={totalTravelProfit >= 0 ? "bg-purple-500" : "bg-orange-500"} />
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                <StatCard title="Overall Bus Tour Fulfillment" value={`${overallBusTourFulfillment}%`} icon={<Bus className="h-6 w-6 text-white"/>} color="bg-blue-600" />
-                <StatCard title="Total Bus Passengers Booked" value={totalBusTourBookedPassengers} icon={<Users2 className="h-6 w-6 text-white"/>} color="bg-sky-600" />
-            </div>
-
-
-            {/* SECTION 2: Insurance Management Summary */}
-            <h2 className="text-2xl font-bold mb-4 text-gray-800 border-b pb-2">Insurance Management Summary</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                <StatCard title="Total Insurance Income (Commissions)" value={`€${totalInsuranceCommission.toLocaleString(undefined, {minimumFractionDigits: 2})}`} icon={<CreditCard className="h-6 w-6 text-white"/>} color="bg-teal-500" />
-                <StatCard title="Total Insurance Expenses" value={`€${totalInsuranceExpenses.toLocaleString(undefined, {minimumFractionDigits: 2})}`} icon={<ArrowLeftRight className="h-6 w-6 text-white"/>} color="bg-rose-500" />
-                <StatCard title="Insurance Net Profit" value={`€${totalInsuranceProfit.toLocaleString(undefined, {minimumFractionDigits: 2})}`} icon={<DollarSign className="h-6 w-6 text-white"/>} color={totalInsuranceProfit >= 0 ? "bg-green-500" : "bg-orange-500"} />
-                <StatCard title="Avg. Profit / Policy" value={`€${avgProfitPerInsurance}`} icon={<Tag className="h-6 w-6 text-white"/>} color="bg-indigo-500" />
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                <StatCard title="Policies Paid by Customer" value={paidInsuranceCount} icon={<CheckCircle className="h-5 w-5 text-white"/>} color="bg-green-500" />
-                <StatCard title="Policies Not Paid by Customer" value={unpaidInsuranceCount} icon={<XCircle className="h-5 w-5 text-white"/>} color="bg-red-500" />
-                <StatCard title="Policies Paid to Insurer" value={paidToInsurerCount} icon={<CheckCircle className="h-5 w-5 text-white"/>} color="bg-green-700" />
-                <StatCard title="Policies Not Paid to Insurer" value={notPaidToInsurerCount} icon={<XCircle className="h-5 w-5 text-white"/>} color="bg-red-700" />
-            </div>
-
-            {/* SECTION 3: Combined Cash Flow */}
-            <h2 className="text-2xl font-bold mb-4 text-gray-800 border-b pb-2">Combined Cash Flow (Actual Payments)</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                <StatCard title="Bank Balance" value={`€${totalBankBalance.toLocaleString(undefined, {minimumFractionDigits: 2})}`} icon={<Banknote className="h-6 w-6 text-white"/>} color={totalBankBalance >= 0 ? "bg-emerald-600" : "bg-gray-500"} />
-                <StatCard title="Cash Balance" value={`€${totalCashBalance.toLocaleString(undefined, {minimumFractionDigits: 2})}`} icon={<DollarSign className="h-6 w-6 text-white"/>} color={totalCashBalance >= 0 ? "bg-amber-600" : "bg-gray-500"} />
-                <StatCard title="Overall Total Income" value={`€${overallTotalIncome.toLocaleString(undefined, {minimumFractionDigits: 2})}`} icon={<ChevronsRight className="h-6 w-6 text-white"/>} color="bg-blue-500" />
-                <StatCard title="Overall Total Expenses" value={`€${overallTotalExpenses.toLocaleString(undefined, {minimumFractionDigits: 2})}`} icon={<ChevronsLeft className="h-6 w-6 text-white"/>} color="bg-red-500" />
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                <StatCard title="Overall Net Profit" value={`€${overallNetProfit.toLocaleString(undefined, {minimumFractionDigits: 2})}`} icon={<TrendingUp className="h-6 w-6 text-white"/>} color={overallNetProfit >= 0 ? "bg-green-500" : "bg-orange-500"} />
-                <StatCard title="Overall Net VAT" value={`€${(overallTotalIncome * 0.24 - overallTotalExpenses * 0.24).toLocaleString(undefined, {minimumFractionDigits: 2})}`} icon={<FileText className="h-6 w-6 text-white"/>} color="bg-pink-500" />
-            </div>
-
-
-            {/* Existing Charts Section (can be moved/re-organized later if needed) */}
-            <h2 className="text-2xl font-bold mb-4 text-gray-800 border-b pb-2">Detailed Analytics</h2>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                {/* Reservations by Month Chart */}
-                <div className="bg-white p-4 rounded-lg shadow-md border border-gray-200">
-                    <h2 className="text-lg font-semibold mb-2 text-gray-700">Reservations by Month</h2>
-                    <ResponsiveContainer width="100%" height={300}>
-                        <BarChart data={reservationsByMonthData}>
-                            <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis dataKey="name" />
-                            <YAxis />
-                            <Tooltip />
-                            <Legend />
-                            <Bar dataKey="Reservations" fill="#3b82f6" radius={[10, 10, 0, 0]} />
-                        </BarChart>
-                    </ResponsiveContainer>
-                </div>
-                {/* Profit by Month Chart */}
-                <div className="bg-white p-4 rounded-lg shadow-md border border-gray-200">
-                    <h2 className="text-lg font-semibold mb-2 text-gray-700">Profit by Month</h2>
-                    <ResponsiveContainer width="100%" height={300}>
-                        <LineChart data={profitByMonthData}>
-                            <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis dataKey="name" />
-                            <YAxis />
-                            <Tooltip formatter={(value) => `€${value.toLocaleString(undefined, {minimumFractionDigits: 2})}`} />
-                            <Legend />
-                            <Line type="monotone" dataKey="Profit" stroke="#22c55e" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 8 }} />
-                        </LineChart>
-                    </ResponsiveContainer>
-                </div>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Reservations by Status Pie Chart */}
-                <div className="bg-white p-4 rounded-lg shadow-md border border-gray-200">
-                    <h2 className="text-lg font-semibold mb-2 text-gray-700">Reservations by Status</h2>
-                    <ResponsiveContainer width="100%" height={300}>
-                        <PieChart>
-                            <Pie data={statusData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} fill="#8884d8" label>
-                                {statusData.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={STATUS_COLORS[entry.name]} />
-                                ))}
-                            </Pie>
-                            <Tooltip formatter={(value) => value.toLocaleString()} />
-                            <Legend />
-                        </PieChart>
-                    </ResponsiveContainer>
-                </div>
-                {/* Tour Operator Breakdown Pie Chart */}
-                <div className="bg-white p-4 rounded-lg shadow-md border border-gray-200">
-                    <h2 className="text-lg font-semibold mb-2 text-gray-700">Tour Operator Breakdown</h2>
-                    <ResponsiveContainer width="100%" height={300}>
-                        <PieChart>
-                            <Pie data={operatorData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} fill="#8884d8" label>
-                                {operatorData.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={OPERATOR_COLORS[index % OPERATOR_COLORS.length]} />
-                                ))}
-                            </Pie>
-                            <Tooltip formatter={(value) => value.toLocaleString()} />
-                            <Legend />
-                        </PieChart>
-                    </ResponsiveContainer>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-// Component for creating new reservations
-const CreateReservation = ({ onAddReservation, expenses }) => { // Added expenses prop
-    // State for the new reservation form
-    const [reservation, setReservation] = useState({
-        id: '', // Will be generated
-        creationDate: new Date().toISOString().split('T')[0],
-        tourName: '',
-        tourType: 'BUS',
-        checkIn: '',
-        checkOut: '',
-        adults: 1,
-        children: 0,
-        tourists: [{ name: '', fatherName: '', familyName: '', id: '', address: '', city: '', postCode: '', mail: '', phone: '' , numberOfTourists: 1}], // Added numberOfTourists for each tourist
-        depositPaid: 'NO',
-        depositAmount: 0,
-        finalPaymentPaid: 'NO',
-        finalPaymentAmount: 0,
-        owedToHotel: 0,
-        profit: 0, // This will be calculated
-        tourOperator: '',
-        status: 'Pending',
-        busTourId: '', // Added busTourId field
-        customerId: '', // New customerId field
-        // --- NEW FIELDS ADDED HERE ---
-        hotelAccommodation: '',
-        foodIncluded: 'NO', // Default to 'NO'
-        place: '',
-        transport: '',
-    });
-
-    // State for total nights calculation
-    const [totalNights, setTotalNights] = useState(0);
-
-    // Effect to calculate total nights when check-in or check-out dates change
-    useEffect(() => {
-        if (reservation.checkIn && reservation.checkOut) {
-            const start = new Date(reservation.checkIn);
-            const end = new Date(reservation.checkOut);
-            if (end > start) {
-                const diffTime = Math.abs(end - start);
-                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                setTotalNights(diffDays);
-            } else {
-                setTotalNights(0);
-            }
-        }
-    }, [reservation.checkIn, reservation.checkOut]);
-
-    // Effect to calculate profit when relevant financial fields change
-    useEffect(() => {
-        const finalAmount = parseFloat(reservation.finalPaymentAmount) || 0;
-        const owedToHotel = parseFloat(reservation.owedToHotel) || 0;
-
-        // For mock data, we cannot dynamically link expenses by reservation ID easily.
-        // This will be fully implemented when Firebase connection is re-established.
-        // For now, assume expenses for this specific reservation are zero for the auto-calculation.
-        const expensesConnectedToThisReservation = 0; // Placeholder for future integration
-
-        const calculatedProfit = finalAmount - owedToHotel - expensesConnectedToThisReservation;
-        setReservation(prev => ({ ...prev, profit: calculatedProfit }));
-    }, [reservation.finalPaymentAmount, reservation.owedToHotel, expenses]); // Added expenses to dependency for future linking
-
-    // Handler for changes in tourist information
-    const handleTouristChange = (index, e) => {
-        const { name, value } = e.target;
-        const updatedTourists = [...reservation.tourists];
-        updatedTourists[index][name] = (name === 'numberOfTourists') ? parseInt(value) || 0 : value;
-        setReservation(prev => ({ ...prev, tourists: updatedTourists }));
-    };
-
-    // Add a new tourist field
-    const addTourist = () => {
-        setReservation(prev => ({ ...prev, tourists: [...prev.tourists, { name: '', fatherName: '', familyName: '', id: '', address: '', city: '', postCode: '', mail: '', phone: '', numberOfTourists: 1 }] }));
-    };
-
-    // Remove a tourist field
-    const removeTourist = (index) => {
-        const updatedTourists = reservation.tourists.filter((_, i) => i !== index);
-        setReservation(prev => ({ ...prev, tourists: updatedTourists }));
-    };
-
-    // Handle form submission
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        onAddReservation(reservation);
-    };
-
-    return (
-        <div className="p-4 sm:p-6 lg:p-8 bg-gray-100 min-h-screen">
-            <h1 className="text-3xl font-bold mb-6 text-gray-800">Create Reservation</h1>
-            <ReservationForm
-                reservationData={reservation}
-                onReservationDataChange={setReservation}
-                onSubmit={handleSubmit}
-                totalNights={totalNights}
-                onAddTourist={addTourist}
-                onRemoveTourist={removeTourist}
-                onTouristChange={handleTouristChange}
-                buttonText="Create Reservation"
-            />
-        </div>
-    );
-};
-
-// Component for viewing and searching reservations
-const ViewReservations = ({ reservations, onEdit, onDelete }) => {
-    const [searchTerm, setSearchTerm] = useState("");
-    const [filteredReservations, setFilteredReservations] = useState(reservations);
-
-    // Effect to filter reservations based on search term
-    useEffect(() => {
-        const lowercasedFilter = searchTerm.toLowerCase();
-        const filteredData = reservations.filter(item => {
-            return Object.keys(item).some(key => {
-                if (typeof item[key] === 'string') return item[key].toLowerCase().includes(lowercasedFilter);
-                if (key === 'tourists' && Array.isArray(item[key])) {
-                    return item[key].some(t =>
-                        (t.name && t.name.toLowerCase().includes(lowercasedFilter)) ||
-                        (t.familyName && t.familyName.toLowerCase().includes(lowercasedFilter))
-                    );
-                }
-                return false;
-            });
-        });
-        setFilteredReservations(filteredData);
-    }, [searchTerm, reservations]);
-
-    // Function to export reservations to CSV
-    const exportToCsv = () => {
-        const headers = ["ID", "Creation Date", "Tour Name", "Check-in", "Check-out", "Status", "Profit", "Lead Guest Name", "Lead Guest Family Name"];
-        const rows = filteredReservations.map(res => [
-            res.id,
-            res.creationDate,
-            res.tourName,
-            res.checkIn,
-            res.checkOut,
-            res.status,
-            res.profit,
-            res.tourists[0]?.name || '',
-            res.tourists[0]?.familyName || ''
-        ].map(field => `"${String(field).replace(/"/g, '""')}"`).join(',')); // Enclose fields in quotes and escape internal quotes
-
-        const csvContent = "data:text/csv;charset=utf-8," + [headers.join(','), ...rows].join('\n');
-        const encodedUri = encodeURI(csvContent);
-        const link = document.createElement("a");
-        link.setAttribute("href", encodedUri);
-        link.setAttribute("download", "reservations.csv");
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    };
-
-    return (
-        <div className="p-4 sm:p-6 lg:p-8 bg-gray-100 min-h-screen">
-            <h1 className="text-3xl font-bold mb-6 text-gray-800">View Reservations</h1>
-            <div className="mb-4 flex flex-col sm:flex-row justify-between items-center gap-4">
-                <input
-                    type="text"
-                    placeholder="Search reservations..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full sm:w-1/3 p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 shadow-sm"
-                />
-                <div className="flex gap-2">
-                    <button onClick={exportToCsv} className="bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 transition-colors shadow-md">Export CSV</button>
-                    {/* Placeholder for Import CSV - disabled for now */}
-                    <button className="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 shadow-md" disabled>Import CSV</button>
-                </div>
-            </div>
-            <div className="bg-white p-2 rounded-lg shadow-md overflow-x-auto border border-gray-200">
-                <table className="w-full text-sm text-left text-gray-500">
-                    <thead className="text-xs text-gray-700 uppercase bg-gray-50">
-                        <tr>
-                            <th className="px-6 py-3">Res. #</th>
-                            <th className="px-6 py-3">Tour</th>
-                            <th className="px-6 py-3">Lead Guest</th>
-                            <th className="px-6 py-3">Dates</th>
-                            <th className="px-6 py-3">Status</th>
-                            <th className="px-6 py-3">Profit</th>
-                            <th className="px-6 py-3">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {filteredReservations.length > 0 ? (
-                            filteredReservations.map(res => (
-                                <tr key={res.id} className="bg-white border-b hover:bg-gray-50">
-                                    <td className="px-6 py-4 font-medium text-gray-900">{res.id}</td>
-                                    <td className="px-6 py-4">{res.tourName}</td>
-                                    <td className="px-6 py-4">{res.tourists[0]?.name || 'N/A'} {res.tourists[0]?.familyName}</td>
-                                    <td className="px-6 py-4">{res.checkIn} to {res.checkOut}</td>
-                                    <td className="px-6 py-4">
-                                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                                            res.status === 'Confirmed' ? 'bg-green-100 text-green-800' :
-                                            res.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
-                                            res.status === 'Cancelled' ? 'bg-red-100 text-red-800' :
-                                            'bg-gray-100 text-gray-800'
-                                        }`}>
-                                            {res.status}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4">€{res.profit ? res.profit.toLocaleString(undefined, {minimumFractionDigits: 2}) : '0.00'}</td>
-                                    <td className="px-6 py-4 flex space-x-2">
-                                        <button onClick={() => onEdit(res)} className="text-blue-600 hover:text-blue-800 font-medium p-1 rounded-md hover:bg-blue-100 transition-colors" title="Edit Reservation">
-                                            <Edit size={18} />
-                                        </button>
-                                        {/* Delete Reservation Button */}
-                                        <button onClick={() => onDelete(res.id)} className="text-red-600 hover:text-red-800 font-medium p-1 rounded-md hover:bg-red-100 transition-colors" title="Delete Reservation">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-trash-2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
-                                        </button>
-                                        {/* REMOVED "Create Invoice" button as requested */}
-                                        {/* REMOVED "Create Voucher" button as requested */}
-                                    </td>
-                                </tr>
-                            ))
-                        ) : (
-                            <tr>
-                                <td colSpan="7" className="px-6 py-4 text-center text-gray-500">No reservations found.</td>
-                            </tr>
-                        )}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    );
-};
-
-// Component for adding new payments/income
-// MODIFIED: Added prefillTourId prop to allow pre-filling reservationId
-const AddPayment = ({ onAddPayment, payments, reservations, insurances, prefillReservationId = '' }) => {
-    // State for the new payment form, initialized with prefillReservationId if provided
-    const [payment, setPayment] = useState({
-        date: new Date().toISOString().split('T')[0],
-        method: 'BANK',
-        amount: '',
-        reason: '',
-        reservationId: prefillReservationId, // Set initial value from prop
-        insuranceId: '',
-        vat: 24
-    });
-
-    // Effect to update reservationId if prefillReservationId changes (e.g., from navigation)
-    useEffect(() => {
-        setPayment(prev => ({ ...prev, reservationId: prefillReservationId }));
-    }, [prefillReservationId]);
-
-    // Handler for input changes
-    const handleChange = (e) => {
-        const { name, value } = e.target;
-        setPayment(prev => ({ ...prev, [name]: value }));
-    };
-
-    // Handle form submission
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        onAddPayment({ ...payment, id: Date.now(), amount: parseFloat(payment.amount), vat: parseFloat(payment.vat) });
-        // Reset form
-        setPayment({ date: new Date().toISOString().split('T')[0], method: 'BANK', amount: '', reason: '', reservationId: '', insuranceId: '', vat: 24 });
-    };
-
-    return (
-        <div className="p-4 sm:p-6 lg:p-8 bg-gray-100 min-h-screen">
-            <h1 className="text-3xl font-bold mb-6 text-gray-800">Add Payment / Income</h1>
-            <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow-md mb-8 border border-gray-200">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    <InputField label="Date" name="date" type="date" value={payment.date} onChange={handleChange} required />
-                    <SelectField label="Payment Method" name="method" value={payment.method} onChange={handleChange} options={['CASH', 'BANK']} />
-                    <InputField label="Amount (€)" name="amount" type="number" value={payment.amount} onChange={handleChange} required step="0.01" min="0" />
-                    <div className="lg:col-span-2">
-                        <InputField label="Reason / Description" name="reason" value={payment.reason} onChange={handleChange} required />
-                    </div>
-                    <InputField label="VAT (%)" name="vat" type="number" value={payment.vat} onChange={handleChange} required min="0" />
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">Associate with Reservation (Optional)</label>
-                        <input list="reservations" name="reservationId" value={payment.reservationId} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" />
-                        <datalist id="reservations">
-                            {reservations.map(r => <option key={r.id} value={r.id}>{r.id} - {r.tourName}</option>)}
-                        </datalist>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">Associate with Insurance (Optional)</label>
-                        <input list="insurances" name="insuranceId" value={payment.insuranceId} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" />
-                        <datalist id="insurances">
-                            {insurances.map(i => <option key={i.id} value={i.id}>{i.id} - {i.policyNumber} ({i.customer.familyName})</option>)}
-                        </datalist>
-                    </div>
-                </div>
-                <div className="flex justify-end mt-6">
-                    <button type="submit" className="bg-green-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-green-700 transition-colors shadow-md">Add Payment</button>
-                </div>
-            </form>
-
-            <h2 className="text-2xl font-bold mb-4 text-gray-800">Recent Payments</h2>
-            <div className="bg-white p-2 rounded-lg shadow-md overflow-x-auto border border-gray-200">
-                <table className="w-full text-sm text-left text-gray-500">
-                    <thead className="text-xs text-gray-700 uppercase bg-gray-50">
-                        <tr>
-                            <th className="px-6 py-3">Date</th>
-                            <th className="px-6 py-3">Reason</th>
-                            <th className="px-6 py-3">Method</th>
-                            <th className="px-6 py-3">Amount</th>
-                            <th className="px-6 py-3">Associated ID</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {payments.length > 0 ? (
-                            payments.map(p => (
-                                <tr key={p.id} className="bg-white border-b hover:bg-gray-50">
-                                    <td className="px-6 py-4">{p.date}</td>
-                                    <td className="px-6 py-4">{p.reason}</td>
-                                    <td className="px-6 py-4">{p.method}</td>
-                                    <td className="px-6 py-4 font-medium text-green-600">€{p.amount.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
-                                    <td className="px-6 py-4">{p.reservationId || p.insuranceId || 'N/A'}</td>
-                                </tr>
-                            ))
-                        ) : (
-                            <tr>
-                                <td colSpan="5" className="px-6 py-4 text-center text-gray-500">No payments recorded.</td>
-                            </tr>
-                        )}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    );
-};
-
-// Component for adding new expenses
-// MODIFIED: Added prefillTourId prop to allow pre-filling reservationId
-const AddExpense = ({ onAddExpense, expenses, reservations, insurances, prefillReservationId = '' }) => {
-    // State for the new expense form, initialized with prefillReservationId if provided
-    const [expense, setExpense] = useState({
-        date: new Date().toISOString().split('T')[0],
-        method: 'BANK',
-        amount: '',
-        reason: '',
-        reservationId: prefillReservationId, // Set initial value from prop
-        insuranceId: '',
-        vat: 24
-    });
-
-    // Effect to update reservationId if prefillReservationId changes (e.g., from navigation)
-    useEffect(() => {
-        setExpense(prev => ({ ...prev, reservationId: prefillReservationId }));
-    }, [prefillReservationId]);
-
-    // Handler for input changes
-    const handleChange = (e) => {
-        const { name, value } = e.target;
-        setExpense(prev => ({ ...prev, [name]: value }));
-    };
-
-    // Handle form submission
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        onAddExpense({ ...expense, id: Date.now(), amount: parseFloat(expense.amount), vat: parseFloat(expense.vat) });
-        // Reset form
-        setExpense({ date: new Date().toISOString().split('T')[0], method: 'BANK', amount: '', reason: '', reservationId: '', insuranceId: '', vat: 24 });
-    };
-
-    return (
-        <div className="p-4 sm:p-6 lg:p-8 bg-gray-100 min-h-screen">
-            <h1 className="text-3xl font-bold mb-6 text-gray-800">Add Expense</h1>
-            <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow-md mb-8 border border-gray-200">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    <InputField label="Date" name="date" type="date" value={expense.date} onChange={handleChange} required />
-                    <SelectField label="Payment Method" name="method" value={expense.method} onChange={handleChange} options={['CASH', 'BANK']} />
-                    <InputField label="Amount (€)" name="amount" type="number" value={expense.amount} onChange={handleChange} required step="0.01" min="0" />
-                    <div className="lg:col-span-2">
-                        <InputField label="Reason / Description" name="reason" value={expense.reason} onChange={handleChange} required />
-                    </div>
-                    <InputField label="VAT (%)" name="vat" type="number" value={expense.vat} onChange={handleChange} required min="0" />
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">Associate with Reservation (Optional)</label>
-                        <input list="reservations-expense" name="reservationId" value={expense.reservationId} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" />
-                        <datalist id="reservations-expense">
-                            {reservations.map(r => <option key={r.id} value={r.id}>{r.id} - {r.tourName}</option>)}
-                        </datalist>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">Associate with Insurance (Optional)</label>
-                        <input list="insurances-expense" name="insuranceId" value={expense.insuranceId} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" />
-                        <datalist id="insurances-expense">
-                            {insurances.map(i => <option key={i.id} value={i.id}>{i.id} - {i.policyNumber} ({i.customer.familyName})</option>)}
-                        </datalist>
-                    </div>
-                </div>
-                <div className="flex justify-end mt-6">
-                    <button type="submit" className="bg-red-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-red-700 transition-colors shadow-md">Add Expense</button>
-                </div>
-            </form>
-
-            <h2 className="text-2xl font-bold mb-4 text-gray-800">Recent Expenses</h2>
-            <div className="bg-white p-2 rounded-lg shadow-md overflow-x-auto border border-gray-200">
-                <table className="w-full text-sm text-left text-gray-500">
-                    <thead className="text-xs text-gray-700 uppercase bg-gray-50">
-                        <tr>
-                            <th className="px-6 py-3">Date</th>
-                            <th className="px-6 py-3">Reason</th>
-                            <th className="px-6 py-3">Method</th>
-                            <th className="px-6 py-3">Amount</th>
-                            <th className="px-6 py-3">Associated ID</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {expenses.length > 0 ? (
-                            expenses.map(e => (
-                                <tr key={e.id} className="bg-white border-b hover:bg-gray-50">
-                                    <td className="px-6 py-4">{e.date}</td>
-                                    <td className="px-6 py-4">{e.reason}</td>
-                                    <td className="px-6 py-4">{e.method}</td>
-                                    <td className="px-6 py-4 font-medium text-red-600">€{e.amount.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
-                                    <td className="px-6 py-4">{e.reservationId || e.insuranceId || 'N/A'}</td>
-                                </tr>
-                            ))
-                        ) : (
-                            <tr>
-                                <td colSpan="5" className="px-6 py-4 text-center text-gray-500">No expenses recorded.</td>
-                            </tr>
-                        )}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    );
-};
-
-// Component for Financial Reports
-const FinancialReports = ({ payments, expenses }) => {
-    const [selectedMonth, setSelectedMonth] = useState('All Time');
-
-    // Memoized list of available months from payments and expenses
-    const availableMonths = useMemo(() => {
-        const allDates = [...payments.map(p => p.date), ...expenses.map(e => e.date)];
-        const months = new Set(allDates.map(date => getMonthYear(date)));
-        return ['All Time', ...Array.from(months).sort((a,b) => {
-            if (a === 'All Time') return -1;
-            if (b === 'All Time') return 1;
-            const [monthA, yearA] = a.split(' ');
-            const [monthB, yearB] = b.split(' ');
-            if (yearA !== yearB) return parseInt(yearA) - parseInt(yearB);
-            return new Date(`1 ${monthA} 2000`).getMonth() - new Date(`1 ${monthB} 2000`).getMonth();
-        })];
-    }, [payments, expenses]);
-
-    // Memoized filtered data based on selected month
-    const filteredData = useMemo(() => {
-        const filteredPayments = (selectedMonth === 'All Time') ? payments : payments.filter(p => getMonthYear(p.date) === selectedMonth);
-        const filteredExpenses = (selectedMonth === 'All Time') ? expenses : expenses.filter(e => getMonthYear(e.date) === selectedMonth);
-        return { filteredPayments, filteredExpenses };
-    }, [selectedMonth, payments, expenses]);
-
-    // Memoized financial calculations
-    const { totalIncome, totalExpenses, netResult, netVat, incomeByMethod, expenseByMethod } = useMemo(() => {
-        const { filteredPayments, filteredExpenses } = filteredData;
-        const totalIncome = filteredPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
-        const totalExpenses = filteredExpenses.reduce((sum, e) => sum + (e.amount || 0), 0);
-        // "Profit" in the context of financial reports for a period is typically Net Result (Income - Expenses)
-        const netResult = totalIncome - totalExpenses;
-        const vatCollected = filteredPayments.reduce((sum, p) => sum + ((p.amount || 0) / (1 + (p.vat || 0) / 100)) * ((p.vat || 0) / 100), 0);
-        const vatPaid = filteredExpenses.reduce((sum, e) => sum + ((e.amount || 0) * ((e.vat || 0) / 100)), 0);
-        const netVat = vatCollected - vatPaid;
-
-        const incomeByMethod = filteredPayments.reduce((acc, p) => {
-            acc[p.method] = (acc[p.method] || 0) + (p.amount || 0);
-            return acc;
-        }, {});
-        const expenseByMethod = filteredExpenses.reduce((acc, e) => {
-            acc[e.method] = (acc[e.method] || 0) + (e.amount || 0);
-            return acc;
-        }, {});
-        return { totalIncome, totalExpenses, netResult, netVat, incomeByMethod, expenseByMethod };
-    }, [filteredData]);
-
-    const incomeMethodData = Object.keys(incomeByMethod).map(key => ({ name: key, value: incomeByMethod[key] }));
-    const expenseMethodData = Object.keys(expenseByMethod).map(key => ({ name: key, value: expenseByMethod[key] }));
-    const PIE_COLORS = { CASH: '#ffc658', BANK: '#82ca9d' }; // Consistent colors for pie charts
-
-    // --- NEW: PDF Generation Function ---
-    const handleGeneratePdf = () => {
-        const doc = new jsPDF();
-
-        // Title
-        doc.setFontSize(22);
-        doc.text(`Financial Report: ${selectedMonth}`, 14, 20);
-
-        let yPos = 30;
-
-        // Summary Table
-        doc.setFontSize(12);
-        doc.text("Summary", 14, yPos + 10);
-        doc.autoTable({
-            // Removed duplicate startY
-            head: [['Metric', 'Amount (€)']],
-            body: [
-                ['Total Income', totalIncome.toLocaleString(undefined, {minimumFractionDigits: 2})],
-                ['Total Expenses', totalExpenses.toLocaleString(undefined, {minimumFractionDigits: 2})],
-                ['Net Result (Profit)', netResult.toLocaleString(undefined, {minimumFractionDigits: 2})],
-                ['Net VAT', netVat.toLocaleString(undefined, {minimumFractionDigits: 2})],
-            ],
-            theme: 'striped',
-            styles: { fontSize: 10, cellPadding: 2, overflow: 'linebreak' },
-            headStyles: { fillColor: [60, 179, 113], textColor: [255, 255, 255] }, // Seafoam green for headers
-            alternateRowStyles: { fillColor: [240, 255, 240] }, // Lighter green for alternate rows
-            startY: yPos + 15, // This is the correct placement for startY
-            margin: { left: 14, right: 14 },
-            didDrawPage: function (data) {
-                // Footer
-                let str = 'Page ' + doc.internal.getNumberOfPages();
-                if (typeof doc.setFontColor === 'function') {
-                    doc.setFontSize(10).setTextColor(100);
-                }
-                doc.text(str, data.settings.margin.left, doc.internal.pageSize.height - 10);
-            }
-        });
-
-        yPos = doc.autoTable.previous.finalY + 10;
-
-        // Income Details Table
-        doc.text("Income Details", 14, yPos + 10);
-        doc.autoTable({
-            // Removed duplicate startY
-            head: [['Date', 'Reason', 'Method', 'Amount (€)']],
-            body: filteredData.filteredPayments.map(p => [p.date, p.reason, p.method, p.amount.toFixed(2)]),
-            theme: 'striped',
-            styles: { fontSize: 10, cellPadding: 2, overflow: 'linebreak' },
-            headStyles: { fillColor: [46, 139, 87], textColor: [255, 255, 255] }, // Darker seafoam green
-            alternateRowStyles: { fillColor: [240, 255, 240] },
-            startY: yPos + 15, // This is the correct placement for startY
-            margin: { left: 14, right: 14 },
-            didDrawPage: function (data) {
-                let str = 'Page ' + doc.internal.getNumberOfPages();
-                if (typeof doc.setFontColor === 'function') {
-                    doc.setFontSize(10).setTextColor(100);
-                }
-                doc.text(str, data.settings.margin.left, doc.internal.pageSize.height - 10);
-            }
-        });
-
-        yPos = doc.autoTable.previous.finalY + 10;
-
-        // Expense Details Table
-        doc.text("Expense Details", 14, yPos + 10);
-        doc.autoTable({
-            // Removed duplicate startY
-            head: [['Date', 'Reason', 'Method', 'Amount (€)']],
-            body: filteredData.filteredExpenses.map(e => [e.date, e.reason, e.method, e.amount.toFixed(2)]),
-            theme: 'striped',
-            styles: { fontSize: 10, cellPadding: 2, overflow: 'linebreak' },
-            headStyles: { fillColor: [205, 92, 92], textColor: [255, 255, 255] }, // Indian red for expenses
-            alternateRowStyles: { fillColor: [255, 240, 240] },
-            startY: yPos + 15, // This is the correct placement for startY
-            margin: { left: 14, right: 14 },
-            didDrawPage: function (data) {
-                let str = 'Page ' + doc.internal.getNumberOfPages();
-                if (typeof doc.setFontColor === 'function') {
-                    doc.setFontSize(10).setTextColor(100);
-                }
-                doc.text(str, data.settings.margin.left, doc.internal.pageSize.height - 10);
-            }
-        });
-
-        doc.save(`Financial_Report_${selectedMonth}.pdf`);
-    };
-
-    return (
-        <div className="p-4 sm:p-6 lg:p-8 bg-gray-100 min-h-screen">
-            <div className="flex flex-col sm:flex-row justify-between items-center mb-6">
-                <h1 className="text-3xl font-bold text-gray-800">Financial Reports</h1>
-                <div className="flex items-center gap-2 mt-4 sm:mt-0">
-                    <label htmlFor="month-select" className="text-sm font-medium text-gray-700">Report for:</label>
-                    <select
-                        id="month-select"
-                        name="month"
-                        value={selectedMonth}
-                        onChange={(e) => setSelectedMonth(e.target.value)}
-                        className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md shadow-sm"
-                    >
-                        {availableMonths.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                    </select>
-                </div>
-            </div>
-
-            {/* Financial Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                <StatCard title="Total Income" value={`€${totalIncome.toLocaleString(undefined, {minimumFractionDigits: 2})}`} icon={<ChevronsRight className="h-6 w-6 text-white"/>} color="bg-green-500" />
-                <StatCard title="Total Expenses" value={`€${totalExpenses.toLocaleString(undefined, {minimumFractionDigits: 2})}`} icon={<ChevronsLeft className="h-6 w-6 text-white"/>} color="bg-red-500" />
-                <StatCard title="Net Result (Profit)" value={`€${netResult.toLocaleString(undefined, {minimumFractionDigits: 2})}`} icon={<DollarSign className="h-6 w-6 text-white"/>} color={netResult >= 0 ? "bg-blue-500" : "bg-orange-500"} />
-                <StatCard title="Net VAT" value={`€${netVat.toLocaleString(undefined, {minimumFractionDigits: 2})}`} icon={<FileText className="h-6 w-6 text-white"/>} color="bg-amber-500" />
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* Income Details and Chart */}
-                <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
-                    <h2 className="text-xl font-bold mb-4 text-green-700">Income Details</h2>
-                    <div className="h-96 overflow-y-auto mb-4 border rounded-lg">
-                        <table className="w-full text-sm text-left text-gray-500">
-                            <thead className="text-xs text-gray-700 uppercase bg-gray-50 sticky top-0">
-                                <tr>
-                                    <th className="px-4 py-2">Date</th>
-                                    <th className="px-4 py-2">Reason</th>
-                                    <th className="px-4 py-2">Method</th>
-                                    <th className="px-4 py-2 text-right">Amount</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {filteredData.filteredPayments.length > 0 ? (
-                                    filteredData.filteredPayments.map(p => (
-                                        <tr key={p.id} className="bg-white border-b hover:bg-gray-50">
-                                            <td className="px-4 py-2">{p.date}</td>
-                                            <td className="px-4 py-2">{p.reason}</td>
-                                            <td className="px-4 py-2">{p.method}</td>
-                                            <td className="px-4 py-2 text-right font-medium text-green-600">€{p.amount.toFixed(2)}</td>
-                                        </tr>
-                                    ))
-                                ) : (
-                                    <tr>
-                                        <td colSpan="4" className="px-6 py-4 text-center text-gray-500">No income found for this period.</td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                    <h3 className="text-lg font-semibold mb-2 text-gray-700">Income by Method</h3>
-                    <ResponsiveContainer width="100%" height={250}>
-                        <PieChart>
-                            <Pie data={incomeMethodData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
-                                {incomeMethodData.map((entry) => (
-                                    <Cell key={`cell-${entry.name}`} fill={PIE_COLORS[entry.name]} />
-                                ))}
-                            </Pie>
-                            <Tooltip formatter={(value) => `€${value.toLocaleString(undefined, {minimumFractionDigits: 2})}`} />
-                            <Legend />
-                        </PieChart>
-                    </ResponsiveContainer>
-                </div>
-                {/* Expense Details and Chart */}
-                <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
-                    <h2 className="text-xl font-bold mb-4 text-red-700">Expense Details</h2>
-                    <div className="h-96 overflow-y-auto mb-4 border rounded-lg">
-                        <table className="w-full text-sm text-left text-gray-500">
-                            <thead className="text-xs text-gray-700 uppercase bg-gray-50 sticky top-0">
-                                <tr>
-                                    <th className="px-4 py-2">Date</th>
-                                    <th className="px-4 py-2">Reason</th>
-                                    <th className="px-4 py-2">Method</th>
-                                    <th className="px-4 py-2 text-right">Amount</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {filteredData.filteredExpenses.length > 0 ? (
-                                    filteredData.filteredExpenses.map(e => (
-                                        <tr key={e.id} className="bg-white border-b hover:bg-gray-50">
-                                            <td className="px-4 py-2">{e.date}</td>
-                                            <td className="px-4 py-2">{e.reason}</td>
-                                            <td className="px-4 py-2">{e.method}</td>
-                                            <td className="px-4 py-2 text-right font-medium text-red-600">€{e.amount.toFixed(2)}</td>
-                                        </tr>
-                                    ))
-                                ) : (
-                                    <tr>
-                                        <td colSpan="4" className="px-6 py-4 text-center text-gray-500">No expenses found for this period.</td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                    <h3 className="text-lg font-semibold mb-2 text-gray-700">Expenses by Method</h3>
-                    <ResponsiveContainer width="100%" height={250}>
-                        <PieChart>
-                            <Pie data={expenseMethodData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
-                                {expenseMethodData.map((entry) => (
-                                    <Cell key={`cell-${entry.name}`} fill={PIE_COLORS[entry.name]} />
-                                ))}
-                            </Pie>
-                            <Tooltip formatter={(value) => `€${value.toLocaleString(undefined, {minimumFractionDigits: 2})}`} />
-                            <Legend />
-                        </PieChart>
-                    </ResponsiveContainer>
-                </div>
-            </div>
-
-            <div className="mt-8 flex justify-center">
-                <button onClick={handleGeneratePdf} className="bg-purple-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-purple-700 transition-colors shadow-md">Generate PDF Report</button>
-            </div>
-        </div>
-    );
-};
-
-// Placeholder component for Create Vouchers
-const CreateVouchers = () => (
-    <div className="p-8 bg-gray-100 min-h-screen">
-        <h1 className="text-3xl font-bold text-gray-800">Create Vouchers (Coming Soon)</h1>
-        <p className="text-gray-600 mt-4">This section will allow you to generate vouchers for reservations.</p>
-    </div>
-);
-
-// Reusable Input Field component
-const InputField = ({ label, ...props }) => (
-    <div>
-        <label className="block text-sm font-medium text-gray-700">{label}</label>
-        <input
-            {...props}
-            className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-        />
-    </div>
-);
-
-// Reusable Select Field component
-const SelectField = ({ label, options, ...props }) => (
-    <div>
-        <label className="block text-sm font-medium text-gray-700">{label}</label>
-        <select
-            {...props}
-            className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md shadow-sm"
-        >
-            {options.map(opt => <option key={opt.value || opt} value={opt.value || opt}>{opt.label || opt}</option>)}
-        </select>
-    </div>
-);
-
-// Reservation Form component, used by both Create and Edit Reservation
-const ReservationForm = ({ reservationData, onReservationDataChange, onSubmit, totalNights, onAddTourist, onRemoveTourist, onTouristChange, buttonText }) => {
-    // Calculate profit dynamically based on form fields
-    const calculateProfit = useMemo(() => {
-        const finalAmount = parseFloat(reservationData.finalPaymentAmount) || 0;
-        const owedToHotel = parseFloat(reservationData.owedToHotel) || 0;
-        // NOTE: For now, expenses connected to this specific reservation are not dynamically fetched or linked
-        // as Firebase is disconnected. This will be fully implemented in a later phase.
-        const expensesForReservation = 0; // Placeholder for future dynamic lookup
-
-        return (finalAmount - owedToHotel - expensesForReservation).toFixed(2);
-    }, [reservationData.finalPaymentAmount, reservationData.owedToHotel]);
-
-
-    return (
-        <form onSubmit={onSubmit} className="bg-white p-6 rounded-lg shadow-md space-y-6 border border-gray-200">
-            {/* Reservation Details Section */}
-            <div className="border-b pb-6">
-                <h2 className="text-xl font-semibold mb-4 text-gray-700">Reservation Details</h2>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <InputField label="Creation Date" name="creationDate" type="date" value={reservationData.creationDate} onChange={(e) => onReservationDataChange({ ...reservationData, creationDate: e.target.value })} />
-                    <InputField label="Reservation Number" name="id" value={reservationData.id} onChange={(e) => onReservationDataChange({ ...reservationData, id: e.target.value })} placeholder="e.g. DYT100101" />
-                    <InputField label="Tour Name" name="tourName" value={reservationData.tourName} onChange={(e) => onReservationDataChange({ ...reservationData, tourName: e.target.value })} />
-                    <SelectField label="Tour Type" name="tourType" value={reservationData.tourType} onChange={(e) => onReservationDataChange({ ...reservationData, tourType: e.target.value })} options={['BUS', 'PARTNER', 'HOTEL ONLY']} />
-                    {/* --- NEW FIELDS ADDED HERE --- */}
-                    <InputField label="Hotel Accommodation" name="hotelAccommodation" value={reservationData.hotelAccommodation} onChange={(e) => onReservationDataChange({ ...reservationData, hotelAccommodation: e.target.value })} />
-                    <SelectField label="Food Included?" name="foodIncluded" value={reservationData.foodIncluded} onChange={(e) => onReservationDataChange({ ...reservationData, foodIncluded: e.target.value })} options={['YES', 'NO']} />
-                    <InputField label="Place" name="place" value={reservationData.place} onChange={(e) => onReservationDataChange({ ...reservationData, place: e.target.value })} />
-                    <InputField label="Transport" name="transport" value={reservationData.transport} onChange={(e) => onReservationDataChange({ ...reservationData, transport: e.target.value })} />
-                </div>
-            </div>
-
-            {/* Dates & Guests Section */}
-            <div className="border-b pb-6">
-                <h2 className="text-xl font-semibold mb-4 text-gray-700">Dates & Guests</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                    <InputField label="Check-in Date" name="checkIn" type="date" value={reservationData.checkIn} onChange={(e) => onReservationDataChange({ ...reservationData, checkIn: e.target.value })} />
-                    <InputField label="Check-out Date" name="checkOut" type="date" value={reservationData.checkOut} onChange={(e) => onReservationDataChange({ ...reservationData, checkOut: e.target.value })} />
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">Total Nights</label>
-                        <p className="mt-1 p-2 h-10 flex items-center bg-gray-100 rounded-md border border-gray-300">{totalNights}</p>
-                    </div>
-                    <InputField label="Adults" name="adults" type="number" value={reservationData.adults} onChange={(e) => onReservationDataChange({ ...reservationData, adults: parseInt(e.target.value) || 0 })} min="0" />
-                    <InputField label="Children" name="children" type="number" value={reservationData.children} onChange={(e) => onReservationDataChange({ ...reservationData, children: parseInt(e.target.value) || 0 })} min="0" />
-                </div>
-            </div>
-
-            {/* Tourist Information Section */}
-            <div>
-                <h2 className="text-xl font-semibold mb-4 text-gray-700">Tourist Information</h2>
-                {(reservationData.tourists || []).map((tourist, index) => (
-                    <div key={index} className="bg-gray-50 p-4 rounded-lg mb-4 relative border border-gray-200">
-                        <h3 className="font-semibold text-gray-600 mb-2">Tourist {index + 1}</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                            <InputField label="Name" name="name" value={tourist.name} onChange={(e) => onTouristChange(index, e)} />
-                            <InputField label="Father's Name" name="fatherName" value={tourist.fatherName} onChange={(e) => onTouristChange(index, e)} />
-                            <InputField label="Family Name" name="familyName" value={tourist.familyName} onChange={(e) => onTouristChange(index, e)} />
-                            <InputField label="ID" name="id" value={tourist.id} onChange={(e) => onTouristChange(index, e)} />
-                            <InputField label="Address" name="address" value={tourist.address} onChange={(e) => onTouristChange(index, e)} />
-                            <InputField label="City" name="city" value={tourist.city} onChange={(e) => onTouristChange(index, e)} />
-                            <InputField label="Post Code" name="postCode" value={tourist.postCode} onChange={(e) => onTouristChange(index, e)} />
-                            <InputField label="Email" name="mail" type="email" value={tourist.mail} onChange={(e) => onTouristChange(index, e)} />
-                            <InputField label="Phone" name="phone" value={tourist.phone} onChange={(e) => onTouristChange(index, e)} />
-                            <InputField label="Number of Tourists" name="numberOfTourists" type="number" value={tourist.numberOfTourists} onChange={(e) => onTouristChange(index, e)} min="1" />
-                        </div>
-                        {/* Remove Tourist Button */}
-                        <button type="button" onClick={() => onRemoveTourist(index)} className="absolute top-2 right-2 text-red-500 hover:text-red-700 text-2xl font-bold p-1 rounded-full hover:bg-red-100">&times;</button>
-                    </div>
-                ))}
-                {/* Add Tourist Button */}
-                <button type="button" onClick={onAddTourist} className="mt-2 text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1">
-                    <PlusCircle size={18} /> Add another tourist
-                </button>
-            </div>
-
-            {/* Financials & Status Section */}
-            <div className="border-t pt-6">
-                <h2 className="text-xl font-semibold mb-4 text-gray-700">Financials & Status</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <SelectField label="Deposit Paid" name="depositPaid" value={reservationData.depositPaid} onChange={(e) => onReservationDataChange({ ...reservationData, depositPaid: e.target.value })} options={['YES', 'NO']} />
-                    <InputField label="Deposit Amount" name="depositAmount" type="number" value={reservationData.depositAmount} onChange={(e) => onReservationDataChange({ ...reservationData, depositAmount: parseFloat(e.target.value) || 0 })} min="0" />
-                    <SelectField label="Final Payment Paid" name="finalPaymentPaid" value={reservationData.finalPaymentPaid} onChange={(e) => onReservationDataChange({ ...reservationData, finalPaymentPaid: e.target.value })} options={['YES', 'NO']} />
-                    <InputField label="Final Amount" name="finalPaymentAmount" type="number" value={reservationData.finalPaymentAmount} onChange={(e) => onReservationDataChange({ ...reservationData, finalPaymentAmount: parseFloat(e.target.value) || 0 })} min="0" />
-                    <InputField label="Owed to Hotel" name="owedToHotel" type="number" value={reservationData.owedToHotel} onChange={(e) => onReservationDataChange({ ...reservationData, owedToHotel: parseFloat(e.target.value) || 0 })} min="0" />
-                    {/* Profit calculated automatically */}
-                    <InputField label="Profit" name="profit" type="number"
-                        value={calculateProfit}
-                        onChange={(e) => onReservationDataChange({ ...reservationData, profit: parseFloat(e.target.value) || 0 })} // Allow manual override if needed
-                        readOnly // Display as read-only by default
-                        className="mt-1 block w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none sm:text-sm"
-                    />
-                    <InputField label="Tour Operator" name="tourOperator" value={reservationData.tourOperator} onChange={(e) => onReservationDataChange({ ...reservationData, tourOperator: e.target.value })} />
-                    <SelectField label="Status" name="status" value={reservationData.status} onChange={(e) => onReservationDataChange({ ...reservationData, status: e.target.value })} options={['Pending', 'Confirmed', 'Cancelled', 'Past']} />
-                    <InputField label="Bus Tour ID (Optional)" name="busTourId" value={reservationData.busTourId} onChange={(e) => onReservationDataChange({ ...reservationData, busTourId: e.target.value })} placeholder="e.g. DYTAL001" />
-                </div>
-            </div>
-
-            {/* Submit Button */}
-            <div className="flex justify-end">
-                <button type="submit" className="bg-blue-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-blue-700 transition-colors shadow-md">{buttonText}</button>
-            </div>
-        </form>
-    );
-};
-
-// Modal for editing reservations
-const EditReservationModal = ({ isOpen, onClose, reservation, onUpdate }) => {
-    // State for the reservation data being edited
-    const [reservationData, setReservationData] = useState(reservation);
-    const [totalNights, setTotalNights] = useState(0);
-
-    // Update reservationData when the 'reservation' prop changes
-    useEffect(() => {
-        setReservationData(reservation);
-    }, [reservation]);
-
-    // Recalculate total nights if check-in/out dates in the modal change
-    useEffect(() => {
-        if (reservationData?.checkIn && reservationData?.checkOut) {
-            const start = new Date(reservationData.checkIn);
-            const end = new Date(reservationData.checkOut);
-            if (end > start) {
-                const diffTime = Math.abs(end - start);
-                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                setTotalNights(diffDays);
-            } else {
-                setTotalNights(0);
-            }
-        }
-    }, [reservationData?.checkIn, reservationData?.checkOut]);
-
-    // Handlers for tourist data changes within the modal
-    const handleTouristChange = (index, e) => {
-        const { name, value } = e.target;
-        const updatedTourists = [...(reservationData.tourists || [])];
-        updatedTourists[index][name] = (name === 'numberOfTourists') ? parseInt(value) || 0 : value;
-        setReservationData(prev => ({ ...prev, tourists: updatedTourists }));
-    };
-
-    // Add tourist within the modal
-    const addTourist = () => {
-        const newTourists = [...(reservationData.tourists || []), { name: '', fatherName: '', familyName: '', id: '', address: '', city: '', postCode: '', mail: '', phone: '', numberOfTourists: 1 }];
-        setReservationData(prev => ({ ...prev, tourists: newTourists }));
-    };
-
-    // Remove tourist within the modal
-    const removeTourist = (index) => {
-        const updatedTourists = (reservationData.tourists || []).filter((_, i) => i !== index);
-        setReservationData(prev => ({ ...prev, tourists: updatedTourists }));
-    };
-
-    // Handle modal form submission
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        onUpdate(reservationData);
-        onClose(); // Close the modal after updating
-    };
-
-    // Render nothing if modal is not open or no reservation data
-    if (!isOpen || !reservationData) return null;
-
-    return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-40 flex justify-center items-center p-4 sm:p-6 lg:p-8 overflow-y-auto">
-            <div className="bg-gray-100 rounded-lg shadow-xl w-full max-w-4xl relative">
-                <div className="p-6">
-                    <div className="flex justify-between items-center border-b pb-3 mb-4">
-                        <h2 className="text-2xl font-bold text-gray-800">Edit Reservation: {reservation.id}</h2>
-                        <button onClick={onClose} className="text-gray-500 hover:text-gray-800 text-3xl font-bold p-1 rounded-full hover:bg-gray-200">&times;</button>
-                    </div>
-                    <ReservationForm
-                        reservationData={reservationData}
-                        onReservationDataChange={setReservationData}
-                        onSubmit={handleSubmit}
-                        totalNights={totalNights}
-                        onAddTourist={addTourist}
-                        onRemoveTourist={removeTourist}
-                        onTouristChange={handleTouristChange}
-                        buttonText="Save Changes"
-                    />
-                </div>
-            </div>
-        </div>
-    );
-};
-
-// Component for creating new Bus Tours
-const CreateTour = ({ onAddTour, tours }) => {
-    const [tour, setTour] = useState({
-        id: '', // Auto-generated
-        departureDate: '',
-        arrivalDate: '',
-        nights: 0, // Manual input
-        daysIncludingTravel: 0, // Auto-calculated
-        transportCompany: '',
-        hotel: '',
-        maxPassengers: 1,
-    });
-
-    // Effect to calculate daysIncludingTravel
-    useEffect(() => {
-        if (tour.departureDate && tour.arrivalDate) {
-            const start = new Date(tour.departureDate);
-            const end = new Date(tour.arrivalDate);
-            if (end >= start) {
-                const diffTime = Math.abs(end - start);
-                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // Inclusive of arrival day
-                setTour(prev => ({ ...prev, daysIncludingTravel: diffDays }));
-            } else {
-                setTour(prev => ({ ...prev, daysIncludingTravel: 0 }));
-            }
-        }
-    }, [tour.departureDate, tour.arrivalDate]);
-
-    const handleChange = (e) => {
-        const { name, value } = e.target;
-        setTour(prev => ({ ...prev, [name]: (name === 'maxPassengers' || name === 'nights') ? parseInt(value) || 0 : value }));
-    };
-
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        // Generate tour ID
-        let tourId = tour.id;
-        if (!tourId) {
-            const nextSeqNum = tours.length > 0
-                ? Math.max(...tours.map(t => parseInt(t.id.replace('DYTAL', '') || '0'))) + 1
-                : 1; // Starting from 1 if no tours, for DYTAL001
-            tourId = `DYTAL${String(nextSeqNum).padStart(3, '0')}`;
-        }
-        onAddTour({ ...tour, id: tourId });
-        // Reset form
-        setTour({
-            id: '',
-            departureDate: '',
-            arrivalDate: '',
-            nights: 0,
-            daysIncludingTravel: 0,
-            transportCompany: '',
-            hotel: '',
-            maxPassengers: 1,
-        });
-    };
-
-    return (
-        <div className="p-4 sm:p-6 lg:p-8 bg-gray-100 min-h-screen">
-            <h1 className="text-3xl font-bold mb-6 text-gray-800">Create Bus Tour</h1>
-            <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow-md space-y-6 border border-gray-200">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <InputField label="Tour ID (Auto-generated)" name="id" value={tour.id || `DYTAL${String(tours.length + 1).padStart(3, '0')}`} readOnly disabled />
-                    <InputField label="Departure Date" name="departureDate" type="date" value={tour.departureDate} onChange={handleChange} required />
-                    <InputField label="Arrival Date" name="arrivalDate" type="date" value={tour.arrivalDate} onChange={handleChange} required />
-                    <InputField label="Nights" name="nights" type="number" value={tour.nights} onChange={handleChange} min="0" required />
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">Days Including Travel</label>
-                        <p className="mt-1 p-2 h-10 flex items-center bg-gray-100 rounded-md border border-gray-300">{tour.daysIncludingTravel}</p>
-                    </div>
-                    <InputField label="Transport Company" name="transportCompany" value={tour.transportCompany} onChange={handleChange} required />
-                    <InputField label="Hotel" name="hotel" value={tour.hotel} onChange={handleChange} required />
-                    <InputField label="Max Passengers" name="maxPassengers" type="number" value={tour.maxPassengers} onChange={handleChange} min="1" required />
-                </div>
-                <div className="flex justify-end mt-6">
-                    <button type="submit" className="bg-blue-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-blue-700 transition-colors shadow-md">Create Tour</button>
-                </div>
-            </form>
-        </div>
-    );
-};
-
-// Component for viewing Bus Tours
-// MODIFIED: Added linked reservations display and activated "Add Tour Payment"/"Add Tour Expense" buttons
-const ViewTours = ({ tours, reservations, onAddPaymentForTour, onAddExpenseForTour, onEditTour }) => {
-    const [expandedTourId, setExpandedTourId] = useState(null);
-
-    const toggleTourExpansion = (tourId) => {
-        setExpandedTourId(expandedTourId === tourId ? null : tourId);
-    };
-
-    // Prepare tours with calculated fields and linked reservations
-    const toursWithDetails = useMemo(() => {
-        return tours.map(tour => {
-            const linkedReservations = reservations.filter(res => res.busTourId === tour.id);
-            const bookedPassengers = linkedReservations.reduce((sum, res) => sum + (res.tourists.reduce((tSum, t) => tSum + (t.numberOfTourists || 0), 0) || 0), 0); // Sum of numberOfTourists from all tourists in reservation
-            const fulfillment = tour.maxPassengers > 0 ? ((bookedPassengers / tour.maxPassengers) * 100).toFixed(1) : '0.0';
-            return {
-                ...tour,
-                bookedPassengers,
-                fulfillment,
-                linkedReservations // Attach linked reservations for display
-            };
-        });
-    }, [tours, reservations]);
-
-    // --- NEW: PDF Generation Function for Rooming List ---
-    const handleGenerateRoomingListPdf = (tour) => {
-        // jsPDF is assumed to be globally available via CDN
-        const doc = new jsPDF();
-
-        doc.setFontSize(22);
-        doc.text(`Rooming List for Tour: ${tour.id}`, 14, 20);
-        doc.setFontSize(12);
-        doc.text(`Hotel: ${tour.hotel}`, 14, 28);
-        doc.text(`Dates: ${tour.departureDate} to ${tour.arrivalDate}`, 14, 35);
-
-        const tableColumn = ["Reservation #", "Name", "Family Name", "ID", "Room Type", "No. of Tourists"];
-        const tableRows = [];
-
-        tour.linkedReservations.forEach(res => {
-            res.tourists.forEach(tourist => {
-                const touristData = [
-                    res.id,
-                    tourist.name || '',
-                    tourist.familyName || '',
-                    tourist.id || '',
-                    tourist.roomType || '',
-                    tourist.numberOfTourists || 0
-                ];
-                tableRows.push(touristData);
-            });
-        });
-
-        doc.autoTable({
-            head: [tableColumn],
-            body: tableRows,
-            theme: 'striped',
-            styles: { fontSize: 10, cellPadding: 2, overflow: 'linebreak' },
-            headStyles: { fillColor: [44, 62, 80], textColor: [255, 255, 255] }, // Dark blue-gray for headers
-            alternateRowStyles: { fillColor: [245, 245, 245] }, // Light gray for alternate rows
-            startY: 45, // This is the correct placement for startY
-            margin: { left: 14, right: 14 },
-            didDrawPage: function (data) {
-                let str = 'Page ' + doc.internal.getNumberOfPages();
-                if (typeof doc.setFontColor === 'function') {
-                    doc.setFontSize(10).setTextColor(100);
-                }
-                doc.text(str, data.settings.margin.left, doc.internal.pageSize.height - 10);
-            }
-        });
-
-        doc.save(`Rooming_List_${tour.id}.pdf`);
-    };
-
-
-    return (
-        <div className="p-4 sm:p-6 lg:p-8 bg-gray-100 min-h-screen">
-            <h1 className="text-3xl font-bold mb-6 text-gray-800">View Bus Tours & Holidays</h1>
-            {toursWithDetails.length === 0 ? (
-                <p className="text-gray-600">No bus tours created yet.</p>
-            ) : (
-                <div className="space-y-4">
-                    {toursWithDetails.map(tour => (
-                        <div key={tour.id} className="bg-white p-4 rounded-lg shadow-md border border-gray-200">
-                            <div className="flex justify-between items-center cursor-pointer" onClick={() => toggleTourExpansion(tour.id)}>
-                                <h2 className="text-xl font-semibold text-gray-700">{tour.id}: {tour.hotel} ({tour.departureDate} - {tour.arrivalDate})</h2>
-                                <button className="p-2 rounded-full hover:bg-gray-100">
-                                    {expandedTourId === tour.id ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-                                </button>
-                            </div>
-                            {expandedTourId === tour.id && (
-                                <div className="mt-4 border-t border-gray-200 pt-4">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-gray-700 text-sm">
-                                        <p><strong>Departure:</strong> {tour.departureDate}</p>
-                                        <p><strong>Arrival:</strong> {tour.arrivalDate}</p>
-                                        <p><strong>Nights:</strong> {tour.nights}</p>
-                                        <p><strong>Days Incl. Travel:</strong> {tour.daysIncludingTravel}</p>
-                                        <p><strong>Transport Co:</strong> {tour.transportCompany}</p>
-                                        <p><strong>Hotel:</strong> {tour.hotel}</p>
-                                        <p><strong>Max Passengers:</strong> {tour.maxPassengers}</p>
-                                        <p><strong>Booked Passengers:</strong> {tour.bookedPassengers}</p>
-                                        <p><strong>Fulfillment:</strong> <span className="font-bold text-blue-600">{tour.fulfillment}%</span></p>
-                                    </div>
-
-                                    <h3 className="text-lg font-semibold mt-6 mb-3 text-gray-700">Financials & Actions:</h3>
-                                    <div className="flex flex-wrap gap-3">
-                                        {/* Activated buttons with navigation */}
-                                        <button onClick={() => onAddPaymentForTour(tour.id)} className="bg-green-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-600 transition-colors shadow-sm">Add Tour Payment</button>
-                                        <button onClick={() => onAddExpenseForTour(tour.id)} className="bg-red-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-600 transition-colors shadow-sm">Add Tour Expense</button>
-                                        <button onClick={() => onEditTour(tour)} className="bg-purple-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-purple-600 transition-colors shadow-sm">Edit Tour Details</button>
-                                        {/* Activated Rooming List PDF button */}
-                                        <button onClick={() => handleGenerateRoomingListPdf(tour)} className="bg-blue-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-600 transition-colors shadow-sm">Rooming List PDF</button>
-                                        {/* Placeholders for other PDF generators for Bus Tours */}
-                                        <button className="bg-gray-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors shadow-sm disabled:opacity-50" disabled>Contract with Transport Co.</button>
-                                        <button className="bg-gray-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors shadow-sm disabled:opacity-50" disabled>Business Trip Order</button>
-                                        <button className="bg-gray-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors shadow-sm disabled:opacity-50" disabled>Bus List</button>
-                                        <button className="bg-gray-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors shadow-sm disabled:opacity-50" disabled>Bus List BG</button>
-                                    </div>
-
-                                    {/* Display Linked Reservations Table */}
-                                    <h3 className="text-lg font-semibold mt-6 mb-3 text-gray-700">Linked Reservations:</h3>
-                                    {tour.linkedReservations.length > 0 ? (
-                                        <div className="overflow-x-auto bg-gray-50 rounded-md border border-gray-200">
-                                            <table className="min-w-full text-sm text-left text-gray-500">
-                                                <thead className="text-xs text-gray-700 uppercase bg-gray-100">
-                                                    <tr>
-                                                        <th className="px-4 py-2">Res. #</th>
-                                                        <th className="px-4 py-2">Lead Guest</th>
-                                                        <th className="px-4 py-2">Adults/Children</th>
-                                                        <th className="px-4 py-2">Status</th>
-                                                        <th className="px-4 py-2 text-right">Profit</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {tour.linkedReservations.map(res => (
-                                                        <tr key={res.id} className="bg-white border-b hover:bg-gray-100">
-                                                            <td className="px-4 py-2 font-medium text-gray-900">{res.id}</td>
-                                                            <td className="px-4 py-2">{res.tourists[0]?.name || 'N/A'} {res.tourists[0]?.familyName}</td>
-                                                            <td className="px-4 py-2">{res.adults}/{res.children}</td>
-                                                            <td className="px-4 py-2">
-                                                                <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                                                                    res.status === 'Confirmed' ? 'bg-green-100 text-green-800' :
-                                                                    res.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
-                                                                    res.status === 'Cancelled' ? 'bg-red-100 text-red-800' :
-                                                                    'bg-gray-100 text-gray-800'
-                                                                }`}>
-                                                                    {res.status}
-                                                                </span>
-                                                            </td>
-                                                            <td className="px-4 py-2 text-right">€{res.profit ? res.profit.toFixed(2) : '0.00'}</td>
-                                                        </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    ) : (
-                                        <p className="text-gray-500 text-sm">No reservations linked to this tour yet.</p>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-                    ))}
-                </div>
-            )}
-        </div>
-    );
-};
-
-// Placeholder for adding reservation to a specific tour
-const AddReservationToTour = ({ onAddReservation, tours }) => {
-    const [reservation, setReservation] = useState({
-        id: '', // Will be generated
-        creationDate: new Date().toISOString().split('T')[0],
-        tourName: '', // Will be auto-filled if tour selected
-        tourType: 'BUS',
-        checkIn: '',
-        checkOut: '',
-        adults: 1,
-        children: 0,
-        tourists: [{ name: '', fatherName: '', familyName: '', id: '', address: '', city: '', postCode: '', mail: '', phone: '', numberOfTourists: 1, roomType: '' }], // Added roomType
-        depositPaid: 'NO',
-        depositAmount: 0,
-        finalPaymentPaid: 'NO',
-        finalPaymentAmount: 0,
-        owedToHotel: 0,
-        profit: 0,
-        tourOperator: '',
-        status: 'Pending',
-        busTourId: '',
-        customerId: '' // New customerId field
-    });
-
-    // Handle selecting a tour from the dropdown
-    const handleTourSelect = (e) => {
-        const selectedTourId = e.target.value;
-        const selectedTour = tours.find(t => t.id === selectedTourId);
-        if (selectedTour) {
-            setReservation(prev => ({
-                ...prev,
-                busTourId: selectedTour.id,
-                tourName: selectedTour.hotel, // Or tour.name if you add one
-                checkIn: selectedTour.departureDate,
-                checkOut: selectedTour.arrivalDate,
-            }));
-        } else {
-            setReservation(prev => ({ ...prev, busTourId: '', tourName: '', checkIn: '', checkOut: '' }));
-        }
-    };
-
-    const handleTouristChange = (index, e) => {
-        const { name, value } = e.target;
-        const updatedTourists = [...reservation.tourists];
-        updatedTourists[index][name] = (name === 'numberOfTourists') ? parseInt(value) || 0 : value;
-        setReservation(prev => ({ ...prev, tourists: updatedTourists }));
-    };
-
-    const addTourist = () => {
-        setReservation(prev => ({ ...prev, tourists: [...prev.tourists, { name: '', fatherName: '', familyName: '', id: '', address: '', city: '', postCode: '', mail: '', phone: '', numberOfTourists: 1, roomType: '' }] })); // Added roomType
-    };
-
-    const removeTourist = (index) => {
-        const updatedTourists = reservation.tourists.filter((_, i) => i !== index);
-        setReservation(prev => ({ ...prev, tourists: updatedTourists }));
-    };
-
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        onAddReservation(reservation);
-    };
-
-    const totalNights = useMemo(() => {
-        if (reservation.checkIn && reservation.checkOut) {
-            const start = new Date(reservation.checkIn);
-            const end = new Date(reservation.checkOut);
-            if (end > start) {
-                const diffTime = Math.abs(end - start);
-                return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-            }
-        }
-        return 0;
-    }, [reservation.checkIn, reservation.checkOut]);
-
-    const calculateProfit = useMemo(() => {
-        const price = parseFloat(reservation.finalPaymentAmount) || 0; // Assuming finalPaymentAmount is the 'Price' for tour reservations
-        const owedToHotel = parseFloat(reservation.owedToHotel) || 0;
-        const transportCost = parseFloat(reservation.transportCostApprox) || 0; // Assuming this field will be added
-
-        // Profit = Price - Owed to Hotel (as per instruction for tours)
-        return (price - owedToHotel).toFixed(2);
-    }, [reservation.finalPaymentAmount, reservation.owedToHotel, reservation.transportCostApprox]);
-
-
-    return (
-        <div className="p-4 sm:p-6 lg:p-8 bg-gray-100 min-h-screen">
-            <h1 className="text-3xl font-bold mb-6 text-gray-800">Add Reservation to Tour</h1>
-            <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow-md space-y-6 border border-gray-200">
-                <div className="border-b pb-6">
-                    <h2 className="text-xl font-semibold mb-4 text-gray-700">Tour Selection</h2>
-                    <SelectField
-                        label="Select Tour"
-                        name="busTourId"
-                        value={reservation.busTourId}
-                        onChange={handleTourSelect}
-                        options={[{ id: '', hotel: 'Select a Tour', departureDate: '' }, ...tours].map(tour => ({ value: tour.id, label: tour.hotel ? `${tour.id} - ${tour.hotel} (${tour.departureDate})` : tour.label }))}
-                        required
-                    />
-                </div>
-                <div className="border-b pb-6">
-                    <h2 className="text-xl font-semibold mb-4 text-gray-700">Reservation Details</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <InputField label="Creation Date" name="creationDate" type="date" value={reservation.creationDate} onChange={(e) => setReservation({ ...reservation, creationDate: e.target.value })} />
-                        <InputField label="Reservation Number (Auto-fill or Edit)" name="id" value={reservation.id} onChange={(e) => setReservation({ ...reservation, id: e.target.value })} placeholder="e.g. DYT100101" />
-                        <InputField label="Tour Name" name="tourName" value={reservation.tourName} readOnly disabled className="mt-1 block w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-md shadow-sm sm:text-sm" />
-                        <InputField label="Check-in Date" name="checkIn" type="date" value={reservation.checkIn} onChange={(e) => setReservation({ ...reservation, checkIn: e.target.value })} readOnly disabled className="mt-1 block w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-md shadow-sm sm:text-sm" />
-                        <InputField label="Check-out Date" name="checkOut" type="date" value={reservation.checkOut} onChange={(e) => setReservation({ ...reservation, checkOut: e.target.value })} readOnly disabled className="mt-1 block w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-md shadow-sm sm:text-sm" />
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Total Nights</label>
-                            <p className="mt-1 p-2 h-10 flex items-center bg-gray-100 rounded-md border border-gray-300">{totalNights}</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div>
-                    <h2 className="text-xl font-semibold mb-4 text-gray-700">Tourist Information</h2>
-                    {(reservation.tourists || []).map((tourist, index) => (
-                        <div key={index} className="bg-gray-50 p-4 rounded-lg mb-4 relative border border-gray-200">
-                            <h3 className="font-semibold text-gray-600 mb-2">Tourist {index + 1}</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                                <InputField label="Name" name="name" value={tourist.name} onChange={(e) => handleTouristChange(index, e)} />
-                                <InputField label="Family Name" name="familyName" value={tourist.familyName} onChange={(e) => handleTouristChange(index, e)} />
-                                <InputField label="Father's Name" name="fatherName" value={tourist.fatherName} onChange={(e) => handleTouristChange(index, e)} />
-                                <InputField label="ID" name="id" value={tourist.id} onChange={(e) => handleTouristChange(index, e)} />
-                                <InputField label="Room Type" name="roomType" value={tourist.roomType || ''} onChange={(e) => handleTouristChange(index, e)} />
-                                <InputField label="Number of Tourists (in this room)" name="numberOfTourists" type="number" value={tourist.numberOfTourists} onChange={(e) => handleTouristChange(index, e)} min="1" />
-                            </div>
-                            <button type="button" onClick={() => removeTourist(index)} className="absolute top-2 right-2 text-red-500 hover:text-red-700 text-2xl font-bold p-1 rounded-full hover:bg-red-100">&times;</button>
-                        </div>
-                    ))}
-                    <button type="button" onClick={addTourist} className="mt-2 text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1">
-                        <PlusCircle size={18} /> Add another tourist
-                    </button>
-                </div>
-
-                <div className="border-t pt-6">
-                    <h2 className="text-xl font-semibold mb-4 text-gray-700">Financials</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <InputField label="Price (€)" name="finalPaymentAmount" type="number" value={reservation.finalPaymentAmount} onChange={(e) => setReservation({ ...reservation, finalPaymentAmount: parseFloat(e.target.value) || 0 })} min="0" />
-                        <InputField label="Deposit (€)" name="depositAmount" type="number" value={reservation.depositAmount} onChange={(e) => setReservation({ ...reservation, depositAmount: parseFloat(e.target.value) || 0 })} min="0" />
-                        <InputField label="Owed to Hotel (€)" name="owedToHotel" type="number" value={reservation.owedToHotel} onChange={(e) => setReservation({ ...reservation, owedToHotel: parseFloat(e.target.value) || 0 })} min="0" />
-                        <InputField label="Transport Cost Approx. (€)" name="transportCostApprox" type="number" value={reservation.transportCostApprox || 0} onChange={(e) => setReservation({ ...reservation, transportCostApprox: parseFloat(e.target.value) || 0 })} min="0" />
-                        <InputField label="Profit (€)" name="profit" type="number" value={calculateProfit} readOnly disabled className="mt-1 block w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-md shadow-sm" />
-                    </div>
-                </div>
-
-                <div className="flex justify-end">
-                    <button type="submit" className="bg-green-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-green-700 transition-colors shadow-md">Add Reservation to Tour</button>
-                </div>
-            </form>
-        </div>
-    );
-};
-
-
-// Component for creating new Insurance Policies
-const AddInsurance = ({ onAddInsurance, insurances }) => {
-    const [policy, setPolicy] = useState({
-        id: '', // Auto-generated
-        type: 'New Policy',
-        policyDate: new Date().toISOString().split('T')[0],
-        total: 0,
-        commission: 0,
-        validUntil: '',
-        customer: { name: '', familyName: '', phone: '', id: '', address: '', city: '', postCode: '' }, // customer ID will be used for linking
-        policyNumber: '', // Auto-generated if empty
-        vehicleNumber: '',
-        insuranceType: '',
-        paid: 'NO',
-        paidToInsurer: 'NO',
-    });
-
-    const handleChange = (e) => {
-        const { name, value } = e.target;
-        if (name.startsWith('customer.')) {
-            const customerField = name.split('.')[1];
-            setPolicy(prev => ({
-                ...prev,
-                customer: { ...prev.customer, [customerField]: value }
-            }));
-        } else {
-            setPolicy(prev => ({
-                ...prev,
-                [name]: (name === 'total' || name === 'commission') ? parseFloat(value) || 0 : value
-            }));
-        }
-    };
-
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        let policyId = policy.id;
-        if (!policyId) {
-            const nextSeqNum = insurances.length > 0
-                ? Math.max(...insurances.map(ins => parseInt(ins.id.replace('INS', '') || '0'))) + 1
-                : 1;
-            policyId = `INS${String(nextSeqNum).padStart(3, '0')}`;
-        }
-        let policyNum = policy.policyNumber;
-        if (!policyNum) {
-            policyNum = `PN-${Date.now().toString().slice(-6)}`; // Simple placeholder
-        }
-
-        onAddInsurance({ ...policy, id: policyId, policyNumber: policyNum });
-        // Reset form
-        setPolicy({
-            id: '',
-            type: 'New Policy',
-            policyDate: new Date().toISOString().split('T')[0],
-            total: 0,
-            commission: 0,
-            validUntil: '',
-            customer: { name: '', familyName: '', phone: '', id: '', address: '', city: '', postCode: '' },
-            policyNumber: '',
-            vehicleNumber: '',
-            insuranceType: '',
-            paid: 'NO',
-            paidToInsurer: 'NO',
-        });
-    };
-
-    return (
-        <div className="p-4 sm:p-6 lg:p-8 bg-gray-100 min-h-screen">
-            <h1 className="text-3xl font-bold mb-6 text-gray-800">Add Insurance Policy</h1>
-            <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow-md space-y-6 border border-gray-200">
-                <div className="border-b pb-6">
-                    <h2 className="text-xl font-semibold mb-4 text-gray-700">Policy Details</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        <SelectField
-                            label="Policy Type"
-                            name="type"
-                            value={policy.type}
-                            onChange={handleChange}
-                            options={['Toll', 'Policy payment', 'New Policy', 'Assessment', 'Sticker']}
-                            required
-                        />
-                        <InputField label="Policy Date" name="policyDate" type="date" value={policy.policyDate} onChange={handleChange} required />
-                        <InputField label="Valid Until" name="validUntil" type="date" value={policy.validUntil} onChange={handleChange} required />
-                        <InputField label="Total (€)" name="total" type="number" value={policy.total} onChange={handleChange} min="0" step="0.01" required />
-                        <InputField label="Commission (€)" name="commission" type="number" value={policy.commission} onChange={handleChange} min="0" step="0.01" required />
-                        <InputField label="Policy Number (Auto-generated)" name="policyNumber" value={policy.policyNumber} onChange={handleChange} placeholder="e.g. PN-XXXXXX" />
-                        <InputField label="Vehicle Number (Optional)" name="vehicleNumber" value={policy.vehicleNumber} onChange={handleChange} />
-                        <InputField label="Insurance Type" name="insuranceType" value={policy.insuranceType} onChange={handleChange} required />
-                        <SelectField label="Paid by Customer" name="paid" value={policy.paid} onChange={handleChange} options={['YES', 'NO']} />
-                        <SelectField label="Paid to Insurer" name="paidToInsurer" value={policy.paidToInsurer} onChange={handleChange} options={['YES', 'NO']} />
-                    </div>
-                </div>
-
-                <div>
-                    <h2 className="text-xl font-semibold mb-4 text-gray-700">Customer Information</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <InputField label="Name" name="customer.name" value={policy.customer.name} onChange={handleChange} required />
-                        <InputField label="Family Name" name="customer.familyName" value={policy.customer.familyName} onChange={handleChange} required />
-                        <InputField label="Phone" name="customer.phone" value={policy.customer.phone} onChange={handleChange} required />
-                        <InputField label="ID" name="customer.id" value={policy.customer.id} onChange={handleChange} required />
-                        <InputField label="Address" name="customer.address" value={policy.customer.address} onChange={handleChange} />
-                        <InputField label="City" name="customer.city" value={policy.customer.city} onChange={handleChange} />
-                        <InputField label="Post Code" name="customer.postCode" value={policy.customer.postCode} onChange={handleChange} />
-                    </div>
-                </div>
-
-                <div className="flex justify-end mt-6">
-                    <button type="submit" className="bg-blue-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-blue-700 transition-colors shadow-md">Add Insurance</button>
-                </div>
-            </form>
-        </div>
-    );
-};
-
-// Component for viewing Insurance Policies
-const ViewInsurance = ({ insurances, onEdit, onAddPayment, onAddExpense }) => {
-    const [searchTerm, setSearchTerm] = useState("");
-    const [sortBy, setSortBy] = useState('none'); // 'none', 'validUntilAsc', 'validUntilDesc'
-    const [filteredAndSortedInsurances, setFilteredAndSortedInsurances] = useState(insurances);
-
-    // Effect to filter and sort insurances
-    useEffect(() => {
-        let currentData = [...insurances];
-
-        // Filter
-        if (searchTerm) {
-            const lowercasedFilter = searchTerm.toLowerCase();
-            currentData = currentData.filter(item => {
-                return (
-                    (item.policyNumber && item.policyNumber.toLowerCase().includes(lowercasedFilter)) ||
-                    (item.customer.name && item.customer.name.toLowerCase().includes(lowercasedFilter)) ||
-                    (item.customer.familyName && item.customer.familyName.toLowerCase().includes(lowercasedFilter)) ||
-                    (item.insuranceType && item.insuranceType.toLowerCase().includes(lowercasedFilter))
-                );
-            });
-        }
-
-        // Sort
-        if (sortBy !== 'none') {
-            currentData.sort((a, b) => {
-                const dateA = new Date(a.validUntil);
-                const dateB = new Date(b.validUntil);
-                if (sortBy === 'validUntilAsc') {
-                    return dateA.getTime() - dateB.getTime();
-                } else if (sortBy === 'validUntilDesc') {
-                    return dateB.getTime() - dateA.getTime();
-                }
-                return 0; // Should not happen with valid sortBy values
-            });
-        }
-
-        setFilteredAndSortedInsurances(currentData);
-    }, [searchTerm, insurances, sortBy]);
-
-    return (
-        <div className="p-4 sm:p-6 lg:p-8 bg-gray-100 min-h-screen">
-            <h1 className="text-3xl font-bold mb-6 text-gray-800">View Insurance Policies</h1>
-            <div className="mb-4 flex flex-col sm:flex-row justify-between items-center gap-4">
-                <input
-                    type="text"
-                    placeholder="Search policies..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full sm:w-1/3 p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 shadow-sm"
-                />
-                <div className="flex gap-2 items-center">
-                    <label htmlFor="sort-by" className="text-sm font-medium text-gray-700">Sort by:</label>
-                    <select
-                        id="sort-by"
-                        value={sortBy}
-                        onChange={(e) => setSortBy(e.target.value)}
-                        className="p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                    >
-                        <option value="none">None</option>
-                        <option value="validUntilAsc">Valid Until (Asc)</option>
-                        <option value="validUntilDesc">Valid Until (Desc)</option>
-                    </select>
-                </div>
-            </div>
-            <div className="bg-white p-2 rounded-lg shadow-md overflow-x-auto border border-gray-200">
-                <table className="w-full text-sm text-left text-gray-500">
-                    <thead className="text-xs text-gray-700 uppercase bg-gray-50">
-                        <tr>
-                            <th className="px-6 py-3">Policy ID</th>
-                            <th className="px-6 py-3">Type</th>
-                            <th className="px-6 py-3">Customer</th>
-                            <th className="px-6 py-3">Policy #</th>
-                            <th className="px-6 py-3">Valid Until</th>
-                            <th className="px-6 py-3">Total</th>
-                            <th className="px-6 py-3">Commission</th>
-                            <th className="px-6 py-3">Paid</th>
-                            <th className="px-6 py-3">Paid to Insurer</th>
-                            <th className="px-6 py-3">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {filteredAndSortedInsurances.length > 0 ? (
-                            filteredAndSortedInsurances.map(policy => (
-                                <tr key={policy.id} className="bg-white border-b hover:bg-gray-50">
-                                    <td className="px-6 py-4 font-medium text-gray-900">{policy.id}</td>
-                                    <td className="px-6 py-4">{policy.type}</td>
-                                    <td className="px-6 py-4">{policy.customer.name} {policy.customer.familyName}</td>
-                                    <td className="px-6 py-4">{policy.policyNumber}</td>
-                                    <td className="px-6 py-4">{policy.validUntil}</td>
-                                    <td className="px-6 py-4">€{policy.total.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
-                                    <td className="px-6 py-4">€{policy.commission.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
-                                    <td className="px-6 py-4">
-                                        {policy.paid === 'YES' ? <CheckCircle className="h-5 w-5 text-green-500" /> : <XCircle className="h-5 w-5 text-red-500" />}
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        {policy.paidToInsurer === 'YES' ? <CheckCircle className="h-5 w-5 text-green-500" /> : <XCircle className="h-5 w-5 text-red-500" />}
-                                    </td>
-                                    <td className="px-6 py-4 flex space-x-2">
-                                        <button onClick={() => onEdit(policy)} className="text-blue-600 hover:text-blue-800 font-medium p-1 rounded-md hover:bg-blue-100 transition-colors" title="Edit Policy">
-                                            <Edit size={18} />
-                                        </button>
-                                        <button onClick={() => onAddPayment(policy.id)} className="text-green-600 hover:text-green-800 font-medium p-1 rounded-md hover:bg-green-100 transition-colors" title="Add Payment">
-                                            <DollarSign size={18} />
-                                        </button>
-                                        <button onClick={() => onAddExpense(policy.id)} className="text-red-600 hover:text-red-800 font-medium p-1 rounded-md hover:bg-red-100 transition-colors" title="Add Expense">
-                                            <ArrowLeftRight size={18} />
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))
-                        ) : (
-                            <tr>
-                                <td colSpan="10" className="px-6 py-4 text-center text-gray-500">No insurance policies found.</td>
-                            </tr>
-                        )}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    );
-};
-
-// Component for Insurance Financial Reports
-const InsuranceFinancialReports = ({ insurances, payments, expenses }) => {
-    const [selectedMonth, setSelectedMonth] = useState('All Time');
-
-    const availableMonths = useMemo(() => {
-        const allDates = [
-            ...insurances.map(i => i.policyDate),
-            ...payments.filter(p => p.insuranceId).map(p => p.date),
-            ...expenses.filter(e => e.insuranceId).map(e => e.date)
-        ];
-        const months = new Set(allDates.map(date => getMonthYear(date)));
-        return ['All Time', ...Array.from(months).sort((a,b) => {
-            if (a === 'All Time') return -1;
-            if (b === 'All Time') return 1;
-            const [monthA, yearA] = a.split(' ');
-            const [monthB, yearB] = b.split(' ');
-            if (yearA !== yearB) return parseInt(yearA) - parseInt(yearB);
-            return new Date(`1 ${monthA} 2000`).getMonth() - new Date(`1 ${monthB} 2000`).getMonth();
-        })];
-    }, [insurances, payments, expenses]);
-
-    const { totalIncome, totalExpenses, netResult, sumToBePaidToInsurer, filteredInsurances, filteredPayments, filteredExpenses } = useMemo(() => { // Destructure filteredInsurances here
-        const filteredInsurances = (selectedMonth === 'All Time')
-            ? insurances
-            : insurances.filter(i => getMonthYear(i.policyDate) === selectedMonth);
-
-        const filteredPayments = (selectedMonth === 'All Time')
-            ? payments.filter(p => p.insuranceId)
-            : payments.filter(p => p.insuranceId && getMonthYear(p.date) === selectedMonth);
-
-        const filteredExpenses = (selectedMonth === 'All Time')
-            ? expenses.filter(e => e.insuranceId)
-            : expenses.filter(e => e.insuranceId && getMonthYear(e.date) === selectedMonth);
-
-        // Calculate Total Income (from commissions, assuming commissions are the direct income for broker)
-        const totalIncome = filteredInsurances.reduce((sum, policy) => sum + (policy.commission || 0), 0);
-
-        // Calculate Total Expenses (only those associated with insurance policies)
-        const totalExpenses = filteredExpenses.reduce((sum, exp) => sum + (exp.amount || 0), 0);
-
-        // Profit = Total Income (Commissions) - Total Expenses
-        const netResult = totalIncome - totalExpenses;
-
-        // Calculate Total Unpaid to Insurer
-        const unpaidToInsurerPolicies = filteredInsurances.filter(policy => policy.paidToInsurer === 'NO');
-        const sumToBePaidToInsurer = unpaidToInsurerPolicies.reduce((sum, policy) => sum + ((policy.total || 0) - (policy.commission || 0)), 0);
-
-        return { totalIncome, totalExpenses, netResult, sumToBePaidToInsurer, filteredInsurances, filteredPayments, filteredExpenses };
-    }, [selectedMonth, insurances, payments, expenses]);
-
-
-    return (
-        <div className="p-4 sm:p-6 lg:p-8 bg-gray-100 min-h-screen">
-            <div className="flex flex-col sm:flex-row justify-between items-center mb-6">
-                <h1 className="text-3xl font-bold text-gray-800">Insurance Financial Reports</h1>
-                <div className="flex items-center gap-2 mt-4 sm:mt-0">
-                    <label htmlFor="month-select" className="text-sm font-medium text-gray-700">Report for:</label>
-                    <select
-                        id="month-select"
-                        name="month"
-                        value={selectedMonth}
-                        onChange={(e) => setSelectedMonth(e.target.value)}
-                        className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md shadow-sm"
-                    >
-                        {availableMonths.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                    </select>
-                </div>
-            </div>
-
-            {/* Insurance Financial Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                <StatCard title="Total Income (Commissions)" value={`€${totalIncome.toLocaleString(undefined, {minimumFractionDigits: 2})}`} icon={<CreditCard className="h-6 w-6 text-white"/>} color="bg-teal-500" />
-                <StatCard title="Total Expenses" value={`€${totalExpenses.toLocaleString(undefined, {minimumFractionDigits: 2})}`} icon={<ArrowLeftRight className="h-6 w-6 text-white"/>} color="bg-rose-500" />
-                <StatCard title="Net Result (Profit)" value={`€${netResult.toLocaleString(undefined, {minimumFractionDigits: 2})}`} icon={<DollarSign className="h-6 w-6 text-white"/>} color={netResult >= 0 ? "bg-green-500" : "bg-orange-500"} />
-                <StatCard title="Sum to be Paid to Insurer" value={`€${sumToBePaidToInsurer.toLocaleString(undefined, {minimumFractionDigits: 2})}`} icon={<FileText className="h-6 w-6 text-white"/>} color="bg-purple-500" />
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* Income (Commissions) Details */}
-                <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
-                    <h2 className="text-xl font-bold mb-4 text-teal-700">Income Details (Commissions)</h2>
-                    <div className="h-96 overflow-y-auto mb-4 border rounded-lg">
-                        <table className="w-full text-sm text-left text-gray-500">
-                            <thead className="text-xs text-gray-700 uppercase bg-gray-50 sticky top-0">
-                                <tr>
-                                    <th className="px-4 py-2">Policy Date</th>
-                                    <th className="px-4 py-2">Policy #</th>
-                                    <th className="px-4 py-2">Customer</th>
-                                    <th className="px-4 py-2 text-right">Commission</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {filteredInsurances.length > 0 ? (
-                                    filteredInsurances.map(p => (
-                                        <tr key={p.id} className="bg-white border-b hover:bg-gray-50">
-                                            <td className="px-4 py-2">{p.policyDate}</td>
-                                            <td className="px-4 py-2">{p.policyNumber}</td>
-                                            <td className="px-4 py-2">{p.customer.name} {p.customer.familyName}</td>
-                                            <td className="px-4 py-2 text-right font-medium text-teal-600">€{p.commission.toFixed(2)}</td>
-                                        </tr>
-                                    ))
-                                ) : (
-                                    <tr>
-                                        <td colSpan="4" className="px-6 py-4 text-center text-gray-500">No income (commissions) found for this period.</td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                {/* Expense Details (Insurance-related) */}
-                <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
-                    <h2 className="text-xl font-bold mb-4 text-red-700">Expense Details (Insurance-related)</h2>
-                    <div className="h-96 overflow-y-auto mb-4 border rounded-lg">
-                        <table className="w-full text-sm text-left text-gray-500">
-                            <thead className="text-xs text-gray-700 uppercase bg-gray-50 sticky top-0">
-                                <tr>
-                                    <th className="px-4 py-2">Date</th>
-                                    <th className="px-4 py-2">Reason</th>
-                                    <th className="px-4 py-2">Associated Policy</th>
-                                    <th className="px-4 py-2 text-right">Amount</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {filteredExpenses.length > 0 ? (
-                                    filteredExpenses.map(e => (
-                                        <tr key={e.id} className="bg-white border-b hover:bg-gray-50">
-                                            <td className="px-4 py-2">{e.date}</td>
-                                            <td className="px-4 py-2">{e.reason}</td>
-                                            <td className="px-4 py-2">{e.insuranceId || 'N/A'}</td>
-                                            <td className="px-4 py-2 text-right font-medium text-red-600">€{e.amount.toFixed(2)}</td>
-                                        </tr>
-                                    ))
-                                ) : (
-                                    <tr>
-                                        <td colSpan="4" className="px-6 py-4 text-center text-gray-500">No insurance-related expenses found for this period.</td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <div className="mt-8 flex justify-center">
-                <button className="bg-purple-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-purple-700 transition-colors shadow-md disabled:opacity-50" disabled>Generate PDF Report (Coming Soon)</button>
-            </div>
-        </div>
-    );
-};
-
-// Component for viewing all customers
-const Customers = ({ customers, reservations, insurances, onEditCustomer, onViewCustomer }) => {
-    const [searchTerm, setSearchTerm] = useState("");
-    const [filteredCustomers, setFilteredCustomers] = useState(customers);
-
-    useEffect(() => {
-        const lowercasedFilter = searchTerm.toLowerCase();
-        const filteredData = customers.filter(customer => {
-            return (
-                (customer.name && customer.name.toLowerCase().includes(lowercasedFilter)) ||
-                (customer.familyName && customer.familyName.toLowerCase().includes(lowercasedFilter)) ||
-                (customer.id && customer.id.toLowerCase().includes(lowercasedFilter)) ||
-                (customer.phone && customer.phone.includes(lowercasedFilter))
-            );
-        });
-        setFilteredCustomers(filteredData);
-    }, [searchTerm, customers]);
-
-    return (
-        <div className="p-4 sm:p-6 lg:p-8 bg-gray-100 min-h-screen">
-            <h1 className="text-3xl font-bold mb-6 text-gray-800">Customer List</h1>
-            <div className="mb-4 flex flex-col sm:flex-row justify-between items-center gap-4">
-                <input
-                    type="text"
-                    placeholder="Search customers by name, ID, or phone..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full sm:w-1/2 p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 shadow-sm"
-                />
-                {/* Add Customer button - placeholder */}
-                <button className="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors shadow-md" disabled>Add New Customer</button>
-            </div>
-
-            <div className="bg-white p-2 rounded-lg shadow-md overflow-x-auto border border-gray-200">
-                <table className="w-full text-sm text-left text-gray-500">
-                    <thead className="text-xs text-gray-700 uppercase bg-gray-50">
-                        <tr>
-                            <th className="px-6 py-3">Customer ID</th>
-                            <th className="px-6 py-3">Name</th>
-                            <th className="px-6 py-3">Phone</th>
-                            <th className="px-6 py-3">Address</th>
-                            <th className="px-6 py-3">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {filteredCustomers.length > 0 ? (
-                            filteredCustomers.map(customer => (
-                                <tr key={customer.id} className="bg-white border-b hover:bg-gray-50">
-                                    <td className="px-6 py-4 font-medium text-gray-900">{customer.id}</td>
-                                    <td className="px-6 py-4">{customer.name} {customer.familyName}</td>
-                                    <td className="px-6 py-4">{customer.phone}</td>
-                                    <td className="px-6 py-4">{customer.address}, {customer.city}</td>
-                                    <td className="px-6 py-4 flex space-x-2">
-                                        <button onClick={() => onViewCustomer(customer)} className="text-blue-600 hover:text-blue-800 font-medium p-1 rounded-md hover:bg-blue-100 transition-colors" title="View Details">
-                                            <Eye size={18} />
-                                        </button>
-                                        <button onClick={() => onEditCustomer(customer)} className="text-green-600 hover:text-green-800 font-medium p-1 rounded-md hover:bg-green-100 transition-colors" title="Edit Customer" disabled>
-                                            <Edit size={18} />
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))
-                        ) : (
-                            <tr>
-                                <td colSpan="5" className="px-6 py-4 text-center text-gray-500">No customers found.</td>
-                            </tr>
-                        )}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    );
-};
-
-// Customer Detail Modal Component
-const CustomerDetailModal = ({ isOpen, onClose, customer, reservations, insurances }) => {
-    if (!isOpen || !customer) return null;
-
-    const linkedReservations = reservations.filter(res => res.customerId === customer.id);
-    const linkedInsurances = insurances.filter(ins => ins.customer.id === customer.id);
-
-    return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-40 flex justify-center items-center p-4 sm:p-6 lg:p-8 overflow-y-auto">
-            <div className="bg-gray-100 rounded-lg shadow-xl w-full max-w-4xl relative">
-                <div className="p-6">
-                    <div className="flex justify-between items-center border-b pb-3 mb-4">
-                        <h2 className="text-2xl font-bold text-gray-800">Customer Details: {customer.name} {customer.familyName}</h2>
-                        <button onClick={onClose} className="text-gray-500 hover:text-gray-800 text-3xl font-bold p-1 rounded-full hover:bg-gray-200">&times;</button>
-                    </div>
-
-                    <div className="space-y-6">
-                        {/* Personal Information */}
-                        <div className="border-b pb-4">
-                            <h3 className="text-xl font-semibold mb-2 text-gray-700">Personal Information</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-700 text-sm">
-                                <p><strong>ID:</strong> {customer.id}</p>
-                                <p><strong>Full Name:</strong> {customer.name} {customer.fatherName} {customer.familyName}</p>
-                                <p><strong>Phone:</strong> {customer.phone}</p>
-                                <p><strong>Email:</strong> {customer.email}</p>
-                                <p><strong>Address:</strong> {customer.address}, {customer.city}, {customer.postCode}</p>
-                            </div>
-                        </div>
-
-                        {/* Linked Reservations */}
-                        <div className="border-b pb-4">
-                            <h3 className="text-xl font-semibold mb-2 text-gray-700">Linked Reservations</h3>
-                            {linkedReservations.length === 0 ? (
-                                <p className="text-gray-500 text-sm">No reservations found for this customer.</p>
-                            ) : (
-                                <div className="overflow-x-auto">
-                                    <table className="w-full text-sm text-left text-gray-500">
-                                        <thead className="text-xs text-gray-700 uppercase bg-gray-50">
-                                            <tr>
-                                                <th className="px-4 py-2">Res. #</th>
-                                                <th className="px-4 py-2">Tour Name</th>
-                                                <th className="px-4 py-2">Dates</th>
-                                                <th className="px-4 py-2">Status</th>
-                                                <th className="px-4 py-2 text-right">Profit</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {linkedReservations.map(res => (
-                                                <tr key={res.id} className="bg-white border-b hover:bg-gray-50">
-                                                    <td className="px-4 py-2">{res.id}</td>
-                                                    <td className="px-4 py-2">{res.tourName}</td>
-                                                    <td className="px-4 py-2">{res.checkIn} - {res.checkOut}</td>
-                                                    <td className="px-4 py-2">
-                                                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                                                            res.status === 'Confirmed' ? 'bg-green-100 text-green-800' :
-                                                            res.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
-                                                            res.status === 'Cancelled' ? 'bg-red-100 text-red-800' :
-                                                            'bg-gray-100 text-gray-800'
-                                                        }`}>
-                                                            {res.status}
-                                                        </span>
-                                                    </td>
-                                                    <td className="px-4 py-2 text-right">€{res.profit?.toFixed(2)}</td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Linked Insurances */}
-                        <div className="border-b pb-4">
-                            <h3 className="text-xl font-semibold mb-2 text-gray-700">Linked Insurance Policies</h3>
-                            {linkedInsurances.length === 0 ? (
-                                <p className="text-gray-500 text-sm">No insurance policies found for this customer.</p>
-                            ) : (
-                                <div className="overflow-x-auto">
-                                    <table className="w-full text-sm text-left text-gray-500">
-                                        <thead className="text-xs text-gray-700 uppercase bg-gray-50">
-                                            <tr>
-                                                <th className="px-4 py-2">Policy ID</th>
-                                                <th className="px-4 py-2">Type</th>
-                                                <th className="px-4 py-2">Policy #</th>
-                                                <th className="px-4 py-2">Valid Until</th>
-                                                <th className="px-4 py-2">Total</th>
-                                                <th className="px-4 py-2">Commission</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {linkedInsurances.map(ins => (
-                                                <tr key={ins.id} className="bg-white border-b hover:bg-gray-50">
-                                                    <td className="px-4 py-2">{ins.id}</td>
-                                                    <td className="px-4 py-2">{ins.type}</td>
-                                                    <td className="px-4 py-2">{ins.policyNumber}</td>
-                                                    <td className="px-4 py-2">{ins.validUntil}</td>
-                                                    <td className="px-4 py-2">€{ins.total.toFixed(2)}</td>
-                                                    <td className="px-4 py-2">€{ins.commission.toFixed(2)}</td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Customer Balance and Payments (Placeholder for now) */}
-                        <div>
-                            <h3 className="text-xl font-semibold mb-2 text-gray-700">Financial Overview</h3>
-                            <p className="text-gray-500 text-sm">Customer balance and payment details will be displayed here in a future phase.</p>
-                            <div className="flex flex-wrap gap-3 mt-3">
-                                <button className="bg-purple-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-purple-600 transition-colors shadow-sm disabled:opacity-50" disabled>View All Payments</button>
-                                <button className="bg-purple-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-purple-600 transition-colors shadow-sm disabled:opacity-50" disabled>View All Expenses</button>
-                                <button className="bg-blue-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-600 transition-colors shadow-sm disabled:opacity-50" disabled>Generate Statement</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-
-// NEW: EditTourModal Component
-const EditTourModal = ({ isOpen, onClose, tour, onUpdate }) => {
-    const [tourData, setTourData] = useState(tour);
-    const [totalDays, setTotalDays] = useState(0);
-
-    useEffect(() => {
-        setTourData(tour);
-    }, [tour]);
-
-    useEffect(() => {
-        if (tourData?.departureDate && tourData?.arrivalDate) {
-            const start = new Date(tourData.departureDate);
-            const end = new Date(tourData.arrivalDate);
-            if (end >= start) {
-                const diffTime = Math.abs(end - start);
-                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-                setTotalDays(diffDays);
-            } else {
-                setTotalDays(0);
-            }
-        }
-    }, [tourData?.departureDate, tourData?.arrivalDate]);
-
-    const handleChange = (e) => {
-        const { name, value } = e.target;
-        setTourData(prev => ({ ...prev, [name]: (name === 'maxPassengers' || name === 'nights') ? parseInt(value) || 0 : value }));
-    };
-
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        onUpdate(tourData);
-        onClose();
-    };
-
-    if (!isOpen || !tourData) return null;
-
-    return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-40 flex justify-center items-center p-4 sm:p-6 lg:p-8 overflow-y-auto">
-            <div className="bg-gray-100 rounded-lg shadow-xl w-full max-w-2xl relative">
-                <div className="p-6">
-                    <div className="flex justify-between items-center border-b pb-3 mb-4">
-                        <h2 className="text-2xl font-bold text-gray-800">Edit Tour: {tour.id}</h2>
-                        <button onClick={onClose} className="text-gray-500 hover:text-gray-800 text-3xl font-bold p-1 rounded-full hover:bg-gray-200">&times;</button>
-                    </div>
-                    <form onSubmit={handleSubmit} className="space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <InputField label="Tour ID" name="id" value={tourData.id} readOnly disabled />
-                            <InputField label="Departure Date" name="departureDate" type="date" value={tourData.departureDate} onChange={handleChange} required />
-                            <InputField label="Arrival Date" name="arrivalDate" type="date" value={tourData.arrivalDate} onChange={handleChange} required />
-                            <InputField label="Nights" name="nights" type="number" value={tourData.nights} onChange={handleChange} min="0" required />
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700">Days Including Travel</label>
-                                <p className="mt-1 p-2 h-10 flex items-center bg-gray-100 rounded-md border border-gray-300">{totalDays}</p>
-                            </div>
-                            <InputField label="Transport Company" name="transportCompany" value={tourData.transportCompany} onChange={handleChange} required />
-                            <InputField label="Hotel" name="hotel" value={tourData.hotel} onChange={handleChange} required />
-                            <InputField label="Max Passengers" name="maxPassengers" type="number" value={tourData.maxPassengers} onChange={handleChange} min="1" required />
-                        </div>
-                        <div className="flex justify-end mt-6">
-                            <button type="submit" className="bg-blue-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-blue-700 transition-colors shadow-md">Save Changes</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-
-// Main App component
 const App = () => {
-    // State for mock data (Firebase connection removed for now)
-    const [reservations, setReservations] = useState(MOCK_RESERVATIONS);
-    const [payments, setPayments] = useState(MOCK_PAYMENTS.sort((a,b) => new Date(b.date) - new Date(a.date)));
-    const [expenses, setExpenses] = useState(MOCK_EXPENSES.sort((a,b) => new Date(b.date) - new Date(a.date)));
-    const [tours, setTours] = useState([]); // New state for tours, initially empty
-    const [insurances, setInsurances] = useState(MOCK_INSURANCES); // New state for insurances
-    const [customers, setCustomers] = useState(MOCK_CUSTOMERS); // New state for customers
-    const [isLoading, setIsLoading] = useState(true); // Set to true to show loading message
+  // Firebase App, Auth, and Firestore instances
+  const [app, setApp] = useState(null);
+  const [auth, setAuth] = useState(null);
+  const [db, setDb] = useState(null);
+  const [userId, setUserId] = useState(null);
+  const [isAuthReady, setIsAuthReady] = useState(false); // To ensure Firestore ops wait for auth
 
-    // UI state
-    const [activePage, setActivePage] = useState('Dashboard');
-    // State to hold the tourId for pre-filling payment/expense forms
-    const [prefillReservationIdForPayment, setPrefillReservationIdForPayment] = useState('');
-    const [prefillReservationIdForExpense, setPrefillReservationIdForExpense] = useState('');
+  // Application state for navigation
+  const [activeTab, setActiveTab] = useState('dashboard'); // Default to dashboard for this phase
+  const [selectedReservation, setSelectedReservation] = useState(null); // For editing a reservation
+  const [selectedTour, setSelectedTour] = useState(null); // For viewing/editing a tour
 
-    const [isSidebarOpen, setSidebarOpen] = useState(false);
+  // Data states
+  const [reservations, setReservations] = useState([]);
+  const [customers, setCustomers] = useState([]);
+  const [tours, setTours] = useState([]);
+  const [financialTransactions, setFinancialTransactions] = useState([]); // New state for payments/expenses
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [message, setMessage] = useState(''); // For success/error messages
 
-    // State for editing reservations
-    const [editingReservation, setEditingReservation] = useState(null);
-    const isEditModalOpen = !!editingReservation;
+  // State for Add/Edit Reservation Form
+  const [reservationForm, setReservationForm] = useState({
+    creationDate: '',
+    reservationNumber: '',
+    tourType: 'HOTEL ONLY',
+    hotel: '',
+    food: '',
+    place: '',
+    checkIn: '',
+    checkOut: '',
+    adults: 1,
+    children: 0,
+    tourists: [{
+      firstName: '',
+      fatherName: '',
+      familyName: '',
+      id: '', // Unique ID for customer
+      address: '',
+      city: '',
+      postCode: '',
+      email: '',
+      phone: ''
+    }],
+    depositPaid: false,
+    depositAmount: 0,
+    finalAmount: 0,
+    owedToHotel: 0,
+    profit: 0, // Will be calculated
+    tourOperator: '',
+    status: 'Pending',
+    linkedTourId: '',
+    approxTransportCost: 0,
+  });
 
-    // State for editing insurance policies (placeholder)
-    const [editingInsurance, setEditingInsurance] = useState(null);
-    const isEditInsuranceModalOpen = !!editingInsurance;
+  // State for Add/Edit Tour Form (Phase 2)
+  const [tourForm, setTourForm] = useState({
+    tourId: '', // Auto-generated
+    departureDate: '',
+    arrivalDate: '',
+    nights: 0, // Manual input
+    daysInclTravel: 0, // Auto-calculated
+    transportCompany: '',
+    hotel: '', // Primary hotel for the tour
+    maxPassengers: 0,
+  });
 
-    // NEW: State for editing tours
-    const [editingTour, setEditingTour] = useState(null);
-    const isEditTourModalOpen = !!editingTour;
+  // State for Edit Customer Form
+  const [customerEditForm, setCustomerEditForm] = useState({
+    id: '',
+    firstName: '',
+    fatherName: '',
+    familyName: '',
+    address: '',
+    city: '',
+    postCode: '',
+    email: '',
+    phone: ''
+  });
+  const [showCustomerEditModal, setShowCustomerEditModal] = useState(false);
 
-    // State for viewing/editing customer details
-    const [viewingCustomer, setViewingCustomer] = useState(null);
-    const isCustomerDetailModalOpen = !!viewingCustomer;
+  // State for Add Payment/Expense Form (Phase 3)
+  const [financialTransactionForm, setFinancialTransactionForm] = useState({
+    date: '',
+    method: 'Bank',
+    amount: 0,
+    reasonDescription: '',
+    vat: 0, // Assuming fixed amount for now
+    type: 'income', // 'income' or 'expense'
+    associatedReservationId: '',
+    associatedTourId: '',
+  });
 
-    // State for collapsible menu sections
-    const [isTravelManagementOpen, setIsTravelManagementOpen] = useState(false); // Can collapse now
-    const [isInsuranceManagementOpen, setIsInsuranceManagementOpen] = useState(false); // Can collapse now
-    const [isCustomerManagementOpen, setIsCustomerManagementOpen] = useState(true); // Open by default for this phase
+  // States for Financial Reports (Phase 5)
+  const [reportStartDate, setReportStartDate] = useState('');
+  const [reportEndDate, setReportEndDate] = useState('');
+  const [reportFilterType, setReportFilterType] = useState('all'); // 'all', 'income', 'expense'
+  const [reportFilterAssociation, setReportFilterAssociation] = useState(''); // Res ID or Tour ID
 
-    // --- FETCH TOURS FROM FIREBASE ---
-    useEffect(() => {
-        const fetchTours = async () => {
-            setIsLoading(true); // Start loading
-            try {
-                const toursCollectionRef = collection(db, "tours");
-                const querySnapshot = await getDocs(toursCollectionRef);
-                const toursData = querySnapshot.docs.map(doc => ({
-                    id: doc.id,
-                    ...doc.data()
-                }));
-                setTours(toursData);
-                console.log("Successfully fetched tours from Firebase:", toursData);
-            } catch (error) {
-                console.error("Error fetching tours from Firebase: ", error);
-                // Optionally, you can set an error state here to show a message to the user
-            } finally {
-                setIsLoading(false); // Stop loading
+
+  // --- Firebase Initialization and Authentication ---
+  useEffect(() => {
+    try {
+      const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+      const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+
+      if (!app) {
+        const initializedApp = initializeApp(firebaseConfig);
+        setApp(initializedApp);
+        const authInstance = getAuth(initializedApp);
+        setAuth(authInstance);
+        const dbInstance = getFirestore(initializedApp);
+        setDb(dbInstance);
+
+        // Sign in with custom token if available, otherwise anonymously
+        const signIn = async () => {
+          try {
+            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+              try {
+                await signInWithCustomToken(authInstance, __initial_auth_token);
+                console.log("Signed in with custom token.");
+              } catch (customTokenError) {
+                console.warn("Custom token sign-in failed, attempting anonymous sign-in:", customTokenError);
+                // If custom token fails, try anonymous sign-in
+                await signInAnonymously(authInstance);
+                console.log("Signed in anonymously after custom token failure.");
+              }
+            } else {
+              // If no custom token is provided, sign in anonymously
+              await signInAnonymously(authInstance);
+              console.log("Signed in anonymously (no custom token provided).");
             }
+          } catch (e) {
+            console.error("Firebase Auth Error during final sign-in attempt:", e);
+            setError("Failed to authenticate. Please try again.");
+          }
+        };
+        signIn();
+
+        // Listen for authentication state changes
+        const unsubscribeAuth = onAuthStateChanged(authInstance, (user) => {
+          if (user) {
+            setUserId(user.uid);
+            setIsAuthReady(true); // Auth is ready, can now perform Firestore operations
+            console.log("User authenticated:", user.uid);
+          } else {
+            setUserId(null);
+            setIsAuthReady(true); // Auth state checked, even if user is null
+            console.log("No user authenticated.");
+          }
+          setLoading(false); // Auth check completed, stop initial loading
+        });
+
+        return () => unsubscribeAuth(); // Cleanup auth listener
+      }
+    } catch (e) {
+      console.error("Firebase initialization error:", e);
+      setError("Failed to initialize Firebase. Check console for details.");
+      setLoading(false);
+    }
+  }, [app]);
+
+
+  // --- Firestore Data Listeners (onSnapshot) ---
+
+  // Listen for Reservations
+  useEffect(() => {
+    if (!db || !userId || !isAuthReady) return;
+
+    const reservationsColRef = collection(db, `artifacts/${__app_id}/users/${userId}/reservations`);
+    const unsubscribeReservations = onSnapshot(reservationsColRef, (snapshot) => {
+      const reservationList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setReservations(reservationList);
+      setLoading(false);
+    }, (err) => {
+      console.error("Error fetching reservations:", err);
+      setError("Failed to load reservations. Please try again.");
+      setLoading(false);
+    });
+
+    return () => unsubscribeReservations();
+  }, [db, userId, isAuthReady]);
+
+  // Listen for Customers
+  useEffect(() => {
+    if (!db || !userId || !isAuthReady) return;
+
+    const customersColRef = collection(db, `artifacts/${__app_id}/users/${userId}/customers`);
+    const unsubscribeCustomers = onSnapshot(customersColRef, (snapshot) => {
+      const customerList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setCustomers(customerList);
+      setLoading(false);
+    }, (err) => {
+      console.error("Error fetching customers:", err);
+      setError("Failed to load customers. Please try again.");
+      setLoading(false);
+    });
+
+    return () => unsubscribeCustomers();
+  }, [db, userId, isAuthReady]);
+
+  // Listen for Tours (Phase 2)
+  useEffect(() => {
+    if (!db || !userId || !isAuthReady) return;
+
+    const toursColRef = collection(db, `artifacts/${__app_id}/users/${userId}/tours`);
+    const unsubscribeTours = onSnapshot(toursColRef, (snapshot) => {
+      const tourList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setTours(tourList);
+      setLoading(false);
+    }, (err) => {
+      console.error("Error fetching tours:", err);
+      setError("Failed to load tours. Please try again.");
+      setLoading(false);
+    });
+
+    return () => unsubscribeTours();
+  }, [db, userId, isAuthReady]);
+
+  // Listen for Financial Transactions (Phase 3)
+  useEffect(() => {
+    if (!db || !userId || !isAuthReady) return;
+
+    const financialTransactionsColRef = collection(db, `artifacts/${__app_id}/users/${userId}/financialTransactions`);
+    const unsubscribeFinancialTransactions = onSnapshot(financialTransactionsColRef, (snapshot) => {
+      const transactionList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setFinancialTransactions(transactionList);
+      setLoading(false);
+    }, (err) => {
+      console.error("Error fetching financial transactions:", err);
+      setError("Failed to load financial transactions. Please try again.");
+      setLoading(false);
+    });
+
+    return () => unsubscribeFinancialTransactions();
+  }, [db, userId, isAuthReady]);
+
+
+  // --- Helper Functions ---
+
+  const showMessage = (msg, type = 'success') => {
+    setMessage({ text: msg, type });
+    setTimeout(() => setMessage(''), 5000); // Clear message after 5 seconds
+  };
+
+  // Calculate total nights (used for Reservations and Tours)
+  const calculateDaysBetweenDates = (date1, date2) => {
+    if (date1 && date2) {
+      const d1 = new Date(date1);
+      const d2 = new Date(date2);
+      const diffTime = Math.abs(d2 - d1);
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return diffDays;
+    }
+    return 0;
+  };
+
+  // Generate unique reservation number (client-side, simple incrementing logic)
+  const generateReservationNumber = async () => {
+    if (!db || !userId) return '';
+    try {
+      const q = query(collection(db, `artifacts/${__app_id}/users/${userId}/reservations`));
+      const querySnapshot = await getDocs(q);
+      let highestNum = 100100;
+
+      const sortedReservations = querySnapshot.docs
+        .map(doc => doc.data().reservationNumber)
+        .filter(resNum => resNum && resNum.startsWith('DYT'))
+        .map(resNum => parseInt(resNum.substring(3), 10))
+        .filter(num => !isNaN(num))
+        .sort((a, b) => b - a);
+
+      if (sortedReservations.length > 0) {
+        highestNum = sortedReservations[0];
+      }
+
+      return `DYT${highestNum + 1}`;
+    } catch (err) {
+      console.error("Error generating reservation number:", err);
+      return `DYT${Date.now().toString().slice(-6)}`;
+    }
+  };
+
+  // Generate unique tour ID (Phase 2)
+  const generateTourId = async () => {
+    if (!db || !userId) return '';
+    try {
+      const q = query(collection(db, `artifacts/${__app_id}/users/${userId}/tours`));
+      const querySnapshot = await getDocs(q);
+      let highestNum = 0; // Starting point for DYT001
+
+      const sortedTours = querySnapshot.docs
+        .map(doc => doc.data().tourId)
+        .filter(tId => tId && tId.startsWith('DYT'))
+        .map(tId => parseInt(tId.substring(3), 10))
+        .filter(num => !isNaN(num))
+        .sort((a, b) => b - a);
+
+      if (sortedTours.length > 0) {
+        highestNum = sortedTours[0];
+      }
+      return `DYT${String(highestNum + 1).padStart(3, '0')}`; // DYT001, DYT002 etc.
+    } catch (err) {
+      console.error("Error generating tour ID:", err);
+      return `DYT${Date.now().toString().slice(-3)}`;
+    }
+  };
+
+
+  // --- Handlers for Reservation Form ---
+
+  const handleReservationFormChange = useCallback((e) => {
+    const { name, value, type, checked } = e.target;
+    setReservationForm(prev => {
+      const newState = {
+        ...prev,
+        [name]: type === 'checkbox' ? checked : value,
+      };
+
+      // Recalculate total nights if dates change
+      if (name === 'checkIn' || name === 'checkOut') {
+        newState.totalNights = calculateDaysBetweenDates(newState.checkIn, newState.checkOut);
+      }
+      // Recalculate profit
+      if (name === 'finalAmount' || name === 'owedToHotel') {
+        newState.profit = (parseFloat(newState.finalAmount) || 0) - (parseFloat(newState.owedToHotel) || 0);
+      }
+      return newState;
+    });
+  }, []);
+
+  const handleTouristChange = useCallback((index, e) => {
+    const { name, value } = e.target;
+    setReservationForm(prev => {
+      const newTourists = [...prev.tourists];
+      newTourists[index] = {
+        ...newTourists[index],
+        [name]: value,
+      };
+      return { ...prev, tourists: newTourists };
+    });
+  }, []);
+
+  const addTourist = useCallback(() => {
+    setReservationForm(prev => ({
+      ...prev,
+      tourists: [...prev.tourists, {
+        firstName: '',
+        fatherName: '',
+        familyName: '',
+        id: '',
+        address: '',
+        city: '',
+        postCode: '',
+        email: '',
+        phone: ''
+      }],
+    }));
+  }, []);
+
+  const removeTourist = useCallback((index) => {
+    setReservationForm(prev => ({
+      ...prev,
+      tourists: prev.tourists.filter((_, i) => i !== index),
+    }));
+  }, []);
+
+  // --- Customer Management (for Add/Edit Reservation) ---
+  const manageCustomerRecords = async (tourists) => {
+    const customersColRef = collection(db, `artifacts/${__app_id}/users/${userId}/customers`);
+
+    for (const tourist of tourists) {
+      if (!tourist.id) {
+        console.warn("Skipping customer record management for a tourist without an ID.");
+        continue;
+      }
+      const customerDocRef = doc(customersColRef, tourist.id);
+
+      try {
+        const docSnap = await getDoc(customerDocRef);
+        const customerData = {
+          firstName: tourist.firstName,
+          fatherName: tourist.fatherName,
+          familyName: tourist.familyName,
+          address: tourist.address,
+          city: tourist.city,
+          postCode: tourist.postCode,
+          email: tourist.email,
+          phone: tourist.phone,
+          id: tourist.id,
         };
 
-        fetchTours();
-    }, []); // The empty dependency array `[]` ensures this effect runs only once when the component mounts.
-
-
-    // Placeholder functions for adding/updating/deleting data (Firebase logic commented out)
-    const addReservation = (newReservation) => {
-        // Generate reservation ID if not provided, starting from DYT100101
-        let reservationId = newReservation.id;
-        if (!reservationId) {
-            const nextSeqNum = reservations.length > 0
-                ? Math.max(...reservations.map(res => parseInt(res.id.replace('DYT', '') || '0'))) + 1
-                : 100101;
-            reservationId = `DYT${nextSeqNum}`;
+        if (docSnap.exists()) {
+          await updateDoc(customerDocRef, {
+            ...customerData,
+            updatedAt: serverTimestamp()
+          });
+          console.log(`Updated customer: ${tourist.id}`);
+        } else {
+          await setDoc(customerDocRef, {
+            ...customerData,
+            createdAt: serverTimestamp()
+          });
+          console.log(`Created new customer: ${tourist.id}`);
         }
+      } catch (err) {
+        console.error(`Error managing customer ${tourist.id}:`, err);
+        throw new Error(`Failed to save/update customer ${tourist.id}.`);
+      }
+    }
+  };
 
-        const finalAmount = parseFloat(newReservation.finalPaymentAmount) || 0;
-        const owedToHotel = parseFloat(newReservation.owedToHotel) || 0;
-        // For mock data, we cannot dynamically link expenses by reservation ID.
-        // This will be fully implemented when Firebase connection is re-established.
-        const expensesConnectedToThisReservation = 0; // Placeholder
 
-        const calculatedProfit = finalAmount - owedToHotel - expensesConnectedToThisReservation;
+  // --- Submit Reservation Form ---
+  const handleSubmitReservation = async (e) => {
+    e.preventDefault();
+    if (!db || !userId) {
+      setError("Database not ready. Please try again.");
+      return;
+    }
 
-        const reservationToAdd = {
-            ...newReservation,
-            id: reservationId,
-            profit: calculatedProfit,
-        };
+    setLoading(true);
+    setError(null);
+    setMessage('');
 
-        setReservations(prev => [reservationToAdd, ...prev]);
-        setActivePage('View Reservations');
-        console.log("Added Reservation (mock):", reservationToAdd);
+    try {
+      let currentReservationNumber = reservationForm.reservationNumber;
+      if (!selectedReservation && !currentReservationNumber) {
+        currentReservationNumber = await generateReservationNumber();
+        setReservationForm(prev => ({ ...prev, reservationNumber: currentReservationNumber }));
+      }
+
+      const reservationData = {
+        ...reservationForm,
+        reservationNumber: currentReservationNumber,
+        creationDate: reservationForm.creationDate ? Timestamp.fromDate(new Date(reservationForm.creationDate)) : serverTimestamp(),
+        checkIn: reservationForm.checkIn ? Timestamp.fromDate(new Date(reservationForm.checkIn)) : null,
+        checkOut: reservationForm.checkOut ? Timestamp.fromDate(new Date(reservationForm.checkOut)) : null,
+        totalNights: calculateDaysBetweenDates(reservationForm.checkIn, reservationForm.checkOut),
+        depositPaid: reservationForm.depositPaid,
+        depositAmount: parseFloat(reservationForm.depositAmount) || 0,
+        finalAmount: parseFloat(reservationForm.finalAmount) || 0,
+        owedToHotel: parseFloat(reservationForm.owedToHotel) || 0,
+        profit: (parseFloat(reservationForm.finalAmount) || 0) - (parseFloat(reservationForm.owedToHotel) || 0),
+        adults: parseInt(reservationForm.adults) || 0,
+        children: parseInt(reservationForm.children) || 0,
+        approxTransportCost: parseFloat(reservationForm.approxTransportCost) || 0, // Phase 2 field
+      };
+
+      await manageCustomerRecords(reservationForm.tourists);
+
+      if (selectedReservation) {
+        const resDocRef = doc(db, `artifacts/${__app_id}/users/${userId}/reservations`, selectedReservation.id);
+        await updateDoc(resDocRef, { ...reservationData, updatedAt: serverTimestamp() });
+        showMessage('Reservation updated successfully!', 'success');
+      } else {
+        await addDoc(collection(db, `artifacts/${__app_id}/users/${userId}/reservations`), {
+          ...reservationData,
+          createdAt: serverTimestamp()
+        });
+        showMessage('Reservation added successfully!', 'success');
+      }
+
+      resetReservationForm();
+      setActiveTab('reservations');
+    } catch (err) {
+      console.error("Error saving reservation:", err);
+      setError(`Failed to save reservation: ${err.message || err.toString()}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resetReservationForm = useCallback(() => {
+    setReservationForm({
+      creationDate: '',
+      reservationNumber: '',
+      tourType: 'HOTEL ONLY',
+      hotel: '',
+      food: '',
+      place: '',
+      checkIn: '',
+      checkOut: '',
+      adults: 1,
+      children: 0,
+      tourists: [{
+        firstName: '',
+        fatherName: '',
+        familyName: '',
+        id: '',
+        address: '',
+        city: '',
+        postCode: '',
+        email: '',
+        phone: ''
+      }],
+      depositPaid: false,
+      depositAmount: 0,
+      finalAmount: 0,
+      owedToHotel: 0,
+      profit: 0,
+      tourOperator: '',
+      status: 'Pending',
+      linkedTourId: '',
+      approxTransportCost: 0,
+    });
+    setSelectedReservation(null);
+  }, []);
+
+  // --- Edit Reservation Logic ---
+  const handleEditReservation = useCallback((reservation) => {
+    const checkInDate = reservation.checkIn?.toDate().toISOString().split('T')[0] || '';
+    const checkOutDate = reservation.checkOut?.toDate().toISOString().split('T')[0] || '';
+    const creationDate = reservation.creationDate?.toDate().toISOString().split('T')[0] || '';
+
+    setReservationForm({
+      ...reservation,
+      creationDate: creationDate,
+      checkIn: checkInDate,
+      checkOut: checkOutDate,
+      adults: parseInt(reservation.adults) || 0,
+      children: parseInt(reservation.children) || 0,
+      depositAmount: parseFloat(reservation.depositAmount) || 0,
+      finalAmount: parseFloat(reservation.finalAmount) || 0,
+      owedToHotel: parseFloat(reservation.owedToHotel) || 0,
+      profit: parseFloat(reservation.profit) || 0,
+      approxTransportCost: parseFloat(reservation.approxTransportCost) || 0, // Phase 2 field
+      tourists: reservation.tourists ? reservation.tourists.map(t => ({ ...t })) : [{
+        firstName: '', fatherName: '', familyName: '', id: '', address: '',
+        city: '', postCode: '', email: '', phone: ''
+      }],
+    });
+    setSelectedReservation(reservation);
+    setActiveTab('addReservation');
+  }, []);
+
+  // --- Delete Reservation Logic ---
+  const handleDeleteReservation = async (reservationId) => {
+    if (!db || !userId) {
+      setError("Database not ready. Cannot delete.");
+      return;
+    }
+
+    const confirmDelete = window.confirm("Are you sure you want to delete this reservation?");
+    if (!confirmDelete) return;
+
+    setLoading(true);
+    setError(null);
+    setMessage('');
+
+    try {
+      await deleteDoc(doc(db, `artifacts/${__app_id}/users/${userId}/reservations`, reservationId));
+      showMessage('Reservation deleted successfully!', 'success');
+    } catch (err) {
+      console.error("Error deleting reservation:", err);
+      setError("Failed to delete reservation. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // --- Customer Module Logic ---
+  const handleEditCustomer = (customer) => {
+    setCustomerEditForm({ ...customer });
+    setShowCustomerEditModal(true);
+  };
+
+  const handleCustomerEditFormChange = (e) => {
+    const { name, value } = e.target;
+    setCustomerEditForm(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleUpdateCustomer = async (e) => {
+    e.preventDefault();
+    if (!db || !userId || !customerEditForm.id) {
+      setError("Database or customer ID not ready. Cannot update.");
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    setMessage('');
+
+    try {
+      const customerDocRef = doc(db, `artifacts/${__app_id}/users/${userId}/customers`, customerEditForm.id);
+      await updateDoc(customerDocRef, {
+        ...customerEditForm,
+        updatedAt: serverTimestamp()
+      });
+      showMessage('Customer updated successfully!', 'success');
+      setShowCustomerEditModal(false);
+    } catch (err) {
+      console.error("Error updating customer:", err);
+      setError("Failed to update customer. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // --- Tour Module Logic (Phase 2) ---
+
+  const handleTourFormChange = useCallback((e) => {
+    const { name, value } = e.target;
+    setTourForm(prev => {
+      const newState = {
+        ...prev,
+        [name]: value,
+      };
+      // Recalculate daysInclTravel if dates change
+      if (name === 'departureDate' || name === 'arrivalDate') {
+        newState.daysInclTravel = calculateDaysBetweenDates(newState.departureDate, newState.arrivalDate) + 1; // Inclusive of travel days
+      }
+      return newState;
+    });
+  }, []);
+
+  const handleSubmitTour = async (e) => {
+    e.preventDefault();
+    if (!db || !userId) {
+      setError("Database not ready. Please try again.");
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    setMessage('');
+
+    try {
+      let currentTourId = tourForm.tourId;
+      if (!currentTourId) { // Always generate for new tours initially
+        currentTourId = await generateTourId();
+        setTourForm(prev => ({ ...prev, tourId: currentTourId }));
+      }
+
+      const tourData = {
+        ...tourForm,
+        tourId: currentTourId,
+        departureDate: tourForm.departureDate ? Timestamp.fromDate(new Date(tourForm.departureDate)) : null,
+        arrivalDate: tourForm.arrivalDate ? Timestamp.fromDate(new Date(tourForm.arrivalDate)) : null,
+        nights: parseInt(tourForm.nights) || 0,
+        daysInclTravel: calculateDaysBetweenDates(tourForm.departureDate, tourForm.arrivalDate) + 1,
+        maxPassengers: parseInt(tourForm.maxPassengers) || 0,
+      };
+
+      // Check if updating an existing tour or adding a new one
+      const tourDocRef = doc(db, `artifacts/${__app_id}/users/${userId}/tours`, currentTourId);
+      const docSnap = await getDoc(tourDocRef);
+
+      if (docSnap.exists()) {
+        await updateDoc(tourDocRef, { ...tourData, updatedAt: serverTimestamp() });
+        showMessage('Tour updated successfully!', 'success');
+      } else {
+        await setDoc(tourDocRef, { ...tourData, createdAt: serverTimestamp() }); // Use setDoc with custom ID
+        showMessage('Tour added successfully!', 'success');
+      }
+
+      resetTourForm();
+      setActiveTab('tours');
+    } catch (err) {
+      console.error("Error saving tour:", err);
+      setError(`Failed to save tour: ${err.message || err.toString()}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resetTourForm = useCallback(() => {
+    setTourForm({
+      tourId: '',
+      departureDate: '',
+      arrivalDate: '',
+      nights: 0,
+      daysInclTravel: 0,
+      transportCompany: '',
+      hotel: '',
+      maxPassengers: 0,
+    });
+    setSelectedTour(null);
+  }, []);
+
+  const handleEditTour = useCallback((tour) => {
+    const departureDate = tour.departureDate?.toDate().toISOString().split('T')[0] || '';
+    const arrivalDate = tour.arrivalDate?.toDate().toISOString().split('T')[0] || '';
+
+    setTourForm({
+      ...tour,
+      departureDate: departureDate,
+      arrivalDate: arrivalDate,
+      nights: parseInt(tour.nights) || 0,
+      daysInclTravel: parseInt(tour.daysInclTravel) || 0,
+      maxPassengers: parseInt(tour.maxPassengers) || 0,
+    });
+    setSelectedTour(tour);
+    setActiveTab('addTour'); // Re-use the add tour form for editing
+  }, []);
+
+  const handleDeleteTour = async (tourId) => {
+    if (!db || !userId) {
+      setError("Database not ready. Cannot delete.");
+      return;
+    }
+
+    const confirmDelete = window.confirm("Are you sure you want to delete this tour? This will not un-link existing reservations.");
+    if (!confirmDelete) return;
+
+    setLoading(true);
+    setError(null);
+    setMessage('');
+
+    try {
+      await deleteDoc(doc(db, `artifacts/${__app_id}/users/${userId}/tours`, tourId));
+      showMessage('Tour deleted successfully!', 'success');
+    } catch (err) {
+      console.error("Error deleting tour:", err);
+      setError("Failed to delete tour. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Helper to get reservations linked to a specific tour
+  const getLinkedReservations = useCallback((tourId) => {
+    return reservations.filter(res => res.linkedTourId === tourId);
+  }, [reservations]);
+
+
+  // --- Financial Transaction Module Logic (Phase 3) ---
+
+  const handleFinancialTransactionFormChange = useCallback((e) => {
+    const { name, value, type } = e.target;
+    setFinancialTransactionForm(prev => {
+      let newState = { ...prev };
+
+      // Handle clearing the other association field if one is selected
+      if (name === 'associatedReservationId' && value !== '') {
+        newState.associatedTourId = '';
+      } else if (name === 'associatedTourId' && value !== '') {
+        newState.associatedReservationId = '';
+      }
+
+      newState = {
+        ...newState,
+        [name]: type === 'number' ? parseFloat(value) || 0 : value,
+      };
+
+      return newState;
+    });
+  }, []);
+
+  const handleSubmitFinancialTransaction = async (e) => {
+    e.preventDefault();
+    if (!db || !userId) {
+      setError("Database not ready. Please try again.");
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    setMessage('');
+
+    try {
+      const transactionData = {
+        ...financialTransactionForm,
+        date: financialTransactionForm.date ? Timestamp.fromDate(new Date(financialTransactionForm.date)) : serverTimestamp(),
+        amount: parseFloat(financialTransactionForm.amount) || 0,
+        vat: parseFloat(financialTransactionForm.vat) || 0,
+        createdAt: serverTimestamp(),
+      };
+
+      await addDoc(collection(db, `artifacts/${__app_id}/users/${userId}/financialTransactions`), transactionData);
+      showMessage(`${financialTransactionForm.type === 'income' ? 'Payment' : 'Expense'} added successfully!`, 'success');
+      resetFinancialTransactionForm();
+      setActiveTab('payments');
+    } catch (err) {
+      console.error("Error saving financial transaction:", err);
+      setError(`Failed to save financial transaction: ${err.message || err.toString()}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resetFinancialTransactionForm = useCallback(() => {
+    setFinancialTransactionForm({
+      date: '',
+      method: 'Bank',
+      amount: 0,
+      reasonDescription: '',
+      vat: 0,
+      type: 'income', // Default to income
+      associatedReservationId: '',
+      associatedTourId: '',
+    });
+  }, []);
+
+
+  // --- Dashboard Calculations (Phase 4) ---
+  const dashboardStats = useMemo(() => {
+    const totalReservations = reservations.length;
+    const totalProfit = reservations.reduce((sum, res) => sum + (res.profit || 0), 0);
+    const averageProfitPerReservation = totalReservations > 0 ? totalProfit / totalReservations : 0;
+    const totalNightsSum = reservations.reduce((sum, res) => sum + (res.totalNights || 0), 0);
+    const averageStayPerReservation = totalReservations > 0 ? totalNightsSum / totalReservations : 0;
+
+    const totalIncome = financialTransactions
+      .filter(ft => ft.type === 'income')
+      .reduce((sum, ft) => sum + (ft.amount || 0), 0);
+
+    const totalExpenses = financialTransactions
+      .filter(ft => ft.type === 'expense')
+      .reduce((sum, ft) => sum + (ft.amount || 0), 0);
+
+    let totalBookedPassengersAcrossAllTours = 0;
+    let totalMaxPassengersAcrossAllTours = 0;
+
+    tours.forEach(tour => {
+      const linkedReservations = reservations.filter(res => res.linkedTourId === tour.tourId);
+      const bookedPassengersForTour = linkedReservations.reduce((sum, res) => sum + (res.adults || 0) + (res.children || 0), 0);
+      totalBookedPassengersAcrossAllTours += bookedPassengersForTour;
+      totalMaxPassengersAcrossAllTours += (tour.maxPassengers || 0);
+    });
+
+    const overallBusTourFulfillment = totalMaxPassengersAcrossAllTours > 0
+      ? (totalBookedPassengersAcrossAllTours / totalMaxPassengersAcrossAllTours) * 100
+      : 0;
+
+    return {
+      totalReservations,
+      totalProfit,
+      averageProfitPerReservation,
+      averageStayPerReservation,
+      totalIncome,
+      totalExpenses,
+      overallBusTourFulfillment,
+      totalBusPassengersBooked: totalBookedPassengersAcrossAllTours,
     };
-
-    const addTour = (newTour) => {
-        // In-memory addition for mock data
-        setTours(prev => [...prev, { ...newTour, bookedPassengers: 0, fulfillment: '0.0%' }]); // Initialize booked & fulfillment
-        setActivePage('View Tours');
-        console.log("Added Tour (mock):", newTour);
-    };
-
-    const addInsurance = (newPolicy) => {
-        // In-memory addition for mock data
-        setInsurances(prev => [...prev, { ...newPolicy }]);
-        setActivePage('View Insurance');
-        console.log("Added Insurance (mock):", newPolicy);
-    };
+  }, [reservations, financialTransactions, tours]);
 
 
-    const addPayment = (newPayment) => {
-        // In-memory addition for mock data
-        setPayments(prev => [{ ...newPayment, id: Date.now().toString() }, ...prev].sort((a, b) => new Date(b.date) - new Date(a.date)));
-        console.log("Added Payment (mock):", newPayment);
-    };
+  // --- Financial Reports Logic (Phase 5) ---
 
-    const addExpense = (newExpense) => {
-        // In-memory addition for mock data
-        setExpenses(prev => [{ ...newExpense, id: Date.now().toString() }, ...prev].sort((a, b) => new Date(b.date) - new Date(a.date)));
-        console.log("Added Expense (mock):", newExpense);
-    };
+  const handleReportFilterChange = useCallback((e) => {
+    const { name, value } = e.target;
+    if (name === 'reportStartDate') setReportStartDate(value);
+    else if (name === 'reportEndDate') setReportEndDate(value);
+    else if (name === 'reportFilterType') setReportFilterType(value);
+    else if (name === 'reportFilterAssociation') setReportFilterAssociation(value);
+  }, []);
 
-    const handleEditReservation = (reservation) => {
-        setEditingReservation(reservation);
-    };
+  const filteredFinancialTransactions = useMemo(() => {
+    return financialTransactions.filter(ft => {
+      const transactionDate = ft.date?.toDate();
+      const startDate = reportStartDate ? new Date(reportStartDate) : null;
+      const endDate = reportEndDate ? new Date(reportEndDate) : null;
 
-    const handleUpdateReservation = (updatedReservation) => {
-        // In-memory update for mock data
-        setReservations(prev => prev.map(res => res.id === updatedReservation.id ? updatedReservation : res));
-        console.log("Updated Reservation (mock):", updatedReservation);
-    };
+      // Filter by date range
+      if (startDate && transactionDate < startDate) return false;
+      if (endDate && transactionDate > endDate) return false;
 
-    const handleDeleteReservation = (idToDelete) => {
-        // In-memory deletion for mock data
-        // Using a custom message box instead of window.confirm for better UI/UX in a web app
-        const confirmation = window.confirm(`Are you sure you want to delete reservation ${idToDelete}?`); // Placeholder for custom modal
-        if (confirmation) {
-            setReservations(prev => prev.filter(res => res.id !== idToDelete));
-            console.log("Deleted Reservation (mock):", idToDelete);
-        }
-    };
+      // Filter by type (income/expense)
+      if (reportFilterType !== 'all' && ft.type !== reportFilterType) return false;
 
-    const handleCloseEditModal = () => {
-        setEditingReservation(null);
-    };
+      // Filter by association (reservation/tour ID)
+      if (reportFilterAssociation) {
+        const lowerCaseFilter = reportFilterAssociation.toLowerCase();
+        const matchesReservation = ft.associatedReservationId?.toLowerCase().includes(lowerCaseFilter);
+        const matchesTour = ft.associatedTourId?.toLowerCase().includes(lowerCaseFilter);
+        if (!matchesReservation && !matchesTour) return false;
+      }
 
-    // Placeholder for Insurance Edit/Update/Delete (will be fully implemented later if needed)
-    const handleEditInsurance = (policy) => {
-        setEditingInsurance(policy);
-        console.log("Edit Insurance (mock):", policy);
-    };
+      return true;
+    }).sort((a, b) => b.date?.toDate() - a.date?.toDate()); // Sort by date descending
+  }, [financialTransactions, reportStartDate, reportEndDate, reportFilterType, reportFilterAssociation]);
 
-    const handleUpdateInsurance = (updatedPolicy) => {
-        setInsurances(prev => prev.map(ins => ins.id === updatedPolicy.id ? updatedPolicy : ins));
-        console.log("Updated Insurance (mock):", updatedPolicy);
-    };
+  const reportTotals = useMemo(() => {
+    let totalIncome = 0;
+    let totalExpenses = 0;
+    filteredFinancialTransactions.forEach(ft => {
+      if (ft.type === 'income') {
+        totalIncome += (ft.amount || 0);
+      } else if (ft.type === 'expense') {
+        totalExpenses += (ft.amount || 0);
+      }
+    });
+    const netProfit = totalIncome - totalExpenses;
+    return { totalIncome, totalExpenses, netProfit };
+  }, [filteredFinancialTransactions]);
 
-    const handleCloseEditInsuranceModal = () => {
-        setEditingInsurance(null);
-    };
-
-    const handleAddPaymentForInsurance = (insuranceId) => {
-        setActivePage('Add Payment');
-        // Optionally pre-fill the insuranceId in the AddPayment form state
-        // This requires modifying AddPayment's state to accept a default value.
-        // For now, it just navigates.
-        console.log(`Navigating to Add Payment for Insurance ID: ${insuranceId}`);
-    };
-
-    const handleAddExpenseForInsurance = (insuranceId) => {
-        setActivePage('Add Expense');
-        // Optionally pre-fill the insuranceId in the AddExpense form state
-        console.log(`Navigating to Add Expense for Insurance ID: ${insuranceId}`);
-    };
-
-    // --- NEW: Handlers for Add Payment/Expense from Tour Details ---
-    const handleAddPaymentForTour = (tourId) => {
-        setPrefillReservationIdForPayment(tourId); // Set the tour ID to pre-fill
-        setActivePage('Add Payment'); // Navigate to Add Payment page
-    };
-
-    const handleAddExpenseForTour = (tourId) => {
-        setPrefillReservationIdForExpense(tourId); // Set the tour ID to pre-fill
-        setActivePage('Add Expense'); // Navigate to Add Expense page
-    };
-
-    // NEW: Handlers for Tour editing
-    const handleEditTour = (tour) => {
-        setEditingTour(tour); // Set the tour to be edited
-    };
-
-    const handleUpdateTour = (updatedTour) => {
-        setTours(prev => prev.map(t => t.id === updatedTour.id ? updatedTour : t));
-        console.log("Updated Tour (mock):", updatedTour);
-    };
-
-    const handleCloseEditTourModal = () => {
-        setEditingTour(null);
-    };
-
-    // Customer related handlers
-    const handleViewCustomer = (customer) => {
-        setViewingCustomer(customer);
-    };
-
-    const handleCloseCustomerDetailModal = () => {
-        setViewingCustomer(null);
-    };
-
-    const handleEditCustomer = (customer) => {
-        // setEditingCustomer(customer); // Future implementation
-        console.log("Edit Customer (placeholder):", customer);
-    };
+  const resetFinancialReportsFilters = useCallback(() => {
+    setReportStartDate('');
+    setReportEndDate('');
+    setReportFilterType('all');
+    setReportFilterAssociation('');
+  }, []);
 
 
-    // Render the active page component based on `activePage` state
-    const renderPage = () => {
-        if (isLoading) {
-            return <div className="p-8 text-center text-gray-700"><h1>Loading data from Firebase...</h1></div>;
-        }
-        switch (activePage) {
-            case 'Dashboard': return <Dashboard reservations={reservations} payments={payments} expenses={expenses} tours={tours} insurances={insurances} />;
-            case 'Create Reservation': return <CreateReservation onAddReservation={addReservation} expenses={expenses} />;
-            case 'View Reservations': return <ViewReservations reservations={reservations} onEdit={handleEditReservation} onDelete={handleDeleteReservation} />;
-            // MODIFIED: Pass prefillReservationId to AddPayment and AddExpense
-            case 'Add Payment': return <AddPayment onAddPayment={addPayment} payments={payments} reservations={reservations} insurances={insurances} prefillReservationId={prefillReservationIdForPayment} />;
-            case 'Add Expense': return <AddExpense onAddExpense={addExpense} expenses={expenses} reservations={reservations} insurances={insurances} prefillReservationId={prefillReservationIdForExpense} />;
-            case 'Financial Reports': return <FinancialReports payments={payments} expenses={expenses} />;
-            case 'Create Vouchers': return <CreateVouchers />;
-            // Bus Tour components
-            case 'Create Tour': return <CreateTour onAddTour={addTour} tours={tours} />;
-            // MODIFIED: Pass new handlers to ViewTours
-            case 'View Tours': return <ViewTours tours={tours} reservations={reservations} onAddPaymentForTour={handleAddPaymentForTour} onAddExpenseForTour={handleAddExpenseForTour} onEditTour={handleEditTour} />;
-            case 'Add Reservation to Tour': return <AddReservationToTour onAddReservation={addReservation} tours={tours} />;
-            // Insurance Management components
-            case 'Add Insurance': return <AddInsurance onAddInsurance={addInsurance} insurances={insurances} />;
-            case 'View Insurance': return <ViewInsurance insurances={insurances} onEdit={handleEditInsurance} onAddPayment={handleAddPaymentForInsurance} onAddExpense={handleAddExpenseForInsurance} />;
-            case 'Insurance Financial Reports': return <InsuranceFinancialReports insurances={insurances} payments={payments} expenses={expenses} />;
-            // Customer Management components
-            case 'View All Customers': return <Customers customers={customers} reservations={reservations} insurances={insurances} onEditCustomer={handleEditCustomer} onViewCustomer={handleViewCustomer} />;
-
-            case 'Travel Management Overview': return <div className="p-8 bg-gray-100 min-h-screen"><h1 className="text-3xl font-bold text-gray-800">Travel Management Overview (Coming Soon)</h1></div>;
-            case 'Insurance Management Overview': return <div className="p-8 bg-gray-100 min-h-screen"><h1 className="text-3xl font-bold text-gray-800">Insurance Management Overview (Coming Soon)</h1></div>;
-            default: return <Dashboard reservations={reservations} payments={payments} expenses={expenses} tours={tours} insurances={insurances} />;
-        }
-    };
-
-    // NavItem component for sidebar links
-    const NavItem = ({ icon, label }) => (
-        <li className={`flex items-center p-3 my-1 cursor-pointer rounded-lg transition-colors ${activePage === label ? 'bg-blue-700 text-amber-400 shadow-lg' : 'text-amber-400 hover:bg-blue-700 hover:text-white'}`}
-            onClick={() => { setActivePage(label); setSidebarOpen(false); }}>
-            {React.cloneElement(icon, { className: 'h-6 w-6 mr-3' })}
-            <span className="font-medium">{label}</span>
-        </li>
-    );
-
-    // Collapsible Nav Section component
-    const NavSection = ({ title, icon, isOpen, toggleOpen, children }) => (
-        <>
-            <li className={`flex items-center justify-between p-3 my-1 cursor-pointer rounded-lg transition-colors ${isOpen ? 'bg-blue-800 text-amber-400 shadow-md' : 'text-amber-400 hover:bg-blue-700'}`}
-                onClick={toggleOpen}>
-                <div className="flex items-center">
-                    {React.cloneElement(icon, { className: 'h-6 w-6 mr-3' })}
-                    <span className="font-semibold">{title}</span>
-                </div>
-                {isOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-            </li>
-            {isOpen && (
-                <ul className="ml-4 border-l border-blue-700 pl-2">
-                    {children}
-                </ul>
-            )}
-        </>
-    );
-
-    return (
-        <div className="flex h-screen bg-gray-100 font-sans">
-            {/* Hamburger menu button for mobile */}
-            <button
-                className="lg:hidden fixed top-4 left-4 z-30 bg-blue-900 p-2 rounded-md shadow-md text-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400"
-                onClick={() => setSidebarOpen(!isSidebarOpen)}
-                aria-label="Toggle Navigation"
-            >
-                {isSidebarOpen ? '✕' : '☰'}
-            </button>
-
-            {/* Sidebar */}
-            <aside className={`fixed lg:relative lg:translate-x-0 inset-y-0 left-0 w-64 bg-blue-900 shadow-xl z-20 transform transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} overflow-y-auto`}>
-                {/* Logo and Title Section in Sidebar */}
-                <div className="p-4 border-b border-blue-700 flex items-center justify-center">
-                    {/* Crown SVG Logo */}
-                    <Crown className="h-9 w-9 text-amber-400 mr-2" />
-                    <h1 className="text-2xl font-extrabold text-amber-400">Ananov BMS</h1>
-                </div>
-                <nav className="p-4">
-                    <ul>
-                        {/* Dashboard */}
-                        <NavItem icon={<Home />} label="Dashboard" onClick={() => setActivePage('Dashboard')} />
-
-                        {/* Travel Management Section */}
-                        <NavSection
-                            title="Travel Management"
-                            icon={<Briefcase />}
-                            isOpen={isTravelManagementOpen}
-                            toggleOpen={() => setIsTravelManagementOpen(!isTravelManagementOpen)}
-                        >
-                            <NavItem icon={<PlusCircle />} label="Create Reservation" />
-                            <NavItem icon={<Eye />} label="View Reservations" />
-                            <NavItem icon={<DollarSign />} label="Add Payment" />
-                            <NavItem icon={<ArrowLeftRight />} label="Add Expense" />
-                            <NavItem icon={<TrendingUp />} label="Financial Reports" />
-                            <NavItem icon={<FileText />} label="Create Vouchers" />
-                            <hr className="my-2 border-blue-700/50" /> {/* Separator */}
-                            <h3 className="text-sm font-semibold text-amber-400/80 px-3 py-1">Bus Tours & Holidays</h3>
-                            <NavItem icon={<Bus />} label="Create Tour" onClick={() => setActivePage('Create Tour')} />
-                            <NavItem icon={<CalendarCheck />} label="View Tours" onClick={() => setActivePage('View Tours')} />
-                            <NavItem icon={<UserPlus />} label="Add Reservation to Tour" onClick={() => setActivePage('Add Reservation to Tour')} />
-                            {/* Placeholder for new Travel sub-sections */}
-                            <NavItem icon={<Briefcase />} label="Travel Management Overview" />
-                        </NavSection>
-
-                        {/* Insurance Management Section */}
-                        <NavSection
-                            title="Insurance Management"
-                            icon={<Shield />}
-                            isOpen={isInsuranceManagementOpen}
-                            toggleOpen={() => setIsInsuranceManagementOpen(!isInsuranceManagementOpen)}
-                        >
-                            <NavItem icon={<PlusCircle />} label="Add Insurance" onClick={() => setActivePage('Add Insurance')} />
-                            <NavItem icon={<Eye />} label="View Insurance" onClick={() => setActivePage('View Insurance')} />
-                            <NavItem icon={<TrendingUp />} label="Insurance Financial Reports" onClick={() => setActivePage('Insurance Financial Reports')} />
-                            {/* Placeholder for new Insurance sub-sections */}
-                            <NavItem icon={<Briefcase />} label="Insurance Management Overview" />
-                        </NavSection>
-
-                        {/* Customer Management Section */}
-                        <NavSection
-                            title="Customer Management"
-                            icon={<UserRound />}
-                            isOpen={isCustomerManagementOpen}
-                            toggleOpen={() => setIsCustomerManagementOpen(!isCustomerManagementOpen)}
-                        >
-                            <NavItem icon={<Users />} label="View All Customers" onClick={() => setActivePage('View All Customers')} />
-                            {/* Placeholder for other customer related items */}
-                            {/* <NavItem icon={<PlusCircle />} label="Add New Customer" onClick={() => setActivePage('Add New Customer')} /> */}
-                        </NavSection>
-                    </ul>
-                </nav>
-            </aside>
-
-            {/* Main content area */}
-            <main className="flex-1 overflow-y-auto relative">
-                {/* Fixed Header Bar */}
-                <header className="bg-blue-900 p-4 shadow-md border-b border-blue-700 flex items-center justify-between lg:justify-start sticky top-0 z-10">
-                    <div className="flex items-center">
-                        {/* Crown SVG Logo */}
-                        <Crown className="h-8 w-8 text-amber-400 mr-3" />
-                        <h1 className="text-2xl font-bold text-amber-400">Ananov Business Management Systems</h1>
-                    </div>
-                    {/* The mobile menu button is on the far left */}
-                </header>
-
-                {/* Content of the active page */}
-                {renderPage()}
-            </main>
-
-            {/* Modals */}
-            <EditReservationModal
-                isOpen={isEditModalOpen}
-                onClose={handleCloseEditModal}
-                reservation={editingReservation}
-                onUpdate={handleUpdateReservation}
-            />
-            {/* Placeholder for Edit Insurance Modal */}
-            {/* {isEditInsuranceModalOpen && (
-                <EditInsuranceModal
-                    isOpen={isEditInsuranceModalOpen}
-                    onClose={handleCloseEditInsuranceModal}
-                    policy={editingInsurance}
-                    onUpdate={handleUpdateInsurance}
-                />
-            )} */}
-            {/* NEW: EditTourModal */}
-            <EditTourModal
-                isOpen={isEditTourModalOpen}
-                onClose={handleCloseEditTourModal}
-                tour={editingTour}
-                onUpdate={handleUpdateTour}
-            />
-            <CustomerDetailModal
-                isOpen={isCustomerDetailModalOpen}
-                onClose={handleCloseCustomerDetailModal}
-                customer={viewingCustomer}
-                reservations={reservations}
-                insurances={insurances}
-            />
+  // Render UI based on activeTab
+  const renderContent = () => {
+    if (loading) {
+      return (
+        <div className="flex justify-center items-center h-full">
+          <div className="text-orange-500 text-lg">Loading...</div>
         </div>
-    );
+      );
+    }
+
+    switch (activeTab) {
+      case 'dashboard':
+        return (
+          <div className="p-6 bg-white rounded-lg shadow-md">
+            <h2 className="text-2xl font-semibold mb-6 text-gray-800">Dashboard & Analytics</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {/* Reservation Stats */}
+              <div className="bg-blue-50 p-4 rounded-lg shadow-sm border border-blue-200">
+                <h3 className="font-semibold text-lg text-blue-800 mb-2">Reservation Metrics</h3>
+                <p className="text-gray-700">Total Reservations: <span className="font-bold text-blue-900">{dashboardStats.totalReservations}</span></p>
+                <p className="text-gray-700">Total Profit: <span className="font-bold text-blue-900">${dashboardStats.totalProfit.toFixed(2)}</span></p>
+                <p className="text-gray-700">Avg. Profit/Res: <span className="font-bold text-blue-900">${dashboardStats.averageProfitPerReservation.toFixed(2)}</span></p>
+                <p className="text-gray-700">Avg. Stay/Res: <span className="font-bold text-blue-900">{dashboardStats.averageStayPerReservation.toFixed(1)} nights</span></p>
+              </div>
+
+              {/* Financial Stats */}
+              <div className="bg-green-50 p-4 rounded-lg shadow-sm border border-green-200">
+                <h3 className="font-semibold text-lg text-green-800 mb-2">Financial Overview</h3>
+                <p className="text-gray-700">Total Income: <span className="font-bold text-green-900">${dashboardStats.totalIncome.toFixed(2)}</span></p>
+                <p className="text-gray-700">Total Expenses: <span className="font-bold text-red-900">${dashboardStats.totalExpenses.toFixed(2)}</span></p>
+                <p className="text-gray-700">Net Profit/Loss: <span className={`font-bold ${dashboardStats.totalIncome - dashboardStats.totalExpenses >= 0 ? 'text-green-900' : 'text-red-900'}`}>${(dashboardStats.totalIncome - dashboardStats.totalExpenses).toFixed(2)}</span></p>
+              </div>
+
+              {/* Bus Tour Stats */}
+              <div className="bg-purple-50 p-4 rounded-lg shadow-sm border border-purple-200">
+                <h3 className="font-semibold text-lg text-purple-800 mb-2">Bus Tour Performance</h3>
+                <p className="text-gray-700">Total Bus Passengers Booked: <span className="font-bold text-purple-900">{dashboardStats.totalBusPassengersBooked}</span></p>
+                <p className="text-gray-700">Overall Fulfillment: <span className="font-bold text-purple-900">{dashboardStats.overallBusTourFulfillment.toFixed(1)}%</span></p>
+              </div>
+            </div>
+          </div>
+        );
+      case 'reservations':
+        return (
+          <div className="p-6 bg-white rounded-lg shadow-md">
+            <h2 className="text-2xl font-semibold mb-6 text-gray-800">Hotel Reservations</h2>
+            {reservations.length === 0 ? (
+              <p className="text-gray-600">No reservations found. Add a new reservation to get started!</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full bg-white rounded-lg overflow-hidden">
+                  <thead className="bg-blue-900 text-white">
+                    <tr>
+                      <th className="py-3 px-4 text-left">Reservation Number</th>
+                      <th className="py-3 px-4 text-left">Hotel</th>
+                      <th className="py-3 px-4 text-left">Lead Guest</th>
+                      <th className="py-3 px-4 text-left">Tour ID</th>
+                      <th className="py-3 px-4 text-left">Deposit Paid</th>
+                      <th className="py-3 px-4 text-left">Dates</th>
+                      <th className="py-3 px-4 text-left">Status</th>
+                      <th className="py-3 px-4 text-left">Profit</th>
+                      <th className="py-3 px-4 text-center">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="text-gray-700">
+                    {reservations.map(res => (
+                      <tr key={res.id} className="border-b border-gray-200 hover:bg-gray-50">
+                        <td className="py-3 px-4">{res.reservationNumber}</td>
+                        <td className="py-3 px-4">{res.hotel}</td>
+                        <td className="py-3 px-4">{res.tourists && res.tourists.length > 0 ? `${res.tourists[0].firstName} ${res.tourists[0].familyName}` : 'N/A'}</td>
+                        <td className="py-3 px-4">{res.linkedTourId || 'N/A'}</td>
+                        <td className="py-3 px-4">{res.depositPaid ? 'Yes' : 'No'}</td>
+                        <td className="py-3 px-4">
+                          {res.checkIn?.toDate().toLocaleDateString()} - {res.checkOut?.toDate().toLocaleDateString()}
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                            res.status === 'Confirmed' ? 'bg-green-100 text-green-800' :
+                            res.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
+                            res.status === 'Cancelled' ? 'bg-red-100 text-red-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {res.status}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-right">${res.profit.toFixed(2)}</td>
+                        <td className="py-3 px-4 flex justify-center space-x-2">
+                          <button
+                            onClick={() => handleEditReservation(res)}
+                            className="bg-orange-500 hover:bg-orange-600 text-white p-2 rounded-full shadow-md transition duration-200"
+                            title="Edit"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                              <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zm-5.69 5.69L11.586 7.586 14.414 10.414 11.586 13.242 8.758 10.414l2.828-2.828z" />
+                              <path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm-4 8a1 1 0 011-1h1a1 1 0 110 2H7a1 1 0 01-1-1zm10 0a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1zM4 14a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm10 0a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1zM3 18a1 1 0 011-1h1a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => handleDeleteReservation(res.id)}
+                            className="bg-red-500 hover:bg-red-600 text-white p-2 rounded-full shadow-md transition duration-200"
+                            title="Delete"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1zm-1 3a1 1 0 011-1h4a1 1 0 110 2H7a1 1 0 01-1-1zm-1 3a1 1 0 011-1h4a1 1 0 110 2H7a1 1 0 01-1-1z" clipRule="evenodd" />
+                            </svg>
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        );
+
+      case 'addReservation':
+        return (
+          <div className="p-6 bg-white rounded-lg shadow-md">
+            <h2 className="text-2xl font-semibold mb-6 text-gray-800">
+              {selectedReservation ? 'Edit Hotel Reservation' : 'Add New Hotel Reservation'}
+            </h2>
+            <form onSubmit={handleSubmitReservation} className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+              {/* Basic Info */}
+              <div>
+                <label htmlFor="creationDate" className="block text-sm font-medium text-gray-700">Creation Date</label>
+                <input
+                  type="date"
+                  name="creationDate"
+                  id="creationDate"
+                  value={reservationForm.creationDate}
+                  onChange={handleReservationFormChange}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  required
+                />
+              </div>
+              <div>
+                <label htmlFor="reservationNumber" className="block text-sm font-medium text-gray-700">Reservation Number</label>
+                <input
+                  type="text"
+                  name="reservationNumber"
+                  id="reservationNumber"
+                  value={reservationForm.reservationNumber}
+                  onChange={handleReservationFormChange}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  placeholder="Auto-generated or editable"
+                />
+              </div>
+              <div>
+                <label htmlFor="tourType" className="block text-sm font-medium text-gray-700">Tour Type</label>
+                <select
+                  name="tourType"
+                  id="tourType"
+                  value={reservationForm.tourType}
+                  onChange={handleReservationFormChange}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                >
+                  <option value="PARTNER">PARTNER</option>
+                  <option value="HOTEL ONLY">HOTEL ONLY</option>
+                </select>
+              </div>
+              <div>
+                <label htmlFor="hotel" className="block text-sm font-medium text-gray-700">Hotel</label>
+                <input
+                  type="text"
+                  name="hotel"
+                  id="hotel"
+                  value={reservationForm.hotel}
+                  onChange={handleReservationFormChange}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  required
+                />
+              </div>
+              <div>
+                <label htmlFor="food" className="block text-sm font-medium text-gray-700">Food</label>
+                <input
+                  type="text"
+                  name="food"
+                  id="food"
+                  value={reservationForm.food}
+                  onChange={handleReservationFormChange}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                />
+              </div>
+              <div>
+                <label htmlFor="place" className="block text-sm font-medium text-gray-700">Place</label>
+                <input
+                  type="text"
+                  name="place"
+                  id="place"
+                  value={reservationForm.place}
+                  onChange={handleReservationFormChange}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                />
+              </div>
+              <div>
+                <label htmlFor="checkIn" className="block text-sm font-medium text-gray-700">Check-In Date</label>
+                <input
+                  type="date"
+                  name="checkIn"
+                  id="checkIn"
+                  value={reservationForm.checkIn}
+                  onChange={handleReservationFormChange}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  required
+                />
+              </div>
+              <div>
+                <label htmlFor="checkOut" className="block text-sm font-medium text-gray-700">Check-Out Date</label>
+                <input
+                  type="date"
+                  name="checkOut"
+                  id="checkOut"
+                  value={reservationForm.checkOut}
+                  onChange={handleReservationFormChange}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  required
+                />
+              </div>
+              <div>
+                <label htmlFor="totalNights" className="block text-sm font-medium text-gray-700">Total Nights</label>
+                <input
+                  type="number"
+                  name="totalNights"
+                  id="totalNights"
+                  value={reservationForm.totalNights}
+                  readOnly
+                  className="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm px-3 py-2"
+                />
+              </div>
+              <div>
+                <label htmlFor="adults" className="block text-sm font-medium text-gray-700">Adults</label>
+                <input
+                  type="number"
+                  name="adults"
+                  id="adults"
+                  value={reservationForm.adults}
+                  onChange={handleReservationFormChange}
+                  min="0"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                />
+              </div>
+              <div>
+                <label htmlFor="children" className="block text-sm font-medium text-gray-700">Children</label>
+                <input
+                  type="number"
+                  name="children"
+                  id="children"
+                  value={reservationForm.children}
+                  onChange={handleReservationFormChange}
+                  min="0"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                />
+              </div>
+
+              {/* Phase 2: Link to Tour */}
+              <div>
+                <label htmlFor="linkedTourId" className="block text-sm font-medium text-gray-700">Select Tour (Optional)</label>
+                <select
+                  name="linkedTourId"
+                  id="linkedTourId"
+                  value={reservationForm.linkedTourId}
+                  onChange={handleReservationFormChange}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                >
+                  <option value="">-- None --</option>
+                  {tours.map(tour => (
+                    <option key={tour.id} value={tour.tourId}>
+                      {tour.tourId} - {tour.hotel} ({tour.departureDate?.toDate().toLocaleDateString()})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="approxTransportCost" className="block text-sm font-medium text-gray-700">Approx. Transport Cost</label>
+                <input
+                  type="number"
+                  name="approxTransportCost"
+                  id="approxTransportCost"
+                  value={reservationForm.approxTransportCost}
+                  onChange={handleReservationFormChange}
+                  min="0"
+                  step="0.01"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                />
+              </div>
+
+              {/* Tourist Details */}
+              <div className="md:col-span-2 border-t border-gray-200 pt-4 mt-4">
+                <h3 className="text-xl font-semibold mb-4 text-gray-800">Tourist Details</h3>
+                {reservationForm.tourists.map((tourist, index) => (
+                  <div key={index} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 border border-gray-200 rounded-lg p-4 mb-4 relative">
+                    <h4 className="col-span-full text-lg font-medium text-gray-700 mb-2">Tourist {index + 1}</h4>
+                    {reservationForm.tourists.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeTourist(index)}
+                        className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white p-1 rounded-full text-xs"
+                        title="Remove Tourist"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    )}
+                    <div>
+                      <label htmlFor={`firstName-${index}`} className="block text-sm font-medium text-gray-700">First Name</label>
+                      <input type="text" name="firstName" id={`firstName-${index}`} value={tourist.firstName} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2" required />
+                    </div>
+                    <div>
+                      <label htmlFor={`fatherName-${index}`} className="block text-sm font-medium text-gray-700">Father's Name</label>
+                      <input type="text" name="fatherName" id={`fatherName-${index}`} value={tourist.fatherName} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2" />
+                    </div>
+                    <div>
+                      <label htmlFor={`familyName-${index}`} className="block text-sm font-medium text-gray-700">Family Name</label>
+                      <input type="text" name="familyName" id={`familyName-${index}`} value={tourist.familyName} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2" required />
+                    </div>
+                    <div>
+                      <label htmlFor={`id-${index}`} className="block text-sm font-medium text-gray-700">ID (Unique)</label>
+                      <input type="text" name="id" id={`id-${index}`} value={tourist.id} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2" placeholder="e.g., Passport/National ID" required />
+                    </div>
+                    <div>
+                      <label htmlFor={`address-${index}`} className="block text-sm font-medium text-gray-700">Address</label>
+                      <input type="text" name="address" id={`address-${index}`} value={tourist.address} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2" />
+                    </div>
+                    <div>
+                      <label htmlFor={`city-${index}`} className="block text-sm font-medium text-gray-700">City</label>
+                      <input type="text" name="city" id={`city-${index}`} value={tourist.city} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2" />
+                    </div>
+                    <div>
+                      <label htmlFor={`postCode-${index}`} className="block text-sm font-medium text-gray-700">Post Code</label>
+                      <input type="text" name="postCode" id={`postCode-${index}`} value={tourist.postCode} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2" />
+                    </div>
+                    <div>
+                      <label htmlFor={`email-${index}`} className="block text-sm font-medium text-gray-700">Email</label>
+                      <input type="email" name="email" id={`email-${index}`} value={tourist.email} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2" />
+                    </div>
+                    <div>
+                      <label htmlFor={`phone-${index}`} className="block text-sm font-medium text-gray-700">Phone</label>
+                      <input type="tel" name="phone" id={`phone-${index}`} value={tourist.phone} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2" />
+                    </div>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={addTourist}
+                  className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition duration-200 shadow-md"
+                >
+                  Add Another Tourist
+                </button>
+              </div>
+
+              {/* Financial Info */}
+              <div className="md:col-span-2 border-t border-gray-200 pt-4 mt-4">
+                <h3 className="text-xl font-semibold mb-4 text-gray-800">Financial Info</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      name="depositPaid"
+                      id="depositPaid"
+                      checked={reservationForm.depositPaid}
+                      onChange={handleReservationFormChange}
+                      className="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
+                    />
+                    <label htmlFor="depositPaid" className="ml-2 block text-sm font-medium text-gray-700">Deposit Paid</label>
+                  </div>
+                  <div>
+                    <label htmlFor="depositAmount" className="block text-sm font-medium text-gray-700">Deposit Amount</label>
+                    <input
+                      type="number"
+                      name="depositAmount"
+                      id="depositAmount"
+                      value={reservationForm.depositAmount}
+                      onChange={handleReservationFormChange}
+                      min="0"
+                      step="0.01"
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="finalAmount" className="block text-sm font-medium text-gray-700">Final Amount</label>
+                    <input
+                      type="number"
+                      name="finalAmount"
+                      id="finalAmount"
+                      value={reservationForm.finalAmount}
+                      onChange={handleReservationFormChange}
+                      min="0"
+                      step="0.01"
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="owedToHotel" className="block text-sm font-medium text-gray-700">Owed to Hotel</label>
+                    <input
+                      type="number"
+                      name="owedToHotel"
+                      id="owedToHotel"
+                      value={reservationForm.owedToHotel}
+                      onChange={handleReservationFormChange}
+                      min="0"
+                      step="0.01"
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="profit" className="block text-sm font-medium text-gray-700">Profit</label>
+                    <input
+                      type="number"
+                      name="profit"
+                      id="profit"
+                      value={reservationForm.profit.toFixed(2)}
+                      readOnly
+                      className="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm px-3 py-2"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="tourOperator" className="block text-sm font-medium text-gray-700">Tour Operator</label>
+                    <input
+                      type="text"
+                      name="tourOperator"
+                      id="tourOperator"
+                      value={reservationForm.tourOperator}
+                      onChange={handleReservationFormChange}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="status" className="block text-sm font-medium text-gray-700">Status</label>
+                    <select
+                      name="status"
+                      id="status"
+                      value={reservationForm.status}
+                      onChange={handleReservationFormChange}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                    >
+                      <option value="Pending">Pending</option>
+                      <option value="Confirmed">Confirmed</option>
+                      <option value="Cancelled">Cancelled</option>
+                      <option value="Past">Past</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="md:col-span-2 flex justify-end space-x-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => {
+                    resetReservationForm();
+                    setActiveTab('reservations');
+                  }}
+                  className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition duration-200 shadow-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 transition duration-200 shadow-md"
+                  disabled={loading}
+                >
+                  {loading ? 'Saving...' : selectedReservation ? 'Update Reservation' : 'Add Reservation'}
+                </button>
+              </div>
+            </form>
+          </div>
+        );
+
+      case 'customers':
+        return (
+          <div className="p-6 bg-white rounded-lg shadow-md">
+            <h2 className="text-2xl font-semibold mb-6 text-gray-800">Customers List</h2>
+            {customers.length === 0 ? (
+              <p className="text-gray-600">No customers found. Customers are automatically added when you create a reservation.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full bg-white rounded-lg overflow-hidden">
+                  <thead className="bg-blue-900 text-white">
+                    <tr>
+                      <th className="py-3 px-4 text-left">Name</th>
+                      <th className="py-3 px-4 text-left">ID</th>
+                      <th className="py-3 px-4 text-left">Email</th>
+                      <th className="py-3 px-4 text-left">Phone</th>
+                      <th className="py-3 px-4 text-center">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="text-gray-700">
+                    {customers.map(cust => (
+                      <tr key={cust.id} className="border-b border-gray-200 hover:bg-gray-50">
+                        <td className="py-3 px-4">{cust.firstName} {cust.fatherName ? cust.fatherName + ' ' : ''}{cust.familyName}</td>
+                        <td className="py-3 px-4">{cust.id}</td>
+                        <td className="py-3 px-4">{cust.email}</td>
+                        <td className="py-3 px-4">{cust.phone}</td>
+                        <td className="py-3 px-4 flex justify-center">
+                          <button
+                            onClick={() => handleEditCustomer(cust)}
+                            className="bg-orange-500 hover:bg-orange-600 text-white p-2 rounded-full shadow-md transition duration-200"
+                            title="Edit Customer"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                              <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zm-5.69 5.69L11.586 7.586 14.414 10.414 11.586 13.242 8.758 10.414l2.828-2.828z" />
+                              <path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm-4 8a1 1 0 011-1h1a1 1 0 110 2H7a1 1 0 01-1-1zm10 0a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1zM4 14a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm10 0a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1zM3 18a1 1 0 011-1h1a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
+                            </svg>
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {/* Customer Edit Modal */}
+            {showCustomerEditModal && (
+              <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 z-50">
+                <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md relative">
+                  <h3 className="text-xl font-semibold mb-4 text-gray-800">Edit Customer Details</h3>
+                  <form onSubmit={handleUpdateCustomer} className="grid grid-cols-1 gap-4">
+                    <div>
+                      <label htmlFor="edit-firstName" className="block text-sm font-medium text-gray-700">First Name</label>
+                      <input type="text" name="firstName" id="edit-firstName" value={customerEditForm.firstName} onChange={handleCustomerEditFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2" required />
+                    </div>
+                    <div>
+                      <label htmlFor="edit-fatherName" className="block text-sm font-medium text-gray-700">Father's Name</label>
+                      <input type="text" name="fatherName" id="edit-fatherName" value={customerEditForm.fatherName} onChange={handleCustomerEditFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2" />
+                    </div>
+                    <div>
+                      <label htmlFor="edit-familyName" className="block text-sm font-medium text-gray-700">Family Name</label>
+                      <input type="text" name="familyName" id="edit-familyName" value={customerEditForm.familyName} onChange={handleCustomerEditFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2" required />
+                    </div>
+                    <div>
+                      <label htmlFor="edit-id" className="block text-sm font-medium text-gray-700">ID</label>
+                      <input type="text" name="id" id="edit-id" value={customerEditForm.id} readOnly className="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm px-3 py-2" />
+                    </div>
+                    <div>
+                      <label htmlFor="edit-address" className="block text-sm font-medium text-gray-700">Address</label>
+                      <input type="text" name="address" id="edit-address" value={customerEditForm.address} onChange={handleCustomerEditFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2" />
+                    </div>
+                    <div>
+                      <label htmlFor="edit-city" className="block text-sm font-medium text-gray-700">City</label>
+                      <input type="text" name="city" id="edit-city" value={customerEditForm.city} onChange={handleCustomerEditFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2" />
+                    </div>
+                    <div>
+                      <label htmlFor="edit-postCode" className="block text-sm font-medium text-gray-700">Post Code</label>
+                      <input type="text" name="postCode" id="edit-postCode" value={customerEditForm.postCode} onChange={handleCustomerEditFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2" />
+                    </div>
+                    <div>
+                      <label htmlFor="edit-email" className="block text-sm font-medium text-gray-700">Email</label>
+                      <input type="email" name="email" id="edit-email" value={customerEditForm.email} onChange={handleCustomerEditFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2" />
+                    </div>
+                    <div>
+                      <label htmlFor="edit-phone" className="block text-sm font-medium text-gray-700">Phone</label>
+                      <input type="tel" name="phone" id="edit-phone" value={customerEditForm.phone} onChange={handleCustomerEditFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2" />
+                    </div>
+                    <div className="flex justify-end space-x-3 mt-4 col-span-full">
+                      <button
+                        type="button"
+                        onClick={() => setShowCustomerEditModal(false)}
+                        className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition duration-200"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        className="px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 transition duration-200"
+                        disabled={loading}
+                      >
+                        {loading ? 'Updating...' : 'Update Customer'}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+
+      case 'tours':
+        return (
+          <div className="p-6 bg-white rounded-lg shadow-md">
+            <h2 className="text-2xl font-semibold mb-6 text-gray-800">Bus Tours</h2>
+            {tours.length === 0 ? (
+              <p className="text-gray-600">No bus tours found. Add a new tour to get started!</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full bg-white rounded-lg overflow-hidden">
+                  <thead className="bg-blue-900 text-white">
+                    <tr>
+                      <th className="py-3 px-4 text-left">Tour ID</th>
+                      <th className="py-3 px-4 text-left">Hotel</th>
+                      <th className="py-3 px-4 text-left">Departure Date</th>
+                      <th className="py-3 px-4 text-left">Arrival Date</th>
+                      <th className="py-3 px-4 text-right">Max Passengers</th>
+                      <th className="py-3 px-4 text-right">Booked Passengers</th>
+                      <th className="py-3 px-4 text-right">Fulfillment %</th>
+                      <th className="py-3 px-4 text-center">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="text-gray-700">
+                    {tours.map(tour => {
+                      const linkedReservations = getLinkedReservations(tour.tourId);
+                      const bookedPassengers = linkedReservations.reduce((sum, res) => sum + (res.adults || 0) + (res.children || 0), 0);
+                      const fulfillment = tour.maxPassengers > 0 ? (bookedPassengers / tour.maxPassengers) * 100 : 0;
+                      return (
+                        <tr key={tour.id} className="border-b border-gray-200 hover:bg-gray-50">
+                          <td className="py-3 px-4">{tour.tourId}</td>
+                          <td className="py-3 px-4">{tour.hotel}</td>
+                          <td className="py-3 px-4">{tour.departureDate?.toDate().toLocaleDateString()}</td>
+                          <td className="py-3 px-4">{tour.arrivalDate?.toDate().toLocaleDateString()}</td>
+                          <td className="py-3 px-4 text-right">{tour.maxPassengers}</td>
+                          <td className="py-3 px-4 text-right">{bookedPassengers}</td>
+                          <td className="py-3 px-4 text-right">{fulfillment.toFixed(1)}%</td>
+                          <td className="py-3 px-4 flex justify-center space-x-2">
+                            <button
+                              onClick={() => setSelectedTour(tour)} // View details/linked reservations
+                              className="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-full shadow-md transition duration-200"
+                              title="View Tour Details"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                              </svg>
+                            </button>
+                            <button
+                              onClick={() => handleEditTour(tour)}
+                              className="bg-orange-500 hover:bg-orange-600 text-white p-2 rounded-full shadow-md transition duration-200"
+                              title="Edit Tour"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zm-5.69 5.69L11.586 7.586 14.414 10.414 11.586 13.242 8.758 10.414l2.828-2.828z" />
+                                <path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm-4 8a1 1 0 011-1h1a1 1 0 110 2H7a1 1 0 01-1-1zm10 0a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1zM4 14a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm10 0a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1zM3 18a1 1 0 011-1h1a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
+                              </svg>
+                            </button>
+                            <button
+                              onClick={() => handleDeleteTour(tour.tourId)}
+                              className="bg-red-500 hover:bg-red-600 text-white p-2 rounded-full shadow-md transition duration-200"
+                              title="Delete Tour"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1zm-1 3a1 1 0 011-1h4a1 1 0 110 2H7a1 1 0 01-1-1zm-1 3a1 1 0 011-1h4a1 1 0 110 2H7a1 1 0 01-1-1z" clipRule="evenodd" />
+                              </svg>
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {/* Tour Details Modal */}
+            {selectedTour && (
+              <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 z-50">
+                <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl relative">
+                  <h3 className="text-2xl font-semibold mb-4 text-gray-800">Tour Details: {selectedTour.tourId}</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-700 mb-6">
+                    <div><strong>Departure:</strong> {selectedTour.departureDate?.toDate().toLocaleDateString()}</div>
+                    <div><strong>Arrival:</strong> {selectedTour.arrivalDate?.toDate().toLocaleDateString()}</div>
+                    <div><strong>Nights:</strong> {selectedTour.nights}</div>
+                    <div><strong>Days (incl. Travel):</strong> {selectedTour.daysInclTravel}</div>
+                    <div><strong>Transport Company:</strong> {selectedTour.transportCompany || 'N/A'}</div>
+                    <div><strong>Hotel:</strong> {selectedTour.hotel || 'N/A'}</div>
+                    <div><strong>Max Passengers:</strong> {selectedTour.maxPassengers}</div>
+                    <div><strong>Booked Passengers:</strong> {getLinkedReservations(selectedTour.tourId).reduce((sum, res) => sum + (res.adults || 0) + (res.children || 0), 0)}</div>
+                    <div><strong>Fulfillment %:</strong> {((getLinkedReservations(selectedTour.tourId).reduce((sum, res) => sum + (res.adults || 0) + (res.children || 0), 0) / selectedTour.maxPassengers) * 100 || 0).toFixed(1)}%</div>
+                  </div>
+                  <h4 className="text-xl font-semibold mb-3 text-gray-800">Linked Reservations</h4>
+                  {getLinkedReservations(selectedTour.tourId).length === 0 ? (
+                    <p className="text-gray-600">No reservations linked to this tour.</p>
+                  ) : (
+                    <div className="overflow-x-auto max-h-60">
+                      <table className="min-w-full bg-white rounded-lg overflow-hidden">
+                        <thead className="bg-gray-100 text-gray-700">
+                          <tr>
+                            <th className="py-2 px-3 text-left text-sm">Res. No.</th>
+                            <th className="py-2 px-3 text-left text-sm">Lead Guest</th>
+                            <th className="py-2 px-3 text-left text-sm">Dates</th>
+                            <th className="py-2 px-3 text-right text-sm">Adults/Children</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {getLinkedReservations(selectedTour.tourId).map(res => (
+                            <tr key={res.id} className="border-b border-gray-100">
+                              <td className="py-2 px-3 text-sm">{res.reservationNumber}</td>
+                              <td className="py-2 px-3 text-sm">{res.tourists && res.tourists.length > 0 ? `${res.tourists[0].firstName} ${res.tourists[0].familyName}` : 'N/A'}</td>
+                              <td className="py-2 px-3 text-sm">{res.checkIn?.toDate().toLocaleDateString()} - {res.checkOut?.toDate().toLocaleDateString()}</td>
+                              <td className="py-2 px-3 text-right text-sm">{res.adults}/{res.children}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                  <div className="flex justify-end mt-6">
+                    <button
+                      onClick={() => setSelectedTour(null)}
+                      className="px-6 py-2 bg-blue-900 text-white rounded-md hover:bg-blue-800 transition duration-200 shadow-md"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+
+      case 'addTour':
+        return (
+          <div className="p-6 bg-white rounded-lg shadow-md">
+            <h2 className="text-2xl font-semibold mb-6 text-gray-800">
+              {selectedTour ? 'Edit Bus Tour' : 'Create New Bus Tour'}
+            </h2>
+            <form onSubmit={handleSubmitTour} className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+              <div>
+                <label htmlFor="tourId" className="block text-sm font-medium text-gray-700">Tour ID</label>
+                <input
+                  type="text"
+                  name="tourId"
+                  id="tourId"
+                  value={tourForm.tourId}
+                  onChange={handleTourFormChange}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  placeholder="Auto-generated or editable"
+                />
+              </div>
+              <div>
+                <label htmlFor="departureDate" className="block text-sm font-medium text-gray-700">Departure Date</label>
+                <input
+                  type="date"
+                  name="departureDate"
+                  id="departureDate"
+                  value={tourForm.departureDate}
+                  onChange={handleTourFormChange}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  required
+                />
+              </div>
+              <div>
+                <label htmlFor="arrivalDate" className="block text-sm font-medium text-gray-700">Arrival Date</label>
+                <input
+                  type="date"
+                  name="arrivalDate"
+                  id="arrivalDate"
+                  value={tourForm.arrivalDate}
+                  onChange={handleTourFormChange}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  required
+                />
+              </div>
+              <div>
+                <label htmlFor="nights" className="block text-sm font-medium text-gray-700">Nights</label>
+                <input
+                  type="number"
+                  name="nights"
+                  id="nights"
+                  value={tourForm.nights}
+                  onChange={handleTourFormChange}
+                  min="0"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                />
+              </div>
+              <div>
+                <label htmlFor="daysInclTravel" className="block text-sm font-medium text-gray-700">Days (incl. Travel)</label>
+                <input
+                  type="number"
+                  name="daysInclTravel"
+                  id="daysInclTravel"
+                  value={tourForm.daysInclTravel}
+                  readOnly
+                  className="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm px-3 py-2"
+                />
+              </div>
+              <div>
+                <label htmlFor="transportCompany" className="block text-sm font-medium text-gray-700">Transport Company</label>
+                <input
+                  type="text"
+                  name="transportCompany"
+                  id="transportCompany"
+                  value={tourForm.transportCompany}
+                  onChange={handleTourFormChange}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                />
+              </div>
+              <div>
+                <label htmlFor="hotelTour" className="block text-sm font-medium text-gray-700">Hotel (Primary for Tour)</label>
+                <input
+                  type="text"
+                  name="hotel"
+                  id="hotelTour"
+                  value={tourForm.hotel}
+                  onChange={handleTourFormChange}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                />
+              </div>
+              <div>
+                <label htmlFor="maxPassengers" className="block text-sm font-medium text-gray-700">Max Passengers</label>
+                <input
+                  type="number"
+                  name="maxPassengers"
+                  id="maxPassengers"
+                  value={tourForm.maxPassengers}
+                  onChange={handleTourFormChange}
+                  min="0"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  required
+                />
+              </div>
+
+              <div className="md:col-span-2 flex justify-end space-x-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => {
+                    resetTourForm();
+                    setActiveTab('tours');
+                  }}
+                  className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition duration-200 shadow-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 transition duration-200 shadow-md"
+                  disabled={loading}
+                >
+                  {loading ? 'Saving...' : selectedTour ? 'Update Tour' : 'Create Tour'}
+                </button>
+              </div>
+            </form>
+          </div>
+        );
+
+      case 'payments':
+        return (
+          <div className="p-6 bg-white rounded-lg shadow-md">
+            <h2 className="text-2xl font-semibold mb-6 text-gray-800">Financial Transactions</h2>
+            {financialTransactions.length === 0 ? (
+              <p className="text-gray-600">No financial transactions found. Add income or expenses to get started!</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full bg-white rounded-lg overflow-hidden">
+                  <thead className="bg-blue-900 text-white">
+                    <tr>
+                      <th className="py-3 px-4 text-left">Date</th>
+                      <th className="py-3 px-4 text-left">Type</th>
+                      <th className="py-3 px-4 text-left">Method</th>
+                      <th className="py-3 px-4 text-left">Amount</th>
+                      <th className="py-3 px-4 text-left">VAT</th>
+                      <th className="py-3 px-4 text-left">Description</th>
+                      <th className="py-3 px-4 text-left">Linked To</th>
+                    </tr>
+                  </thead>
+                  <tbody className="text-gray-700">
+                    {financialTransactions.map(ft => (
+                      <tr key={ft.id} className="border-b border-gray-200 hover:bg-gray-50">
+                        <td className="py-3 px-4">{ft.date?.toDate().toLocaleDateString()}</td>
+                        <td className="py-3 px-4">
+                          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                            ft.type === 'income' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                          }`}>
+                            {ft.type.charAt(0).toUpperCase() + ft.type.slice(1)}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4">{ft.method}</td>
+                        <td className="py-3 px-4 text-right">${(ft.amount || 0).toFixed(2)}</td>
+                        <td className="py-3 px-4 text-right">${(ft.vat || 0).toFixed(2)}</td>
+                        <td className="py-3 px-4">{ft.reasonDescription}</td>
+                        <td className="py-3 px-4">
+                          {ft.associatedReservationId ? `Res: ${ft.associatedReservationId}` :
+                            ft.associatedTourId ? `Tour: ${ft.associatedTourId}` : 'N/A'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        );
+
+      case 'addFinancialTransaction':
+        return (
+          <div className="p-6 bg-white rounded-lg shadow-md">
+            <h2 className="text-2xl font-semibold mb-6 text-gray-800">Add Financial Transaction</h2>
+            <form onSubmit={handleSubmitFinancialTransaction} className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+              <div>
+                <label htmlFor="transactionDate" className="block text-sm font-medium text-gray-700">Date</label>
+                <input
+                  type="date"
+                  name="date"
+                  id="transactionDate"
+                  value={financialTransactionForm.date}
+                  onChange={handleFinancialTransactionFormChange}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  required
+                />
+              </div>
+              <div>
+                <label htmlFor="transactionType" className="block text-sm font-medium text-gray-700">Type</label>
+                <select
+                  name="type"
+                  id="transactionType"
+                  value={financialTransactionForm.type}
+                  onChange={handleFinancialTransactionFormChange}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                >
+                  <option value="income">Income</option>
+                  <option value="expense">Expense</option>
+                </select>
+              </div>
+              <div>
+                <label htmlFor="method" className="block text-sm font-medium text-gray-700">Method</label>
+                <select
+                  name="method"
+                  id="method"
+                  value={financialTransactionForm.method}
+                  onChange={handleFinancialTransactionFormChange}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                >
+                  <option value="Bank">Bank</option>
+                  <option value="Cash">Cash</option>
+                </select>
+              </div>
+              <div>
+                <label htmlFor="amount" className="block text-sm font-medium text-gray-700">Amount</label>
+                <input
+                  type="number"
+                  name="amount"
+                  id="amount"
+                  value={financialTransactionForm.amount}
+                  onChange={handleFinancialTransactionFormChange}
+                  min="0"
+                  step="0.01"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  required
+                />
+              </div>
+              <div>
+                <label htmlFor="vat" className="block text-sm font-medium text-gray-700">VAT (Fixed Amount)</label>
+                <input
+                  type="number"
+                  name="vat"
+                  id="vat"
+                  value={financialTransactionForm.vat}
+                  onChange={handleFinancialTransactionFormChange}
+                  min="0"
+                  step="0.01"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label htmlFor="reasonDescription" className="block text-sm font-medium text-gray-700">Reason/Description</label>
+                <textarea
+                  name="reasonDescription"
+                  id="reasonDescription"
+                  value={financialTransactionForm.reasonDescription}
+                  onChange={handleFinancialTransactionFormChange}
+                  rows="3"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                ></textarea>
+              </div>
+
+              {/* Association fields */}
+              <div>
+                <label htmlFor="associatedReservationId" className="block text-sm font-medium text-gray-700">Associate with Reservation</label>
+                <select
+                  name="associatedReservationId"
+                  id="associatedReservationId"
+                  value={financialTransactionForm.associatedReservationId}
+                  onChange={handleFinancialTransactionFormChange}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  disabled={financialTransactionForm.associatedTourId !== ''} // Disable if tour is selected
+                >
+                  <option value="">-- None --</option>
+                  {reservations.map(res => (
+                    <option key={res.id} value={res.reservationNumber}>
+                      {res.reservationNumber} - {res.hotel} ({res.checkIn?.toDate().toLocaleDateString()})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="associatedTourId" className="block text-sm font-medium text-gray-700">Associate with Tour</label>
+                <select
+                  name="associatedTourId"
+                  id="associatedTourId"
+                  value={financialTransactionForm.associatedTourId}
+                  onChange={handleFinancialTransactionFormChange}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  disabled={financialTransactionForm.associatedReservationId !== ''} // Disable if reservation is selected
+                >
+                  <option value="">-- None --</option>
+                  {tours.map(tour => (
+                    <option key={tour.id} value={tour.tourId}>
+                      {tour.tourId} - {tour.hotel} ({tour.departureDate?.toDate().toLocaleDateString()})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="md:col-span-2 flex justify-end space-x-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => {
+                    resetFinancialTransactionForm();
+                    setActiveTab('payments');
+                  }}
+                  className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition duration-200 shadow-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 transition duration-200 shadow-md"
+                  disabled={loading}
+                >
+                  {loading ? 'Saving...' : `Add ${financialTransactionForm.type === 'income' ? 'Payment' : 'Expense'}`}
+                </button>
+              </div>
+            </form>
+          </div>
+        );
+
+      case 'financialReports':
+        return (
+          <div className="p-6 bg-white rounded-lg shadow-md">
+            <h2 className="text-2xl font-semibold mb-6 text-gray-800">Financial Reports</h2>
+
+            {/* Filter Controls */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <div>
+                <label htmlFor="reportStartDate" className="block text-sm font-medium text-gray-700">Start Date</label>
+                <input
+                  type="date"
+                  name="reportStartDate"
+                  id="reportStartDate"
+                  value={reportStartDate}
+                  onChange={handleReportFilterChange}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                />
+              </div>
+              <div>
+                <label htmlFor="reportEndDate" className="block text-sm font-medium text-gray-700">End Date</label>
+                <input
+                  type="date"
+                  name="reportEndDate"
+                  id="reportEndDate"
+                  value={reportEndDate}
+                  onChange={handleReportFilterChange}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                />
+              </div>
+              <div>
+                <label htmlFor="reportFilterType" className="block text-sm font-medium text-gray-700">Type</label>
+                <select
+                  name="reportFilterType"
+                  id="reportFilterType"
+                  value={reportFilterType}
+                  onChange={handleReportFilterChange}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                >
+                  <option value="all">All</option>
+                  <option value="income">Income</option>
+                  <option value="expense">Expense</option>
+                </select>
+              </div>
+              <div>
+                <label htmlFor="reportFilterAssociation" className="block text-sm font-medium text-gray-700">Associated With (ID)</label>
+                <input
+                  type="text"
+                  name="reportFilterAssociation"
+                  id="reportFilterAssociation"
+                  value={reportFilterAssociation}
+                  onChange={handleReportFilterChange}
+                  placeholder="Res/Tour ID"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                />
+              </div>
+              <div className="md:col-span-full flex justify-end">
+                <button
+                  type="button"
+                  onClick={resetFinancialReportsFilters}
+                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition duration-200 shadow-sm"
+                >
+                  Reset Filters
+                </button>
+              </div>
+            </div>
+
+            {/* Totals Summary */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+              <div className="bg-green-50 p-4 rounded-lg shadow-sm border border-green-200 text-center">
+                <h3 className="font-semibold text-lg text-green-800">Total Income</h3>
+                <p className="text-2xl font-bold text-green-900">${reportTotals.totalIncome.toFixed(2)}</p>
+              </div>
+              <div className="bg-red-50 p-4 rounded-lg shadow-sm border border-red-200 text-center">
+                <h3 className="font-semibold text-lg text-red-800">Total Expenses</h3>
+                <p className="text-2xl font-bold text-red-900">${reportTotals.totalExpenses.toFixed(2)}</p>
+              </div>
+              <div className={`p-4 rounded-lg shadow-sm text-center ${reportTotals.netProfit >= 0 ? 'bg-blue-50 border border-blue-200' : 'bg-red-50 border border-red-200'}`}>
+                <h3 className="font-semibold text-lg text-gray-800">Net Profit/Loss</h3>
+                <p className={`text-2xl font-bold ${reportTotals.netProfit >= 0 ? 'text-blue-900' : 'text-red-900'}`}>${reportTotals.netProfit.toFixed(2)}</p>
+              </div>
+            </div>
+
+            {/* Transactions Table */}
+            {filteredFinancialTransactions.length === 0 ? (
+              <p className="text-gray-600">No transactions match the selected filters.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full bg-white rounded-lg overflow-hidden">
+                  <thead className="bg-blue-900 text-white">
+                    <tr>
+                      <th className="py-3 px-4 text-left">Date</th>
+                      <th className="py-3 px-4 text-left">Type</th>
+                      <th className="py-3 px-4 text-left">Method</th>
+                      <th className="py-3 px-4 text-left">Amount</th>
+                      <th className="py-3 px-4 text-left">VAT</th>
+                      <th className="py-3 px-4 text-left">Description</th>
+                      <th className="py-3 px-4 text-left">Linked To</th>
+                    </tr>
+                  </thead>
+                  <tbody className="text-gray-700">
+                    {filteredFinancialTransactions.map(ft => (
+                      <tr key={ft.id} className="border-b border-gray-200 hover:bg-gray-50">
+                        <td className="py-3 px-4">{ft.date?.toDate().toLocaleDateString()}</td>
+                        <td className="py-3 px-4">
+                          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                            ft.type === 'income' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                          }`}>
+                            {ft.type.charAt(0).toUpperCase() + ft.type.slice(1)}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4">{ft.method}</td>
+                        <td className="py-3 px-4 text-right">${(ft.amount || 0).toFixed(2)}</td>
+                        <td className="py-3 px-4 text-right">${(ft.vat || 0).toFixed(2)}</td>
+                        <td className="py-3 px-4">{ft.reasonDescription}</td>
+                        <td className="py-3 px-4">
+                          {ft.associatedReservationId ? `Res: ${ft.associatedReservationId}` :
+                            ft.associatedTourId ? `Tour: ${ft.associatedTourId}` : 'N/A'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        );
+
+
+      default:
+        return <div>Select a module from the sidebar.</div>;
+    }
+  };
+
+  return (
+    <div className="font-sans antialiased bg-gray-100 min-h-screen text-gray-900" style={{ fontFamily: 'Inter, sans-serif' }}>
+      {/* Custom scrollbar for better aesthetics */}
+      <style>{`
+        ::-webkit-scrollbar {
+          width: 8px;
+          height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+          background: #e0e0e0;
+          border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+          background: #888;
+          border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+          background: #555;
+        }
+
+        /* Responsive typography adjustments for smaller screens */
+        @media (max-width: 767px) {
+          .text-2xl { font-size: 1.5rem; }
+          .text-xl { font-size: 1.25rem; }
+          .text-lg { font-size: 1.125rem; }
+          .text-base { font-size: 1rem; }
+          .py-3 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+          .px-4 { padding-left: 0.75rem; padding-right: 0.75rem; }
+        }
+      `}</style>
+
+      <div className="flex flex-col md:flex-row min-h-screen">
+        {/* Sidebar Navigation */}
+        <aside className="w-full md:w-64 bg-blue-900 text-white p-4 rounded-b-lg md:rounded-r-lg md:rounded-b-none shadow-lg">
+          <div className="flex items-center justify-center md:justify-start mb-6">
+            {/* Lion Logo Placeholder */}
+            <span className="text-orange-500 text-4xl mr-3">
+              🦁
+            </span>
+            <h1 className="text-3xl font-bold text-orange-500">Dynamex</h1>
+          </div>
+          <nav>
+            <ul>
+              <li className="mb-2">
+                <button
+                  onClick={() => { setActiveTab('dashboard'); resetReservationForm(); resetTourForm(); resetFinancialTransactionForm(); resetFinancialReportsFilters(); }}
+                  className={`flex items-center w-full px-4 py-2 rounded-lg transition-all duration-200
+                    ${activeTab === 'dashboard' ? 'bg-orange-500 text-blue-900 shadow-md' : 'hover:bg-blue-800 text-orange-500'}
+                  `}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" />
+                  </svg>
+                  Dashboard
+                </button>
+              </li>
+              <li className="mb-2">
+                <button
+                  onClick={() => { setActiveTab('reservations'); resetReservationForm(); }}
+                  className={`flex items-center w-full px-4 py-2 rounded-lg transition-all duration-200
+                    ${activeTab === 'reservations' ? 'bg-orange-500 text-blue-900 shadow-md' : 'hover:bg-blue-800 text-orange-500'}
+                  `}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v2m-7 13v-3a2 2 0 012-2h2a2 2 0 012 2v3m-7 0H9m-7 0h4" />
+                  </svg>
+                  Reservations
+                </button>
+              </li>
+              <li className="mb-2">
+                <button
+                  onClick={() => { setActiveTab('addReservation'); resetReservationForm(); }}
+                  className={`flex items-center w-full px-4 py-2 rounded-lg transition-all duration-200
+                    ${activeTab === 'addReservation' ? 'bg-orange-500 text-blue-900 shadow-md' : 'hover:bg-blue-800 text-orange-500'}
+                  `}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Add Reservation
+                </button>
+              </li>
+              <li className="mb-2">
+                <button
+                  onClick={() => { setActiveTab('customers'); resetReservationForm(); }}
+                  className={`flex items-center w-full px-4 py-2 rounded-lg transition-all duration-200
+                    ${activeTab === 'customers' ? 'bg-orange-500 text-blue-900 shadow-md' : 'hover:bg-blue-800 text-orange-500'}
+                  `}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h2a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2h2m3-2v2m0-7V11m0 4h.01M17 12h.01M12 12h.01M7 12h.01M6 16h9a2 2 0 002-2V7H6v9z" />
+                  </svg>
+                  Customers
+                </button>
+              </li>
+              {/* Phase 2 Modules */}
+              <li className="mb-2">
+                <button
+                  onClick={() => setActiveTab('tours')}
+                  className={`flex items-center w-full px-4 py-2 rounded-lg transition-all duration-200
+                    ${activeTab === 'tours' ? 'bg-orange-500 text-blue-900 shadow-md' : 'hover:bg-blue-800 text-orange-500'}
+                  `}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z" />
+                  </svg>
+                  Bus Tours
+                </button>
+              </li>
+              <li className="mb-2">
+                <button
+                  onClick={() => { setActiveTab('addTour'); resetTourForm(); }}
+                  className={`flex items-center w-full px-4 py-2 rounded-lg transition-all duration-200
+                    ${activeTab === 'addTour' ? 'bg-orange-500 text-blue-900 shadow-md' : 'hover:bg-blue-800 text-orange-500'}
+                  `}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Create Tour
+                </button>
+              </li>
+
+              {/* Phase 3 Modules */}
+              <li className="mb-2">
+                <button
+                  onClick={() => setActiveTab('payments')}
+                  className={`flex items-center w-full px-4 py-2 rounded-lg transition-all duration-200
+                    ${activeTab === 'payments' ? 'bg-orange-500 text-blue-900 shadow-md' : 'hover:bg-blue-800 text-orange-500'}
+                  `}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M7 11h10a1 1 0 011 1v5a1 1 0 01-1 1H7a1 1 0 01-1-1v-5a1 1 0 011-1zM12 5V4m0 20v-1m-4-11H3m18 0h-1" />
+                  </svg>
+                  Payments
+                </button>
+              </li>
+              <li className="mb-2">
+                <button
+                  onClick={() => { setActiveTab('addFinancialTransaction'); resetFinancialTransactionForm(); }}
+                  className={`flex items-center w-full px-4 py-2 rounded-lg transition-all duration-200
+                    ${activeTab === 'addFinancialTransaction' ? 'bg-orange-500 text-blue-900 shadow-md' : 'hover:bg-blue-800 text-orange-500'}
+                  `}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Add Payment/Expense
+                </button>
+              </li>
+
+              {/* Phase 5 Modules */}
+              <li className="mb-2">
+                <button
+                  onClick={() => { setActiveTab('financialReports'); resetFinancialReportsFilters(); }}
+                  className={`flex items-center w-full px-4 py-2 rounded-lg transition-all duration-200
+                    ${activeTab === 'financialReports' ? 'bg-orange-500 text-blue-900 shadow-md' : 'hover:bg-blue-800 text-orange-500'}
+                  `}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17v-4m0 0h3m-3 0H7m-1 0v4m-2-4h2a2 2 0 012 2v2a2 2 0 01-2 2H4a2 2 0 01-2-2V7a2 2 0 012-2h4m2 10h.01M17 17v-4m0 0h3m-3 0H17m-1 0v4m-2-4h2a2 2 0 012 2v2a2 2 0 01-2 2H14a2 2 0 01-2-2V7a2 2 0 012-2h4m2 10h.01M7 11a1 1 0 01-1 1H4a1 1 0 01-1-1V9a1 1 0 011-1h2a1 1 0 011 1v2z" />
+                  </svg>
+                  Financial Reports
+                </button>
+              </li>
+            </ul>
+          </nav>
+          {userId && (
+            <div className="mt-8 pt-4 border-t border-blue-800 text-sm text-gray-400">
+              <p>User ID:</p>
+              <p className="break-all font-mono text-xs">{userId}</p>
+            </div>
+          )}
+        </aside>
+
+        {/* Main Content Area */}
+        <main className="flex-1 p-6 md:p-8 overflow-y-auto">
+          {error && (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md relative mb-4" role="alert">
+              <strong className="font-bold">Error!</strong>
+              <span className="block sm:inline ml-2">{error}</span>
+            </div>
+          )}
+          {message && (
+            <div className={`px-4 py-3 rounded-md relative mb-4 ${message.type === 'success' ? 'bg-green-100 border border-green-400 text-green-700' : 'bg-blue-100 border border-blue-400 text-blue-700'}`} role="alert">
+              <span className="block sm:inline">{message.text}</span>
+            </div>
+          )}
+          {renderContent()}
+        </main>
+      </div>
+    </div>
+  );
 };
 
 export default App;
+
