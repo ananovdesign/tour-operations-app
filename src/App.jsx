@@ -5,8 +5,7 @@ import { collection, doc, addDoc, setDoc, deleteDoc, onSnapshot, query, where, g
 
 const App = () => {
   // State for Firebase instances and user
-  // db, auth instances are now imported from firebase.js, no longer set in state here.
-  const [userId, setUserId] = useState(null);
+  const [userId, setUserId] = useState(null); // Still useful for auth status, but not for data segregation
   const [isAuthReady, setIsAuthReady] = useState(false); // Auth state needs to be ready before fetching data
 
   // Application state for navigation
@@ -14,7 +13,7 @@ const App = () => {
   const [selectedReservation, setSelectedReservation] = useState(null);
   const [selectedTour, setSelectedTour] = useState(null);
 
-  // Data states - now populated from Firestore
+  // Data states - now populated from Firestore public collections
   const [reservations, setReservations] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [tours, setTours] = useState([]);
@@ -103,15 +102,15 @@ const App = () => {
 
 
   // --- Firebase Initialization and Auth Management ---
+  // This remains to ensure an authenticated user session is established,
+  // which is required by the security rules even for public data.
   useEffect(() => {
     const initAuth = async () => {
       try {
-        // Use __initial_auth_token if available for custom token sign-in
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
         if (initialAuthToken) {
           await signInWithCustomToken(auth, initialAuthToken);
         } else {
-          // Fallback to anonymous sign-in if no custom token is provided
           await signInAnonymously(auth);
         }
       } catch (err) {
@@ -120,7 +119,6 @@ const App = () => {
       }
     };
 
-    // Listen for auth state changes
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       if (user) {
         setUserId(user.uid);
@@ -128,25 +126,26 @@ const App = () => {
         console.log("Firebase User Authenticated:", user.uid);
       } else {
         setUserId(null);
-        setIsAuthReady(true); // Auth is ready, but no user is signed in
+        setIsAuthReady(true);
         console.log("No Firebase User. Signing in anonymously...");
-        initAuth(); // Attempt to sign in if not already authenticated
+        initAuth();
       }
-      setLoading(false); // Authentication process is done
+      setLoading(false);
     });
 
-    return () => unsubscribeAuth(); // Cleanup auth listener
-  }, []); // Run only once on component mount
+    return () => unsubscribeAuth();
+  }, []);
 
   // --- Firestore Data Listeners (useEffect hooks) ---
+  // Paths changed to /artifacts/{appId}/public/data/{collectionName} for shared data
 
   // Listen for Reservations
   useEffect(() => {
-    if (!isAuthReady || !userId) {
-      return; // Wait for authentication to be ready
+    if (!isAuthReady) { // Only check isAuthReady, userId is not needed for public data path
+      return;
     }
     setLoading(true);
-    const reservationsCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/reservations`);
+    const reservationsCollectionRef = collection(db, `artifacts/${appId}/public/data/reservations`);
     const unsubscribe = onSnapshot(reservationsCollectionRef, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
       setReservations(data);
@@ -156,16 +155,16 @@ const App = () => {
       setError("Failed to load reservations. Please try again.");
       setLoading(false);
     });
-    return () => unsubscribe(); // Cleanup listener on component unmount or userId change
-  }, [isAuthReady, userId]); // Re-run if auth status or userId changes
+    return () => unsubscribe();
+  }, [isAuthReady]); // Depend only on isAuthReady
 
   // Listen for Customers
   useEffect(() => {
-    if (!isAuthReady || !userId) {
+    if (!isAuthReady) {
       return;
     }
     setLoading(true);
-    const customersCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/customers`);
+    const customersCollectionRef = collection(db, `artifacts/${appId}/public/data/customers`);
     const unsubscribe = onSnapshot(customersCollectionRef, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
       setCustomers(data);
@@ -176,15 +175,15 @@ const App = () => {
       setLoading(false);
     });
     return () => unsubscribe();
-  }, [isAuthReady, userId]);
+  }, [isAuthReady]);
 
   // Listen for Tours
   useEffect(() => {
-    if (!isAuthReady || !userId) {
+    if (!isAuthReady) {
       return;
     }
     setLoading(true);
-    const toursCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/tours`);
+    const toursCollectionRef = collection(db, `artifacts/${appId}/public/data/tours`);
     const unsubscribe = onSnapshot(toursCollectionRef, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
       setTours(data);
@@ -195,15 +194,15 @@ const App = () => {
       setLoading(false);
     });
     return () => unsubscribe();
-  }, [isAuthReady, userId]);
+  }, [isAuthReady]);
 
   // Listen for Financial Transactions
   useEffect(() => {
-    if (!isAuthReady || !userId) {
+    if (!isAuthReady) {
       return;
     }
     setLoading(true);
-    const financialTransactionsCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/financialTransactions`);
+    const financialTransactionsCollectionRef = collection(db, `artifacts/${appId}/public/data/financialTransactions`);
     const unsubscribe = onSnapshot(financialTransactionsCollectionRef, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
       setFinancialTransactions(data);
@@ -214,7 +213,7 @@ const App = () => {
       setLoading(false);
     });
     return () => unsubscribe();
-  }, [isAuthReady, userId]);
+  }, [isAuthReady]);
 
 
   // --- Helper Functions ---
@@ -235,10 +234,9 @@ const App = () => {
     return 0;
   };
 
-  // Generate unique reservation number (now checks existing Firestore data)
+  // Generate unique reservation number (now checks existing Firestore data in public path)
   const generateReservationNumber = useCallback(async () => {
-    if (!userId) return null; // Cannot generate without a user ID
-    const q = query(collection(db, `artifacts/${appId}/users/${userId}/reservations`));
+    const q = query(collection(db, `artifacts/${appId}/public/data/reservations`));
     const querySnapshot = await getDocs(q);
     let highestNum = 100100;
     querySnapshot.forEach((doc) => {
@@ -251,12 +249,11 @@ const App = () => {
       }
     });
     return `DYT${highestNum + 1}`;
-  }, [userId]);
+  }, []);
 
-  // Generate unique tour ID (now checks existing Firestore data)
+  // Generate unique tour ID (now checks existing Firestore data in public path)
   const generateTourId = useCallback(async () => {
-    if (!userId) return null; // Cannot generate without a user ID
-    const q = query(collection(db, `artifacts/${appId}/users/${userId}/tours`));
+    const q = query(collection(db, `artifacts/${appId}/public/data/tours`));
     const querySnapshot = await getDocs(q);
     let highestNum = 0;
     querySnapshot.forEach((doc) => {
@@ -269,7 +266,7 @@ const App = () => {
       }
     });
     return `DYT${String(highestNum + 1).padStart(3, '0')}`;
-  }, [userId]);
+  }, []);
 
 
   // --- Handlers for Reservation Form ---
@@ -281,11 +278,9 @@ const App = () => {
         ...prev,
         [name]: type === 'checkbox' ? checked : value,
       };
-      // Recalculate totalNights only if relevant dates change
       if (name === 'checkIn' || name === 'checkOut') {
         newState.totalNights = calculateDaysBetweenDates(newState.checkIn, newState.checkOut);
       }
-      // Recalculate profit if financial amounts change
       if (name === 'finalAmount' || name === 'owedToHotel') {
         newState.profit = (parseFloat(newState.finalAmount) || 0) - (parseFloat(newState.owedToHotel) || 0);
       }
@@ -322,10 +317,9 @@ const App = () => {
     }));
   }, []);
 
-  // --- Customer Management (for Add/Edit Reservation - now uses Firestore) ---
+  // --- Customer Management (now uses Firestore public collection) ---
   const manageCustomerRecords = useCallback(async (tourists) => {
-    if (!userId) return;
-    const customersCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/customers`);
+    const customersCollectionRef = collection(db, `artifacts/${appId}/public/data/customers`);
 
     for (const tourist of tourists) {
       if (!tourist.id) {
@@ -333,7 +327,6 @@ const App = () => {
         continue;
       }
 
-      // Check if customer with this ID already exists
       const q = query(customersCollectionRef, where("id", "==", tourist.id));
       const querySnapshot = await getDocs(q);
 
@@ -346,32 +339,30 @@ const App = () => {
         postCode: tourist.postCode,
         email: tourist.email,
         phone: tourist.phone,
-        id: tourist.id, // The unique customer ID from the form
+        id: tourist.id,
       };
 
       if (!querySnapshot.empty) {
-        // Customer exists, update it
         const docToUpdate = querySnapshot.docs[0].ref;
-        await setDoc(docToUpdate, customerData, { merge: true }); // Use setDoc with merge to update
+        await setDoc(docToUpdate, customerData, { merge: true });
         console.log(`Customer ${tourist.id} updated.`);
       } else {
-        // Customer does not exist, add it. Use addDoc for auto-generated Firestore ID
         await addDoc(customersCollectionRef, customerData);
         console.log(`Customer ${tourist.id} added.`);
       }
     }
-  }, [userId]);
+  }, []);
 
 
-  // --- Submit Reservation Form (now uses Firestore) ---
+  // --- Submit Reservation Form (now uses Firestore public collection) ---
   const handleSubmitReservation = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
     setMessage('');
 
-    if (!userId) {
-      setError("User not authenticated. Please wait for authentication.");
+    if (!isAuthReady) {
+      setError("App not ready. Please wait for authentication.");
       setLoading(false);
       return;
     }
@@ -393,28 +384,22 @@ const App = () => {
         adults: parseInt(reservationForm.adults) || 0,
         children: parseInt(reservationForm.children) || 0,
         approxTransportCost: parseFloat(reservationForm.approxTransportCost) || 0,
-        // Ensure dates are saved consistently (e.g., as ISO strings or Firestore Timestamps if needed)
-        // For simplicity, keeping as string (YYYY-MM-DD) as per original local state for now.
-        // Firestore can store Date objects directly if preferred: new Date(reservationForm.creationDate)
         creationDate: reservationForm.creationDate,
         checkIn: reservationForm.checkIn,
         checkOut: reservationForm.checkOut,
         totalNights: calculateDaysBetweenDates(reservationForm.checkIn, reservationForm.checkOut),
-        tourists: reservationForm.tourists.map(t => ({ ...t })) // Deep copy
+        tourists: reservationForm.tourists.map(t => ({ ...t }))
       };
 
-      // Manage customer records (add/update customers based on tourists in this reservation)
       await manageCustomerRecords(reservationForm.tourists);
 
-      const reservationsCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/reservations`);
+      const reservationsCollectionRef = collection(db, `artifacts/${appId}/public/data/reservations`);
 
       if (selectedReservation) {
-        // Update existing reservation
         const resDocRef = doc(reservationsCollectionRef, selectedReservation.id);
         await setDoc(resDocRef, reservationData, { merge: true });
         showMessage('Reservation updated successfully!', 'success');
       } else {
-        // Add new reservation
         await addDoc(reservationsCollectionRef, reservationData);
         showMessage('Reservation added successfully!', 'success');
       }
@@ -443,9 +428,8 @@ const App = () => {
     setSelectedReservation(null);
   }, []);
 
-  // --- Edit Reservation Logic (now uses Firestore) ---
+  // --- Edit Reservation Logic (now uses Firestore public collection) ---
   const handleEditReservation = useCallback((reservation) => {
-    // Ensure numbers are parsed and tourists are copied for form state
     setReservationForm({
       ...reservation,
       adults: parseInt(reservation.adults) || 0,
@@ -464,12 +448,10 @@ const App = () => {
     setActiveTab('addReservation');
   }, []);
 
-  // --- Delete Reservation Logic (now uses Firestore) ---
+  // --- Delete Reservation Logic (now uses Firestore public collection) ---
   const handleDeleteReservation = async (reservationId) => {
-    // IMPORTANT: window.confirm is not supported in the Canvas environment.
-    // For a production app, replace this with a custom modal confirmation.
     console.warn("Delete confirmation dialog is not visible in Canvas. Implementing a custom modal is recommended.");
-    const confirmDelete = true; // Assume confirmed for Canvas demo.
+    const confirmDelete = true;
 
     if (!confirmDelete) return;
 
@@ -477,14 +459,14 @@ const App = () => {
     setError(null);
     setMessage('');
 
-    if (!userId) {
-      setError("User not authenticated. Cannot delete reservation.");
+    if (!isAuthReady) {
+      setError("App not ready. Cannot delete reservation.");
       setLoading(false);
       return;
     }
 
     try {
-      const reservationDocRef = doc(db, `artifacts/${appId}/users/${userId}/reservations`, reservationId);
+      const reservationDocRef = doc(db, `artifacts/${appId}/public/data/reservations`, reservationId);
       await deleteDoc(reservationDocRef);
       showMessage('Reservation deleted successfully!', 'success');
     } catch (err) {
@@ -495,7 +477,7 @@ const App = () => {
     }
   };
 
-  // --- Customer Module Logic (now uses Firestore) ---
+  // --- Customer Module Logic (now uses Firestore public collection) ---
   const handleEditCustomer = (customer) => {
     setCustomerEditForm({ ...customer });
     setShowCustomerEditModal(true);
@@ -517,15 +499,15 @@ const App = () => {
     setError(null);
     setMessage('');
 
-    if (!userId) {
-      setError("User not authenticated. Cannot update customer.");
+    if (!isAuthReady) {
+      setError("App not ready. Cannot update customer.");
       setLoading(false);
       return;
     }
 
     try {
-      const customerDocRef = doc(db, `artifacts/${appId}/users/${userId}/customers`, customerEditForm.id); // Firestore doc ID
-      await setDoc(customerDocRef, customerEditForm, { merge: true }); // Update existing document
+      const customerDocRef = doc(db, `artifacts/${appId}/public/data/customers`, customerEditForm.id);
+      await setDoc(customerDocRef, customerEditForm, { merge: true });
       showMessage('Customer updated successfully!', 'success');
       setShowCustomerEditModal(false);
     } catch (err) {
@@ -536,7 +518,7 @@ const App = () => {
     }
   };
 
-  // --- Tour Module Logic (now uses Firestore) ---
+  // --- Tour Module Logic (now uses Firestore public collection) ---
   const handleTourFormChange = useCallback((e) => {
     const { name, value } = e.target;
     setTourForm(prev => {
@@ -557,8 +539,8 @@ const App = () => {
     setError(null);
     setMessage('');
 
-    if (!userId) {
-      setError("User not authenticated. Cannot save tour.");
+    if (!isAuthReady) {
+      setError("App not ready. Cannot save tour.");
       setLoading(false);
       return;
     }
@@ -576,20 +558,17 @@ const App = () => {
         nights: parseInt(tourForm.nights) || 0,
         daysInclTravel: calculateDaysBetweenDates(tourForm.departureDate, tourForm.arrivalDate) + 1,
         maxPassengers: parseInt(tourForm.maxPassengers) || 0,
-        departureDate: tourForm.departureDate, // Keep as string or convert to Date as needed
-        arrivalDate: tourForm.arrivalDate,   // Keep as string or convert to Date as needed
+        departureDate: tourForm.departureDate,
+        arrivalDate: tourForm.arrivalDate,
       };
 
-      const toursCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/tours`);
+      const toursCollectionRef = collection(db, `artifacts/${appId}/public/data/tours`);
 
-      // Check if updating an existing tour by its Firestore document ID (selectedTour.id)
-      // or if creating a new one, ensure tourId uniqueness if it's manually entered and not auto-generated
       if (selectedTour) {
-        const tourDocRef = doc(toursCollectionRef, selectedTour.id); // Use selectedTour's Firestore ID
+        const tourDocRef = doc(toursCollectionRef, selectedTour.id);
         await setDoc(tourDocRef, tourData, { merge: true });
         showMessage('Tour updated successfully!', 'success');
       } else {
-        // For new tours, add it and let Firestore generate the document ID
         await addDoc(toursCollectionRef, tourData);
         showMessage('Tour added successfully!', 'success');
       }
@@ -624,10 +603,8 @@ const App = () => {
   }, []);
 
   const handleDeleteTour = async (tourId) => {
-    // IMPORTANT: window.confirm is not supported in the Canvas environment.
-    // For a production app, replace this with a custom modal confirmation.
     console.warn("Delete confirmation dialog is not visible in Canvas. Implementing a custom modal is recommended.");
-    const confirmDelete = true; // Assume confirmed for Canvas demo.
+    const confirmDelete = true;
 
     if (!confirmDelete) return;
 
@@ -635,18 +612,14 @@ const App = () => {
     setError(null);
     setMessage('');
 
-    if (!userId) {
-      setError("User not authenticated. Cannot delete tour.");
+    if (!isAuthReady) {
+      setError("App not ready. Cannot delete tour.");
       setLoading(false);
       return;
     }
 
     try {
-      // Find the document ID by tourId if tourId is the unique identifier for deletion
-      // This assumes tourId is unique, but Firestore uses its own document ID.
-      // If you meant to delete by Firestore's internal `id` property, the parameter should be that.
-      // Since it's not a direct doc.id, we need to query.
-      const toursCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/tours`);
+      const toursCollectionRef = collection(db, `artifacts/${appId}/public/data/tours`);
       const q = query(toursCollectionRef, where("tourId", "==", tourId));
       const querySnapshot = await getDocs(q);
 
@@ -671,7 +644,7 @@ const App = () => {
   }, [reservations]);
 
 
-  // --- Financial Transaction Module Logic (now uses Firestore) ---
+  // --- Financial Transaction Module Logic (now uses Firestore public collection) ---
 
   const handleFinancialTransactionFormChange = useCallback((e) => {
     const { name, value, type } = e.target;
@@ -696,8 +669,8 @@ const App = () => {
     setError(null);
     setMessage('');
 
-    if (!userId) {
-      setError("User not authenticated. Cannot save financial transaction.");
+    if (!isAuthReady) {
+      setError("App not ready. Cannot save financial transaction.");
       setLoading(false);
       return;
     }
@@ -707,10 +680,10 @@ const App = () => {
         ...financialTransactionForm,
         amount: parseFloat(financialTransactionForm.amount) || 0,
         vat: parseFloat(financialTransactionForm.vat) || 0,
-        date: financialTransactionForm.date, // Keep as string or convert to Date as needed
+        date: financialTransactionForm.date,
       };
 
-      const financialTransactionsCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/financialTransactions`);
+      const financialTransactionsCollectionRef = collection(db, `artifacts/${appId}/public/data/financialTransactions`);
       await addDoc(financialTransactionsCollectionRef, transactionData);
       showMessage(`${financialTransactionForm.type === 'income' ? 'Payment' : 'Expense'} added successfully!`, 'success');
       resetFinancialTransactionForm();
@@ -731,7 +704,7 @@ const App = () => {
   }, []);
 
 
-  // --- Dashboard Calculations (Uses Firestore data) ---
+  // --- Dashboard Calculations (Uses Firestore public data) ---
   const dashboardStats = useMemo(() => {
     const totalReservations = reservations.length;
     const totalProfit = reservations.reduce((sum, res) => sum + (res.profit || 0), 0);
@@ -774,7 +747,7 @@ const App = () => {
   }, [reservations, financialTransactions, tours]);
 
 
-  // --- Financial Reports Logic (Uses Firestore data) ---
+  // --- Financial Reports Logic (Uses Firestore public data) ---
 
   const handleReportFilterChange = useCallback((e) => {
     const { name, value } = e.target;
@@ -786,23 +759,19 @@ const App = () => {
 
   const filteredFinancialTransactions = useMemo(() => {
     return financialTransactions.filter(ft => {
-      const transactionDate = new Date(ft.date); // Convert string date back to Date object
+      const transactionDate = new Date(ft.date);
       const startDate = reportStartDate ? new Date(reportStartDate) : null;
       const endDate = reportEndDate ? new Date(reportEndDate) : null;
 
-      // Filter by date range
       if (startDate && transactionDate < startDate) return false;
       if (endDate && transactionDate > endDate) {
-        // Adjust end date to include the whole day
         const adjustedEndDate = new Date(endDate);
-        adjustedEndDate.setDate(adjustedEndDate.getDate() + 1); // Go to next day 00:00:00
+        adjustedEndDate.setDate(adjustedEndDate.getDate() + 1);
         if (transactionDate >= adjustedEndDate) return false;
       }
 
-      // Filter by type (income/expense)
       if (reportFilterType !== 'all' && ft.type !== reportFilterType) return false;
 
-      // Filter by association (reservation/tour ID)
       if (reportFilterAssociation) {
         const lowerCaseFilter = reportFilterAssociation.toLowerCase();
         const matchesReservation = ft.associatedReservationId?.toLowerCase().includes(lowerCaseFilter);
@@ -811,7 +780,7 @@ const App = () => {
       }
 
       return true;
-    }).sort((a, b) => new Date(b.date) - new Date(a.date)); // Sort by date descending
+    }).sort((a, b) => new Date(b.date) - new Date(a.date));
   }, [financialTransactions, reportStartDate, reportEndDate, reportFilterType, reportFilterAssociation]);
 
   const reportTotals = useMemo(() => {
@@ -990,7 +959,7 @@ const App = () => {
                   onChange={handleReservationFormChange}
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
                   placeholder="Auto-generated or editable"
-                  disabled={!!selectedReservation} // Disable if editing existing
+                  disabled={!!selectedReservation}
                 />
               </div>
               <div>
@@ -1461,7 +1430,7 @@ const App = () => {
                           <td className="py-3 px-4 text-right">{fulfillment.toFixed(1)}%</td>
                           <td className="py-3 px-4 flex justify-center space-x-2">
                             <button
-                              onClick={() => setSelectedTour(tour)} // View details/linked reservations
+                              onClick={() => setSelectedTour(tour)}
                               className="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-full shadow-md transition duration-200"
                               title="View Tour Details"
                             >
@@ -1571,7 +1540,7 @@ const App = () => {
                   onChange={handleTourFormChange}
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
                   placeholder="Auto-generated or editable"
-                  disabled={!!selectedTour} // Disable if editing existing
+                  disabled={!!selectedTour}
                 />
               </div>
               <div>
@@ -1701,7 +1670,7 @@ const App = () => {
                     </tr>
                   </thead>
                   <tbody className="text-gray-700">
-                    {filteredFinancialTransactions.map(ft => ( // Use filtered transactions here
+                    {filteredFinancialTransactions.map(ft => (
                       <tr key={ft.id} className="border-b border-gray-200 hover:bg-gray-50">
                         <td className="py-3 px-4">{ft.date}</td>
                         <td className="py-3 px-4">
@@ -1819,7 +1788,7 @@ const App = () => {
                   value={financialTransactionForm.associatedReservationId}
                   onChange={handleFinancialTransactionFormChange}
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
-                  disabled={financialTransactionForm.associatedTourId !== ''} // Disable if tour is selected
+                  disabled={financialTransactionForm.associatedTourId !== ''}
                 >
                   <option value="">-- None --</option>
                   {reservations.map(res => (
@@ -1837,7 +1806,7 @@ const App = () => {
                   value={financialTransactionForm.associatedTourId}
                   onChange={handleFinancialTransactionFormChange}
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
-                  disabled={financialTransactionForm.associatedReservationId !== ''} // Disable if reservation is selected
+                  disabled={financialTransactionForm.associatedReservationId !== ''}
                 >
                   <option value="">-- None --</option>
                   {tours.map(tour => (
@@ -2041,7 +2010,7 @@ const App = () => {
           <div className="flex items-center justify-center md:justify-start mb-6">
             {/* Lion Logo Placeholder */}
             <span className="text-orange-500 text-4xl mr-3">
-              🏝️
+              🦁
             </span>
             <h1 className="text-3xl font-bold text-orange-500">Dynamex</h1>
           </div>
@@ -2172,12 +2141,7 @@ const App = () => {
               </li>
             </ul>
           </nav>
-          {userId && (
-            <div className="mt-8 pt-4 border-t border-blue-800 text-sm text-gray-400">
-              <p>User ID:</p>
-              <p className="break-all font-mono text-xs">{userId}</p>
-            </div>
-          )}
+          {/* Removed userId display as it's no longer relevant for data segregation */}
         </aside>
 
         {/* Main Content Area */}
@@ -2195,4 +2159,5 @@ const App = () => {
 };
 
 export default App;
+
 
