@@ -2010,7 +2010,7 @@ const App = () => {
           <div className="flex items-center justify-center md:justify-start mb-6">
             {/* Lion Logo Placeholder */}
             <span className="text-orange-500 text-4xl mr-3">
-              🦁
+              🏝️
             </span>
             <h1 className="text-3xl font-bold text-orange-500">Dynamex</h1>
           </div>
