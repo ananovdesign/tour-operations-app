@@ -159,16 +159,19 @@ const App = () => {
 
   // --- Firebase Initialization and Authentication ---
   useEffect(() => {
+    // Only proceed if app is not already initialized to prevent multiple initializations
+    if (app) return;
+
     try {
-      const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-      // Use the provided __firebase_config if it's a valid JSON string, otherwise use DEFAULT_FIREBASE_CONFIG
-      let config = DEFAULT_FIREBASE_CONFIG;
+      const appId = typeof __app_id !== 'undefined' && __app_id ? __app_id : 'default-app-id';
+
+      let firebaseConfigToUse = DEFAULT_FIREBASE_CONFIG;
       if (typeof __firebase_config !== 'undefined' && __firebase_config) {
         try {
           const parsedConfig = JSON.parse(__firebase_config);
-          // Simple validation to ensure it's not an empty object if something was intended
+          // If parsed config is not empty, use it. Otherwise, stick with DEFAULT_FIREBASE_CONFIG.
           if (Object.keys(parsedConfig).length > 0) {
-            config = parsedConfig;
+            firebaseConfigToUse = parsedConfig;
           } else {
             console.warn("Parsed __firebase_config was empty, falling back to DEFAULT_FIREBASE_CONFIG.");
           }
@@ -179,70 +182,64 @@ const App = () => {
         console.warn("No __firebase_config provided or it was undefined, falling back to DEFAULT_FIREBASE_CONFIG.");
       }
 
-      // Log config for debugging purposes
-      console.log("Firebase config being used:", config);
+      console.log("Firebase config being used:", firebaseConfigToUse);
       console.log("App ID being used:", appId);
 
+      const initializedApp = initializeApp(firebaseConfigToUse);
+      setApp(initializedApp);
+      const authInstance = getAuth(initializedApp);
+      setAuth(authInstance);
+      const dbInstance = getFirestore(initializedApp);
+      setDb(dbInstance);
 
-      if (!app) {
-        const initializedApp = initializeApp(config);
-        setApp(initializedApp);
-        const authInstance = getAuth(initializedApp);
-        setAuth(authInstance);
-        const dbInstance = getFirestore(initializedApp);
-        setDb(dbInstance);
-
-        // Sign in with custom token if available, otherwise anonymously
-        const signIn = async () => {
-          try {
-            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-              try {
-                await signInWithCustomToken(authInstance, __initial_auth_token);
-                console.log("Signed in with custom token.");
-              } catch (customTokenError) {
-                console.warn("Custom token sign-in failed, attempting anonymous sign-in:", customTokenError);
-                // If custom token fails, try anonymous sign-in
-                await signInAnonymously(authInstance);
-                console.log("Signed in anonymously after custom token failure.");
-              }
-            } else {
-              // If no custom token is provided, sign in anonymously
+      // Sign in logic remains the same
+      const signIn = async () => {
+        try {
+          if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+            try {
+              await signInWithCustomToken(authInstance, __initial_auth_token);
+              console.log("Signed in with custom token.");
+            } catch (customTokenError) {
+              console.warn("Custom token sign-in failed, attempting anonymous sign-in:", customTokenError);
               await signInAnonymously(authInstance);
-              console.log("Signed in anonymously (no custom token provided).");
+              console.log("Signed in anonymously after custom token failure.");
             }
-          } catch (e) {
-            console.error("Firebase Auth Error during final sign-in attempt:", e);
-            if (e.code === 'auth/invalid-api-key') {
-                setError("Firebase initialization failed: Invalid API Key. Please ensure your Firebase config is correct in the environment.");
-            } else {
-                setError(`Failed to authenticate: ${e.message}. Please try again.`);
-            }
-          }
-        };
-        signIn();
-
-        // Listen for authentication state changes
-        const unsubscribeAuth = onAuthStateChanged(authInstance, (user) => {
-          if (user) {
-            setUserId(user.uid);
-            setIsAuthReady(true); // Auth is ready, can now perform Firestore operations
-            console.log("User authenticated:", user.uid);
           } else {
-            setUserId(null);
-            setIsAuthReady(true); // Auth state checked, even if user is null
-            console.log("No user authenticated.");
+            await signInAnonymously(authInstance);
+            console.log("Signed in anonymously (no custom token provided).");
           }
-          setLoading(false); // Auth check completed, stop initial loading
-        });
+        } catch (e) {
+          console.error("Firebase Auth Error during final sign-in attempt:", e);
+          if (e.code === 'auth/invalid-api-key') {
+              setError("Firebase initialization failed: Invalid API Key. Please ensure your Firebase API Key is correct and has no unnecessary restrictions in Google Cloud Console.");
+          } else {
+              setError(`Failed to authenticate: ${e.message}. Please try again. Ensure Anonymous Authentication is enabled in Firebase.`);
+          }
+        } finally {
+          setLoading(false); // Stop loading after auth attempt (success or fail)
+        }
+      };
+      signIn();
 
-        return () => unsubscribeAuth(); // Cleanup auth listener
-      }
+      const unsubscribeAuth = onAuthStateChanged(authInstance, (user) => {
+        if (user) {
+          setUserId(user.uid);
+          setIsAuthReady(true);
+          console.log("User authenticated:", user.uid);
+        } else {
+          setUserId(null);
+          setIsAuthReady(true);
+          console.log("No user authenticated.");
+        }
+      });
+
+      return () => unsubscribeAuth();
     } catch (e) {
       console.error("Firebase initialization error:", e);
-      setError("Failed to initialize Firebase. Check console for details. Ensure firebaseConfig is valid JSON.");
+      setError("Failed to initialize Firebase. Please check your Firebase project configuration (API Key, Project ID, etc.).");
       setLoading(false);
     }
-  }, [app]);
+  }, [app]); // Dependency on 'app' ensures it runs only once upon first app initialization
 
 
   // --- Firestore Data Listeners (onSnapshot) ---
@@ -259,7 +256,6 @@ const App = () => {
     }, (err) => {
       console.error("Error fetching reservations:", err);
       setError("Failed to load reservations. Please try again.");
-      setLoading(false);
     });
 
     return () => unsubscribeReservations();
@@ -277,7 +273,6 @@ const App = () => {
     }, (err) => {
       console.error("Error fetching customers:", err);
       setError("Failed to load customers. Please try again.");
-      setLoading(false);
     });
 
     return () => unsubscribeCustomers();
@@ -295,7 +290,6 @@ const App = () => {
     }, (err) => {
       console.error("Error fetching tours:", err);
       setError("Failed to load tours. Please try again.");
-      setLoading(false);
     });
 
     return () => unsubscribeTours();
@@ -313,7 +307,6 @@ const App = () => {
     }, (err) => {
       console.error("Error fetching financial transactions:", err);
       setError("Failed to load financial transactions. Please try again.");
-      setLoading(false);
     });
 
     return () => unsubscribeFinancialTransactions();
