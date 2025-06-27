@@ -7,18 +7,8 @@ import {
   serverTimestamp, Timestamp
 } from 'firebase/firestore';
 
-// Define the Firebase configuration directly in the component for robust initialization.
-// This ensures the app can always initialize, even if __firebase_config is not perfectly passed.
-const DEFAULT_FIREBASE_CONFIG = {
-  apiKey: "AIzaSyD9w0f6FeIeIWMNUsagjF9Ycs7JHDKHs4",
-  authDomain: "dyt-ops-app.firebaseapp.com",
-  projectId: "dyt-ops-app",
-  storageBucket: "dyt-ops-app.appspot.com",
-  messagingSenderId: "198745203064",
-  appId: "1:198745203064:web:31ab81ef1c036b847438d"
-};
-
 // Confirmation Modal Component
+// This component provides a custom dialog for user confirmations, replacing native browser alerts.
 const ConfirmationModal = ({ show, title, message, onConfirm, onCancel }) => {
   if (!show) return null;
 
@@ -159,61 +149,61 @@ const App = () => {
 
   // --- Firebase Initialization and Authentication ---
   useEffect(() => {
-    // Only proceed if app is not already initialized to prevent multiple initializations
+    // Only proceed if app is not already initialized
     if (app) return;
 
     try {
+      // Get the app ID and Firebase config from the environment.
+      // Use 'default-app-id' as a fallback if __app_id is not defined.
       const appId = typeof __app_id !== 'undefined' && __app_id ? __app_id : 'default-app-id';
 
-      let firebaseConfigToUse = DEFAULT_FIREBASE_CONFIG;
+      // Parse firebaseConfig. If not provided or invalid, use an empty object for initializeApp
+      // Firebase will then typically throw a more specific error if essential config is missing.
+      let firebaseConfig = {};
       if (typeof __firebase_config !== 'undefined' && __firebase_config) {
         try {
-          const parsedConfig = JSON.parse(__firebase_config);
-          // If parsed config is not empty, use it. Otherwise, stick with DEFAULT_FIREBASE_CONFIG.
-          if (Object.keys(parsedConfig).length > 0) {
-            firebaseConfigToUse = parsedConfig;
-          } else {
-            console.warn("Parsed __firebase_config was empty, falling back to DEFAULT_FIREBASE_CONFIG.");
-          }
+          firebaseConfig = JSON.parse(__firebase_config);
         } catch (parseError) {
-          console.error("Error parsing __firebase_config, falling back to DEFAULT_FIREBASE_CONFIG:", parseError);
+          console.error("Error parsing __firebase_config:", parseError);
+          setError("Firebase configuration is invalid. Please ensure it's a valid JSON string.");
+          setLoading(false);
+          return; // Stop initialization if config is bad
         }
       } else {
-        console.warn("No __firebase_config provided or it was undefined, falling back to DEFAULT_FIREBASE_CONFIG.");
+        console.warn("No __firebase_config provided.");
+        setError("Firebase configuration is missing. Please ensure your environment is set up correctly.");
+        setLoading(false);
+        return; // Stop initialization if config is missing
       }
 
-      console.log("Firebase config being used:", firebaseConfigToUse);
+      console.log("Firebase config being used:", firebaseConfig);
       console.log("App ID being used:", appId);
 
-      const initializedApp = initializeApp(firebaseConfigToUse);
+      const initializedApp = initializeApp(firebaseConfig);
       setApp(initializedApp);
       const authInstance = getAuth(initializedApp);
       setAuth(authInstance);
       const dbInstance = getFirestore(initializedApp);
       setDb(dbInstance);
 
-      // Sign in logic remains the same
+      // Sign in with custom token if available, otherwise anonymously
       const signIn = async () => {
         try {
           if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-            try {
-              await signInWithCustomToken(authInstance, __initial_auth_token);
-              console.log("Signed in with custom token.");
-            } catch (customTokenError) {
-              console.warn("Custom token sign-in failed, attempting anonymous sign-in:", customTokenError);
-              await signInAnonymously(authInstance);
-              console.log("Signed in anonymously after custom token failure.");
-            }
+            await signInWithCustomToken(authInstance, __initial_auth_token);
+            console.log("Signed in with custom token.");
           } else {
             await signInAnonymously(authInstance);
-            console.log("Signed in anonymously (no custom token provided).");
+            console.log("Signed in anonymously.");
           }
         } catch (e) {
           console.error("Firebase Auth Error during final sign-in attempt:", e);
           if (e.code === 'auth/invalid-api-key') {
-              setError("Firebase initialization failed: Invalid API Key. Please ensure your Firebase API Key is correct and has no unnecessary restrictions in Google Cloud Console.");
+              setError("Authentication failed: Invalid API Key. Check your Firebase project settings and ensure your API key is correct and unrestricted.");
+          } else if (e.code === 'auth/unauthorized-domain') {
+              setError("Authentication failed: Unauthorized Domain. Add the current domain to your Firebase project's authorized domains.");
           } else {
-              setError(`Failed to authenticate: ${e.message}. Please try again. Ensure Anonymous Authentication is enabled in Firebase.`);
+              setError(`Authentication failed: ${e.message}. Ensure Anonymous Authentication is enabled in Firebase.`);
           }
         } finally {
           setLoading(false); // Stop loading after auth attempt (success or fail)
@@ -221,28 +211,29 @@ const App = () => {
       };
       signIn();
 
+      // Listen for authentication state changes
       const unsubscribeAuth = onAuthStateChanged(authInstance, (user) => {
         if (user) {
           setUserId(user.uid);
-          setIsAuthReady(true);
+          setIsAuthReady(true); // Auth is ready, can now perform Firestore operations
           console.log("User authenticated:", user.uid);
         } else {
           setUserId(null);
-          setIsAuthReady(true);
+          setIsAuthReady(true); // Auth state checked, even if user is null
           console.log("No user authenticated.");
         }
       });
 
-      return () => unsubscribeAuth();
+      return () => unsubscribeAuth(); // Cleanup auth listener on component unmount
     } catch (e) {
       console.error("Firebase initialization error:", e);
-      setError("Failed to initialize Firebase. Please check your Firebase project configuration (API Key, Project ID, etc.).");
+      setError(`Failed to initialize Firebase: ${e.message}. Ensure your Firebase configuration is complete.`);
       setLoading(false);
     }
-  }, [app]); // Dependency on 'app' ensures it runs only once upon first app initialization
-
+  }, [app]); // Dependency on 'app' ensures this effect runs only once when the app state is null
 
   // --- Firestore Data Listeners (onSnapshot) ---
+  // These effects will only run once 'db', 'userId', and 'isAuthReady' are available.
 
   // Listen for Reservations
   useEffect(() => {
@@ -252,13 +243,13 @@ const App = () => {
     const unsubscribeReservations = onSnapshot(reservationsColRef, (snapshot) => {
       const reservationList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setReservations(reservationList);
-      setLoading(false);
+      // No need to set loading to false here, as it's handled in auth initialization.
     }, (err) => {
       console.error("Error fetching reservations:", err);
       setError("Failed to load reservations. Please try again.");
     });
 
-    return () => unsubscribeReservations();
+    return () => unsubscribeReservations(); // Cleanup listener
   }, [db, userId, isAuthReady]);
 
   // Listen for Customers
@@ -269,16 +260,15 @@ const App = () => {
     const unsubscribeCustomers = onSnapshot(customersColRef, (snapshot) => {
       const customerList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setCustomers(customerList);
-      setLoading(false);
     }, (err) => {
       console.error("Error fetching customers:", err);
       setError("Failed to load customers. Please try again.");
     });
 
-    return () => unsubscribeCustomers();
+    return () => unsubscribeCustomers(); // Cleanup listener
   }, [db, userId, isAuthReady]);
 
-  // Listen for Tours (Phase 2)
+  // Listen for Tours
   useEffect(() => {
     if (!db || !userId || !isAuthReady) return;
 
@@ -286,16 +276,15 @@ const App = () => {
     const unsubscribeTours = onSnapshot(toursColRef, (snapshot) => {
       const tourList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setTours(tourList);
-      setLoading(false);
     }, (err) => {
       console.error("Error fetching tours:", err);
       setError("Failed to load tours. Please try again.");
     });
 
-    return () => unsubscribeTours();
+    return () => unsubscribeTours(); // Cleanup listener
   }, [db, userId, isAuthReady]);
 
-  // Listen for Financial Transactions (Phase 3)
+  // Listen for Financial Transactions
   useEffect(() => {
     if (!db || !userId || !isAuthReady) return;
 
@@ -303,24 +292,24 @@ const App = () => {
     const unsubscribeFinancialTransactions = onSnapshot(financialTransactionsColRef, (snapshot) => {
       const transactionList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setFinancialTransactions(transactionList);
-      setLoading(false);
     }, (err) => {
       console.error("Error fetching financial transactions:", err);
       setError("Failed to load financial transactions. Please try again.");
     });
 
-    return () => unsubscribeFinancialTransactions();
+    return () => unsubscribeFinancialTransactions(); // Cleanup listener
   }, [db, userId, isAuthReady]);
 
 
   // --- Helper Functions ---
 
+  // Displays a temporary message to the user (e.g., success or error notifications).
   const showMessage = (msg, type = 'success') => {
     setMessage({ text: msg, type });
     setTimeout(() => setMessage(''), 5000); // Clear message after 5 seconds
   };
 
-  // Calculate total nights (used for Reservations and Tours)
+  // Calculates the number of days between two given dates.
   const calculateDaysBetweenDates = (date1, date2) => {
     if (date1 && date2) {
       const d1 = new Date(date1);
@@ -332,20 +321,21 @@ const App = () => {
     return 0;
   };
 
-  // Generate unique reservation number (client-side, simple incrementing logic)
+  // Generates a unique reservation number based on existing reservations in Firestore.
   const generateReservationNumber = async () => {
     if (!db || !userId) return '';
     try {
       const q = query(collection(db, `artifacts/${__app_id}/users/${userId}/reservations`));
       const querySnapshot = await getDocs(q);
-      let highestNum = 100100;
+      let highestNum = 100100; // Starting point for DYT100101
 
+      // Filter for numbers that start with 'DYT' and parse the numeric part
       const sortedReservations = querySnapshot.docs
         .map(doc => doc.data().reservationNumber)
-        .filter(resNum => resNum && resNum.startsWith('DYT'))
+        .filter(resNum => resNum && typeof resNum === 'string' && resNum.startsWith('DYT'))
         .map(resNum => parseInt(resNum.substring(3), 10))
         .filter(num => !isNaN(num))
-        .sort((a, b) => b - a);
+        .sort((a, b) => b - a); // Sort descending to find the highest
 
       if (sortedReservations.length > 0) {
         highestNum = sortedReservations[0];
@@ -354,11 +344,12 @@ const App = () => {
       return `DYT${highestNum + 1}`;
     } catch (err) {
       console.error("Error generating reservation number:", err);
+      // Fallback to a timestamp-based number if Firestore query fails
       return `DYT${Date.now().toString().slice(-6)}`;
     }
   };
 
-  // Generate unique tour ID (Phase 2)
+  // Generates a unique tour ID based on existing tours in Firestore.
   const generateTourId = async () => {
     if (!db || !userId) return '';
     try {
@@ -368,7 +359,7 @@ const App = () => {
 
       const sortedTours = querySnapshot.docs
         .map(doc => doc.data().tourId)
-        .filter(tId => tId && tId.startsWith('DYT'))
+        .filter(tId => tId && typeof tId === 'string' && tId.startsWith('DYT'))
         .map(tId => parseInt(tId.substring(3), 10))
         .filter(num => !isNaN(num))
         .sort((a, b) => b - a);
@@ -376,9 +367,10 @@ const App = () => {
       if (sortedTours.length > 0) {
         highestNum = sortedTours[0];
       }
-      return `DYT${String(highestNum + 1).padStart(3, '0')}`; // DYT001, DYT002 etc.
+      return `DYT${String(highestNum + 1).padStart(3, '0')}`; // e.g., DYT001, DYT002
     } catch (err) {
       console.error("Error generating tour ID:", err);
+      // Fallback to a timestamp-based ID if Firestore query fails
       return `DYT${Date.now().toString().slice(-3)}`;
     }
   };
@@ -386,6 +378,7 @@ const App = () => {
 
   // --- Handlers for Reservation Form ---
 
+  // Handles changes to input fields in the reservation form, updating state and recalculating derived values.
   const handleReservationFormChange = useCallback((e) => {
     const { name, value, type, checked } = e.target;
     setReservationForm(prev => {
@@ -394,11 +387,11 @@ const App = () => {
         [name]: type === 'checkbox' ? checked : value,
       };
 
-      // Recalculate total nights if dates change
+      // Recalculate total nights if check-in or check-out dates change
       if (name === 'checkIn' || name === 'checkOut') {
         newState.totalNights = calculateDaysBetweenDates(newState.checkIn, newState.checkOut);
       }
-      // Recalculate profit
+      // Recalculate profit if final amount or owed to hotel changes
       if (name === 'finalAmount' || name === 'owedToHotel') {
         newState.profit = (parseFloat(newState.finalAmount) || 0) - (parseFloat(newState.owedToHotel) || 0);
       }
@@ -406,6 +399,7 @@ const App = () => {
     });
   }, []);
 
+  // Handles changes to individual tourist details within the reservation form.
   const handleTouristChange = useCallback((index, e) => {
     const { name, value } = e.target;
     setReservationForm(prev => {
@@ -418,6 +412,7 @@ const App = () => {
     });
   }, []);
 
+  // Adds a new blank tourist entry to the reservation form.
   const addTourist = useCallback(() => {
     setReservationForm(prev => ({
       ...prev,
@@ -435,6 +430,7 @@ const App = () => {
     }));
   }, []);
 
+  // Removes a tourist entry from the reservation form by index.
   const removeTourist = useCallback((index) => {
     setReservationForm(prev => ({
       ...prev,
@@ -443,15 +439,18 @@ const App = () => {
   }, []);
 
   // --- Customer Management (for Add/Edit Reservation) ---
+  // Manages customer records in Firestore. Creates new customer entries if they don't exist
+  // or updates existing ones based on the provided tourist ID.
   const manageCustomerRecords = async (tourists) => {
     const customersColRef = collection(db, `artifacts/${__app_id}/users/${userId}/customers`);
 
     for (const tourist of tourists) {
+      // Only process tourists with a valid ID
       if (!tourist.id) {
         console.warn("Skipping customer record management for a tourist without an ID.");
         continue;
       }
-      const customerDocRef = doc(customersColRef, tourist.id);
+      const customerDocRef = doc(customersColRef, tourist.id); // Use tourist.id as document ID
 
       try {
         const docSnap = await getDoc(customerDocRef);
@@ -464,19 +463,21 @@ const App = () => {
           postCode: tourist.postCode,
           email: tourist.email,
           phone: tourist.phone,
-          id: tourist.id,
+          id: tourist.id, // Store ID within the document as well
         };
 
         if (docSnap.exists()) {
+          // Update existing customer record
           await updateDoc(customerDocRef, {
             ...customerData,
-            updatedAt: serverTimestamp()
+            updatedAt: serverTimestamp() // Update timestamp
           });
           console.log(`Updated customer: ${tourist.id}`);
         } else {
-          await setDoc(customerDocRef, {
+          // Create new customer record
+          await setDoc(customerDocRef, { // Use setDoc to create with a specific ID
             ...customerData,
-            createdAt: serverTimestamp()
+            createdAt: serverTimestamp() // Creation timestamp
           });
           console.log(`Created new customer: ${tourist.id}`);
         }
@@ -489,10 +490,11 @@ const App = () => {
 
 
   // --- Submit Reservation Form ---
+  // Handles the submission of the reservation form, saving or updating data in Firestore.
   const handleSubmitReservation = async (e) => {
     e.preventDefault();
     if (!db || !userId) {
-      setError("Database not ready. Please try again.");
+      setError("Database not ready or user not authenticated. Please try again.");
       return;
     }
 
@@ -502,14 +504,18 @@ const App = () => {
 
     try {
       let currentReservationNumber = reservationForm.reservationNumber;
+      // Generate a new reservation number only if it's a new reservation and no number is set
       if (!selectedReservation && !currentReservationNumber) {
         currentReservationNumber = await generateReservationNumber();
+        // Update form state if a new number was generated (important for subsequent logic)
         setReservationForm(prev => ({ ...prev, reservationNumber: currentReservationNumber }));
       }
 
+      // Prepare reservation data for Firestore
       const reservationData = {
         ...reservationForm,
         reservationNumber: currentReservationNumber,
+        // Convert date strings to Firebase Timestamps
         creationDate: reservationForm.creationDate ? Timestamp.fromDate(new Date(reservationForm.creationDate)) : serverTimestamp(),
         checkIn: reservationForm.checkIn ? Timestamp.fromDate(new Date(reservationForm.checkIn)) : null,
         checkOut: reservationForm.checkOut ? Timestamp.fromDate(new Date(reservationForm.checkOut)) : null,
@@ -521,16 +527,19 @@ const App = () => {
         profit: (parseFloat(reservationForm.finalAmount) || 0) - (parseFloat(reservationForm.owedToHotel) || 0),
         adults: parseInt(reservationForm.adults) || 0,
         children: parseInt(reservationForm.children) || 0,
-        approxTransportCost: parseFloat(reservationForm.approxTransportCost) || 0, // Phase 2 field
+        approxTransportCost: parseFloat(reservationForm.approxTransportCost) || 0,
       };
 
+      // Ensure customer records are updated/created based on tourist details
       await manageCustomerRecords(reservationForm.tourists);
 
       if (selectedReservation) {
+        // Update existing reservation
         const resDocRef = doc(db, `artifacts/${__app_id}/users/${userId}/reservations`, selectedReservation.id);
         await updateDoc(resDocRef, { ...reservationData, updatedAt: serverTimestamp() });
         showMessage('Reservation updated successfully!', 'success');
       } else {
+        // Add a new reservation
         await addDoc(collection(db, `artifacts/${__app_id}/users/${userId}/reservations`), {
           ...reservationData,
           createdAt: serverTimestamp()
@@ -538,8 +547,8 @@ const App = () => {
         showMessage('Reservation added successfully!', 'success');
       }
 
-      resetReservationForm();
-      setActiveTab('reservations');
+      resetReservationForm(); // Clear form after successful submission
+      setActiveTab('reservations'); // Navigate back to the reservations list
     } catch (err) {
       console.error("Error saving reservation:", err);
       setError(`Failed to save reservation: ${err.message || err.toString()}`);
@@ -548,6 +557,7 @@ const App = () => {
     }
   };
 
+  // Resets the reservation form to its initial empty state.
   const resetReservationForm = useCallback(() => {
     setReservationForm({
       creationDate: '',
@@ -581,11 +591,13 @@ const App = () => {
       linkedTourId: '',
       approxTransportCost: 0,
     });
-    setSelectedReservation(null);
+    setSelectedReservation(null); // Clear any selected reservation for editing
   }, []);
 
   // --- Edit Reservation Logic ---
+  // Populates the reservation form with data from a selected reservation for editing.
   const handleEditReservation = useCallback((reservation) => {
+    // Convert Firebase Timestamps back to YYYY-MM-DD date strings for input fields
     const checkInDate = reservation.checkIn?.toDate().toISOString().split('T')[0] || '';
     const checkOutDate = reservation.checkOut?.toDate().toISOString().split('T')[0] || '';
     const creationDate = reservation.creationDate?.toDate().toISOString().split('T')[0] || '';
@@ -601,23 +613,26 @@ const App = () => {
       finalAmount: parseFloat(reservation.finalAmount) || 0,
       owedToHotel: parseFloat(reservation.owedToHotel) || 0,
       profit: parseFloat(reservation.profit) || 0,
-      approxTransportCost: parseFloat(reservation.approxTransportCost) || 0, // Phase 2 field
+      approxTransportCost: parseFloat(reservation.approxTransportCost) || 0,
+      // Ensure tourists array is always valid, even if empty or undefined
       tourists: reservation.tourists ? reservation.tourists.map(t => ({ ...t })) : [{
         firstName: '', fatherName: '', familyName: '', id: '', address: '',
         city: '', postCode: '', email: '', phone: ''
       }],
     });
-    setSelectedReservation(reservation);
-    setActiveTab('addReservation');
+    setSelectedReservation(reservation); // Set the reservation as currently selected for editing
+    setActiveTab('addReservation'); // Switch to the add/edit reservation tab
   }, []);
 
   // --- Delete Reservation Logic ---
+  // Prompts the user for confirmation before deleting a reservation from Firestore.
   const handleDeleteReservation = async (reservationId) => {
+    // Show custom confirmation modal
     setConfirmModalContent({
       title: 'Delete Reservation',
-      message: 'Are you sure you want to delete this reservation?',
+      message: 'Are you sure you want to delete this reservation? This action cannot be undone.',
       onConfirm: async () => {
-        setShowConfirmModal(false); // Close modal before action
+        setShowConfirmModal(false); // Close modal
         if (!db || !userId) {
           setError("Database not ready. Cannot delete.");
           return;
@@ -637,22 +652,25 @@ const App = () => {
           setLoading(false);
         }
       },
-      onCancel: () => setShowConfirmModal(false)
+      onCancel: () => setShowConfirmModal(false) // Just close modal on cancel
     });
-    setShowConfirmModal(true);
+    setShowConfirmModal(true); // Display the modal
   };
 
   // --- Customer Module Logic ---
+  // Sets the selected customer for editing and opens the customer edit modal.
   const handleEditCustomer = (customer) => {
     setCustomerEditForm({ ...customer });
     setShowCustomerEditModal(true);
   };
 
+  // Handles changes to input fields in the customer edit form.
   const handleCustomerEditFormChange = (e) => {
     const { name, value } = e.target;
     setCustomerEditForm(prev => ({ ...prev, [name]: value }));
   };
 
+  // Handles the submission of the customer edit form, updating customer data in Firestore.
   const handleUpdateCustomer = async (e) => {
     e.preventDefault();
     if (!db || !userId || !customerEditForm.id) {
@@ -668,10 +686,10 @@ const App = () => {
       const customerDocRef = doc(db, `artifacts/${__app_id}/users/${userId}/customers`, customerEditForm.id);
       await updateDoc(customerDocRef, {
         ...customerEditForm,
-        updatedAt: serverTimestamp()
+        updatedAt: serverTimestamp() // Update timestamp
       });
       showMessage('Customer updated successfully!', 'success');
-      setShowCustomerEditModal(false);
+      setShowCustomerEditModal(false); // Close modal after successful update
     } catch (err) {
       console.error("Error updating customer:", err);
       setError("Failed to update customer. Please try again.");
@@ -682,6 +700,7 @@ const App = () => {
 
   // --- Tour Module Logic (Phase 2) ---
 
+  // Handles changes to input fields in the tour form, updating state and recalculating days.
   const handleTourFormChange = useCallback((e) => {
     const { name, value } = e.target;
     setTourForm(prev => {
@@ -689,7 +708,7 @@ const App = () => {
         ...prev,
         [name]: value,
       };
-      // Recalculate daysInclTravel if dates change
+      // Recalculate daysInclTravel if departure or arrival dates change
       if (name === 'departureDate' || name === 'arrivalDate') {
         newState.daysInclTravel = calculateDaysBetweenDates(newState.departureDate, newState.arrivalDate) + 1; // Inclusive of travel days
       }
@@ -697,10 +716,11 @@ const App = () => {
     });
   }, []);
 
+  // Handles the submission of the tour form, saving or updating tour data in Firestore.
   const handleSubmitTour = async (e) => {
     e.preventDefault();
     if (!db || !userId) {
-      setError("Database not ready. Please try again.");
+      setError("Database not ready or user not authenticated. Please try again.");
       return;
     }
 
@@ -710,14 +730,18 @@ const App = () => {
 
     try {
       let currentTourId = tourForm.tourId;
-      if (!currentTourId) { // Always generate for new tours initially
+      // Generate a new tour ID if it's a new tour and no ID is set
+      if (!currentTourId) {
         currentTourId = await generateTourId();
+        // Update form state if a new ID was generated
         setTourForm(prev => ({ ...prev, tourId: currentTourId }));
       }
 
+      // Prepare tour data for Firestore
       const tourData = {
         ...tourForm,
         tourId: currentTourId,
+        // Convert date strings to Firebase Timestamps
         departureDate: tourForm.departureDate ? Timestamp.fromDate(new Date(tourForm.departureDate)) : null,
         arrivalDate: tourForm.arrivalDate ? Timestamp.fromDate(new Date(tourForm.arrivalDate)) : null,
         nights: parseInt(tourForm.nights) || 0,
@@ -725,20 +749,22 @@ const App = () => {
         maxPassengers: parseInt(tourForm.maxPassengers) || 0,
       };
 
-      // Check if updating an existing tour or adding a new one
+      // Check if updating an existing tour or adding a new one by trying to get the document
       const tourDocRef = doc(db, `artifacts/${__app_id}/users/${userId}/tours`, currentTourId);
       const docSnap = await getDoc(tourDocRef);
 
       if (docSnap.exists()) {
+        // Update existing tour
         await updateDoc(tourDocRef, { ...tourData, updatedAt: serverTimestamp() });
         showMessage('Tour updated successfully!', 'success');
       } else {
-        await setDoc(tourDocRef, { ...tourData, createdAt: serverTimestamp() }); // Use setDoc with custom ID
+        // Add a new tour using setDoc with the custom tourId
+        await setDoc(tourDocRef, { ...tourData, createdAt: serverTimestamp() });
         showMessage('Tour added successfully!', 'success');
       }
 
-      resetTourForm();
-      setActiveTab('tours');
+      resetTourForm(); // Clear form after successful submission
+      setActiveTab('tours'); // Navigate back to the tours list
     } catch (err) {
       console.error("Error saving tour:", err);
       setError(`Failed to save tour: ${err.message || err.toString()}`);
@@ -747,6 +773,7 @@ const App = () => {
     }
   };
 
+  // Resets the tour form to its initial empty state.
   const resetTourForm = useCallback(() => {
     setTourForm({
       tourId: '',
@@ -758,10 +785,12 @@ const App = () => {
       hotel: '',
       maxPassengers: 0,
     });
-    setSelectedTour(null);
+    setSelectedTour(null); // Clear any selected tour for editing
   }, []);
 
+  // Populates the tour form with data from a selected tour for editing.
   const handleEditTour = useCallback((tour) => {
+    // Convert Firebase Timestamps back to YYYY-MM-DD date strings for input fields
     const departureDate = tour.departureDate?.toDate().toISOString().split('T')[0] || '';
     const arrivalDate = tour.arrivalDate?.toDate().toISOString().split('T')[0] || '';
 
@@ -773,16 +802,18 @@ const App = () => {
       daysInclTravel: parseInt(tour.daysInclTravel) || 0,
       maxPassengers: parseInt(tour.maxPassengers) || 0,
     });
-    setSelectedTour(tour);
-    setActiveTab('addTour'); // Re-use the add tour form for editing
+    setSelectedTour(tour); // Set the tour as currently selected for editing
+    setActiveTab('addTour'); // Switch to the add/edit tour tab
   }, []);
 
+  // Prompts the user for confirmation before deleting a tour from Firestore.
   const handleDeleteTour = async (tourId) => {
+    // Show custom confirmation modal
     setConfirmModalContent({
       title: 'Delete Tour',
-      message: 'Are you sure you want to delete this tour? This will not un-link existing reservations.',
+      message: 'Are you sure you want to delete this tour? This will not un-link existing reservations. This action cannot be undone.',
       onConfirm: async () => {
-        setShowConfirmModal(false); // Close modal before action
+        setShowConfirmModal(false); // Close modal
         if (!db || !userId) {
           setError("Database not ready. Cannot delete.");
           return;
@@ -802,12 +833,12 @@ const App = () => {
           setLoading(false);
         }
       },
-      onCancel: () => setShowConfirmModal(false)
+      onCancel: () => setShowConfirmModal(false) // Just close modal on cancel
     });
-    setShowConfirmModal(true);
+    setShowConfirmModal(true); // Display the modal
   };
 
-  // Helper to get reservations linked to a specific tour
+  // Helper function to get reservations that are linked to a specific tour.
   const getLinkedReservations = useCallback((tourId) => {
     return reservations.filter(res => res.linkedTourId === tourId);
   }, [reservations]);
@@ -815,12 +846,13 @@ const App = () => {
 
   // --- Financial Transaction Module Logic (Phase 3) ---
 
+  // Handles changes to input fields in the financial transaction form.
   const handleFinancialTransactionFormChange = useCallback((e) => {
     const { name, value, type } = e.target;
     setFinancialTransactionForm(prev => {
       let newState = { ...prev };
 
-      // Handle clearing the other association field if one is selected
+      // Logic to clear the other association field if one is selected
       if (name === 'associatedReservationId' && value !== '') {
         newState.associatedTourId = '';
       } else if (name === 'associatedTourId' && value !== '') {
@@ -829,17 +861,18 @@ const App = () => {
 
       newState = {
         ...newState,
-        [name]: type === 'number' ? parseFloat(value) || 0 : value,
+        [name]: type === 'number' ? parseFloat(value) || 0 : value, // Parse numbers, keep strings as is
       };
 
       return newState;
     });
   }, []);
 
+  // Handles the submission of the financial transaction form, adding data to Firestore.
   const handleSubmitFinancialTransaction = async (e) => {
     e.preventDefault();
     if (!db || !userId) {
-      setError("Database not ready. Please try again.");
+      setError("Database not ready or user not authenticated. Please try again.");
       return;
     }
 
@@ -848,6 +881,7 @@ const App = () => {
     setMessage('');
 
     try {
+      // Prepare transaction data for Firestore
       const transactionData = {
         ...financialTransactionForm,
         date: financialTransactionForm.date ? Timestamp.fromDate(new Date(financialTransactionForm.date)) : serverTimestamp(),
@@ -858,9 +892,10 @@ const App = () => {
 
       await addDoc(collection(db, `artifacts/${__app_id}/users/${userId}/financialTransactions`), transactionData);
       showMessage(`${financialTransactionForm.type === 'income' ? 'Payment' : 'Expense'} added successfully!`, 'success');
-      resetFinancialTransactionForm();
-      setActiveTab('payments');
-    } catch (err) {
+      resetFinancialTransactionForm(); // Clear form after successful submission
+      setActiveTab('payments'); // Navigate back to the payments list
+    }
+     catch (err) {
       console.error("Error saving financial transaction:", err);
       setError(`Failed to save financial transaction: ${err.message || err.toString()}`);
     } finally {
@@ -868,6 +903,7 @@ const App = () => {
     }
   };
 
+  // Resets the financial transaction form to its initial empty state.
   const resetFinancialTransactionForm = useCallback(() => {
     setFinancialTransactionForm({
       date: '',
@@ -883,6 +919,7 @@ const App = () => {
 
 
   // --- Dashboard Calculations (Phase 4) ---
+  // Memoized calculations for dashboard statistics to avoid re-calculating on every render.
   const dashboardStats = useMemo(() => {
     const totalReservations = reservations.length;
     const totalProfit = reservations.reduce((sum, res) => sum + (res.profit || 0), 0);
@@ -927,6 +964,7 @@ const App = () => {
 
   // --- Financial Reports Logic (Phase 5) ---
 
+  // Handles changes to filter inputs for financial reports.
   const handleReportFilterChange = useCallback((e) => {
     const { name, value } = e.target;
     if (name === 'reportStartDate') setReportStartDate(value);
@@ -935,6 +973,7 @@ const App = () => {
     else if (name === 'reportFilterAssociation') setReportFilterAssociation(value);
   }, []);
 
+  // Memoized filtered list of financial transactions based on current filter criteria.
   const filteredFinancialTransactions = useMemo(() => {
     return financialTransactions.filter(ft => {
       const transactionDate = ft.date?.toDate();
@@ -943,7 +982,9 @@ const App = () => {
 
       // Filter by date range
       if (startDate && transactionDate < startDate) return false;
-      if (endDate && transactionDate > endDate) return false;
+      // Adjust endDate to include the entire selected day
+      if (endDate && transactionDate > new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate() + 1)) return false;
+
 
       // Filter by type (income/expense)
       if (reportFilterType !== 'all' && ft.type !== reportFilterType) return false;
@@ -960,6 +1001,7 @@ const App = () => {
     }).sort((a, b) => b.date?.toDate() - a.date?.toDate()); // Sort by date descending
   }, [financialTransactions, reportStartDate, reportEndDate, reportFilterType, reportFilterAssociation]);
 
+  // Memoized calculation of total income, expenses, and net profit for the filtered transactions.
   const reportTotals = useMemo(() => {
     let totalIncome = 0;
     let totalExpenses = 0;
@@ -974,6 +1016,7 @@ const App = () => {
     return { totalIncome, totalExpenses, netProfit };
   }, [filteredFinancialTransactions]);
 
+  // Resets all financial report filters to their default states.
   const resetFinancialReportsFilters = useCallback(() => {
     setReportStartDate('');
     setReportEndDate('');
@@ -982,11 +1025,13 @@ const App = () => {
   }, []);
 
 
-  // Render UI based on activeTab
+  // --- UI Rendering Logic ---
+
+  // Renders the main content area based on the active tab.
   const renderContent = () => {
     if (loading) {
       return (
-        <div className="flex justify-center items-center h-full">
+        <div className="flex justify-center items-center h-full min-h-[200px]">
           <div className="text-orange-500 text-lg">Loading...</div>
         </div>
       );
@@ -998,7 +1043,7 @@ const App = () => {
           <div className="p-6 bg-white rounded-lg shadow-md">
             <h2 className="text-2xl font-semibold mb-6 text-gray-800">Dashboard & Analytics</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {/* Reservation Stats */}
+              {/* Reservation Stats Card */}
               <div className="bg-blue-50 p-4 rounded-lg shadow-sm border border-blue-200">
                 <h3 className="font-semibold text-lg text-blue-800 mb-2">Reservation Metrics</h3>
                 <p className="text-gray-700">Total Reservations: <span className="font-bold text-blue-900">{dashboardStats.totalReservations}</span></p>
@@ -1007,7 +1052,7 @@ const App = () => {
                 <p className="text-gray-700">Avg. Stay/Res: <span className="font-bold text-blue-900">{dashboardStats.averageStayPerReservation.toFixed(1)} nights</span></p>
               </div>
 
-              {/* Financial Stats */}
+              {/* Financial Stats Card */}
               <div className="bg-green-50 p-4 rounded-lg shadow-sm border border-green-200">
                 <h3 className="font-semibold text-lg text-green-800 mb-2">Financial Overview</h3>
                 <p className="text-gray-700">Total Income: <span className="font-bold text-green-900">${dashboardStats.totalIncome.toFixed(2)}</span></p>
@@ -1015,7 +1060,7 @@ const App = () => {
                 <p className="text-gray-700">Net Profit/Loss: <span className={`font-bold ${dashboardStats.totalIncome - dashboardStats.totalExpenses >= 0 ? 'text-green-900' : 'text-red-900'}`}>${(dashboardStats.totalIncome - dashboardStats.totalExpenses).toFixed(2)}</span></p>
               </div>
 
-              {/* Bus Tour Stats */}
+              {/* Bus Tour Stats Card */}
               <div className="bg-purple-50 p-4 rounded-lg shadow-sm border border-purple-200">
                 <h3 className="font-semibold text-lg text-purple-800 mb-2">Bus Tour Performance</h3>
                 <p className="text-gray-700">Total Bus Passengers Booked: <span className="font-bold text-purple-900">{dashboardStats.totalBusPassengersBooked}</span></p>
@@ -1105,7 +1150,7 @@ const App = () => {
               {selectedReservation ? 'Edit Hotel Reservation' : 'Add New Hotel Reservation'}
             </h2>
             <form onSubmit={handleSubmitReservation} className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
-              {/* Basic Info */}
+              {/* Basic Info Fields */}
               <div>
                 <label htmlFor="creationDate" className="block text-sm font-medium text-gray-700">Creation Date</label>
                 <input
@@ -1269,12 +1314,13 @@ const App = () => {
                 />
               </div>
 
-              {/* Tourist Details */}
+              {/* Tourist Details Section */}
               <div className="md:col-span-2 border-t border-gray-200 pt-4 mt-4">
                 <h3 className="text-xl font-semibold mb-4 text-gray-800">Tourist Details</h3>
                 {reservationForm.tourists.map((tourist, index) => (
                   <div key={index} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 border border-gray-200 rounded-lg p-4 mb-4 relative">
                     <h4 className="col-span-full text-lg font-medium text-gray-700 mb-2">Tourist {index + 1}</h4>
+                    {/* Remove Tourist Button */}
                     {reservationForm.tourists.length > 1 && (
                       <button
                         type="button"
@@ -1287,6 +1333,7 @@ const App = () => {
                         </svg>
                       </button>
                     )}
+                    {/* Tourist Input Fields */}
                     <div>
                       <label htmlFor={`firstName-${index}`} className="block text-sm font-medium text-gray-700">First Name</label>
                       <input type="text" name="firstName" id={`firstName-${index}`} value={tourist.firstName} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2" required />
@@ -1325,6 +1372,7 @@ const App = () => {
                     </div>
                   </div>
                 ))}
+                {/* Add Another Tourist Button */}
                 <button
                   type="button"
                   onClick={addTourist}
@@ -1334,7 +1382,7 @@ const App = () => {
                 </button>
               </div>
 
-              {/* Financial Info */}
+              {/* Financial Info Section */}
               <div className="md:col-span-2 border-t border-gray-200 pt-4 mt-4">
                 <h3 className="text-xl font-semibold mb-4 text-gray-800">Financial Info</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1430,6 +1478,7 @@ const App = () => {
                 </div>
               </div>
 
+              {/* Form Action Buttons */}
               <div className="md:col-span-2 flex justify-end space-x-3 mt-6">
                 <button
                   type="button"
@@ -1538,6 +1587,7 @@ const App = () => {
                       <label htmlFor="edit-phone" className="block text-sm font-medium text-gray-700">Phone</label>
                       <input type="tel" name="phone" id="edit-phone" value={customerEditForm.phone} onChange={handleCustomerEditFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2" />
                     </div>
+                    {/* Customer Edit Modal Action Buttons */}
                     <div className="flex justify-end space-x-3 mt-4 col-span-full">
                       <button
                         type="button"
@@ -1698,6 +1748,7 @@ const App = () => {
               {selectedTour ? 'Edit Bus Tour' : 'Create New Bus Tour'}
             </h2>
             <form onSubmit={handleSubmitTour} className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+              {/* Tour Input Fields */}
               <div>
                 <label htmlFor="tourId" className="block text-sm font-medium text-gray-700">Tour ID</label>
                 <input
@@ -1793,6 +1844,7 @@ const App = () => {
                 />
               </div>
 
+              {/* Form Action Buttons */}
               <div className="md:col-span-2 flex justify-end space-x-3 mt-6">
                 <button
                   type="button"
@@ -1869,6 +1921,7 @@ const App = () => {
           <div className="p-6 bg-white rounded-lg shadow-md">
             <h2 className="text-2xl font-semibold mb-6 text-gray-800">Add Financial Transaction</h2>
             <form onSubmit={handleSubmitFinancialTransaction} className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+              {/* Financial Transaction Input Fields */}
               <div>
                 <label htmlFor="transactionDate" className="block text-sm font-medium text-gray-700">Date</label>
                 <input
@@ -1946,7 +1999,7 @@ const App = () => {
                 ></textarea>
               </div>
 
-              {/* Association fields */}
+              {/* Association fields (Reservation/Tour ID) */}
               <div>
                 <label htmlFor="associatedReservationId" className="block text-sm font-medium text-gray-700">Associate with Reservation</label>
                 <select
@@ -1984,6 +2037,7 @@ const App = () => {
                 </select>
               </div>
 
+              {/* Form Action Buttons */}
               <div className="md:col-span-2 flex justify-end space-x-3 mt-6">
                 <button
                   type="button"
@@ -2308,6 +2362,7 @@ const App = () => {
               </li>
             </ul>
           </nav>
+          {/* Display current user ID */}
           {userId && (
             <div className="mt-8 pt-4 border-t border-blue-800 text-sm text-gray-400">
               <p>User ID:</p>
@@ -2318,6 +2373,7 @@ const App = () => {
 
         {/* Main Content Area */}
         <main className="flex-1 p-6 md:p-8 overflow-y-auto">
+          {/* Error and Message Display */}
           {error && (
             <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md relative mb-4" role="alert">
               <strong className="font-bold">Error!</strong>
@@ -2346,5 +2402,4 @@ const App = () => {
 };
 
 export default App;
-
 
