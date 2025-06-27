@@ -114,6 +114,11 @@ const App = () => {
       const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
       const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
 
+      // Log config for debugging purposes
+      console.log("Firebase config being used:", firebaseConfig);
+      console.log("App ID being used:", appId);
+
+
       if (!app) {
         const initializedApp = initializeApp(firebaseConfig);
         setApp(initializedApp);
@@ -142,7 +147,11 @@ const App = () => {
             }
           } catch (e) {
             console.error("Firebase Auth Error during final sign-in attempt:", e);
-            setError("Failed to authenticate. Please try again.");
+            if (e.code === 'auth/invalid-api-key') {
+                setError("Firebase initialization failed: Invalid API Key. Please ensure your Firebase config is correct in the environment.");
+            } else {
+                setError(`Failed to authenticate: ${e.message}. Please try again.`);
+            }
           }
         };
         signIn();
@@ -165,7 +174,7 @@ const App = () => {
       }
     } catch (e) {
       console.error("Firebase initialization error:", e);
-      setError("Failed to initialize Firebase. Check console for details.");
+      setError("Failed to initialize Firebase. Check console for details. Ensure firebaseConfig is valid JSON.");
       setLoading(false);
     }
   }, [app]);
