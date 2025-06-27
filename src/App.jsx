@@ -10,12 +10,12 @@ import {
 // Define a default Firebase configuration. This will be used if environment variables
 // are not properly loaded or are empty. This ensures the app can always try to initialize Firebase.
 const DEFAULT_FIREBASE_CONFIG = {
-  apiKey: "AIzaSyD9w0f6FeIeIWMNUsagjF9Ycs7JHDKHs4",
-  authDomain: "dyt-ops-app.firebaseapp.com",
-  projectId: "dyt-ops-app",
-  storageBucket: "dyt-ops-app.appspot.com",
-  messagingSenderId: "198745203064",
-  appId: "1:198745203064:web:31ab81ef1c036b847438d"
+  apiKey: "YOUR_FIREBASE_API_KEY", // <--- IMPORTANT: Replace this with your actual API key
+  authDomain: "YOUR_FIREBASE_AUTH_DOMAIN", // <--- IMPORTANT: Replace this
+  projectId: "YOUR_FIREBASE_PROJECT_ID", // <--- IMPORTANT: Replace this
+  storageBucket: "YOUR_FIREBASE_STORAGE_BUCKET", // <--- IMPORTANT: Replace this
+  messagingSenderId: "YOUR_FIREBASE_MESSAGING_SENDER_ID", // <--- IMPORTANT: Replace this
+  appId: "YOUR_FIREBASE_APP_ID" // <--- IMPORTANT: Replace this
 };
 
 // Confirmation Modal Component
@@ -65,7 +65,7 @@ const App = () => {
   const [reservations, setReservations] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [tours, setTours] = useState([]);
-  const [financialTransactions, setFinancialTransactions] = useState([]); // New state for payments/expenses
+  const [financialTransactions, setFinancialTransactions] = []; // New state for payments/expenses
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [message, setMessage] = useState(''); // For success/error messages
@@ -167,26 +167,25 @@ const App = () => {
       // Get the app ID from the environment. Use 'default-app-id' as a fallback.
       const appId = typeof __app_id !== 'undefined' && __app_id ? __app_id : 'default-app-id';
 
-      // Construct Firebase config from environment variables directly.
-      // This is crucial since __firebase_config might not be parsed correctly or
-      // VITE_ environment variables are passed individually.
+      // Construct Firebase config from environment variables.
+      // IMPORTANT: Use import.meta.env for Vite projects!
       let firebaseConfig = {};
       if (
-        typeof process.env.VITE_FIREBASE_API_KEY !== 'undefined' &&
-        process.env.VITE_FIREBASE_API_KEY !== ''
+        import.meta.env.VITE_FIREBASE_API_KEY &&
+        import.meta.env.VITE_FIREBASE_API_KEY !== ''
       ) {
         // If VITE environment variables are present, use them.
         firebaseConfig = {
-          apiKey: process.env.VITE_FIREBASE_API_KEY,
-          authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN,
-          projectId: process.env.VITE_FIREBASE_PROJECT_ID,
-          storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET,
-          messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-          appId: process.env.VITE_FIREBASE_APP_ID,
+          apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+          authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+          projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+          storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+          messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+          appId: import.meta.env.VITE_FIREBASE_APP_ID,
         };
         console.log("Firebase config from VITE environment variables being used.");
       } else if (typeof __firebase_config !== 'undefined' && __firebase_config) {
-        // Fallback to __firebase_config if VITE env vars are not set
+        // Fallback to __firebase_config if VITE env vars are not set or empty
         try {
           const parsedConfig = JSON.parse(__firebase_config);
           if (Object.keys(parsedConfig).length > 0) {
@@ -270,7 +269,7 @@ const App = () => {
       setError(`Failed to initialize Firebase: ${e.message}. Double-check your Firebase configuration and network.`);
       setLoading(false);
     }
-  }, [app]); // Dependency on 'app' ensures this effect runs only once when the app state is null
+  }, [app]);
 
   // --- Firestore Data Listeners (onSnapshot) ---
   // These effects will only run once 'db', 'userId', and 'isAuthReady' are available.
