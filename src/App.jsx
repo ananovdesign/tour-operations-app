@@ -7,6 +7,17 @@ import {
   serverTimestamp, Timestamp
 } from 'firebase/firestore';
 
+// Define a default Firebase configuration. This will be used if environment variables
+// are not properly loaded or are empty. This ensures the app can always try to initialize Firebase.
+const DEFAULT_FIREBASE_CONFIG = {
+  apiKey: "AIzaSyD9w0f6FeIeIWMNUsagjF9Ycs7JHDKHs4",
+  authDomain: "dyt-ops-app.firebaseapp.com",
+  projectId: "dyt-ops-app",
+  storageBucket: "dyt-ops-app.appspot.com",
+  messagingSenderId: "198745203064",
+  appId: "1:198745203064:web:31ab81ef1c036b847438d"
+};
+
 // Confirmation Modal Component
 // This component provides a custom dialog for user confirmations, replacing native browser alerts.
 const ConfirmationModal = ({ show, title, message, onConfirm, onCancel }) => {
@@ -153,30 +164,56 @@ const App = () => {
     if (app) return;
 
     try {
-      // Get the app ID and Firebase config from the environment.
-      // Use 'default-app-id' as a fallback if __app_id is not defined.
+      // Get the app ID from the environment. Use 'default-app-id' as a fallback.
       const appId = typeof __app_id !== 'undefined' && __app_id ? __app_id : 'default-app-id';
 
-      // Parse firebaseConfig. If not provided or invalid, use an empty object for initializeApp
-      // Firebase will then typically throw a more specific error if essential config is missing.
+      // Construct Firebase config from environment variables directly.
+      // This is crucial since __firebase_config might not be parsed correctly or
+      // VITE_ environment variables are passed individually.
       let firebaseConfig = {};
-      if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+      if (
+        typeof process.env.VITE_FIREBASE_API_KEY !== 'undefined' &&
+        process.env.VITE_FIREBASE_API_KEY !== ''
+      ) {
+        // If VITE environment variables are present, use them.
+        firebaseConfig = {
+          apiKey: process.env.VITE_FIREBASE_API_KEY,
+          authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN,
+          projectId: process.env.VITE_FIREBASE_PROJECT_ID,
+          storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET,
+          messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+          appId: process.env.VITE_FIREBASE_APP_ID,
+        };
+        console.log("Firebase config from VITE environment variables being used.");
+      } else if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+        // Fallback to __firebase_config if VITE env vars are not set
         try {
-          firebaseConfig = JSON.parse(__firebase_config);
+          const parsedConfig = JSON.parse(__firebase_config);
+          if (Object.keys(parsedConfig).length > 0) {
+            firebaseConfig = parsedConfig;
+            console.log("Firebase config from __firebase_config (parsed JSON) being used.");
+          } else {
+            console.warn("Parsed __firebase_config was empty, falling back to DEFAULT_FIREBASE_CONFIG.");
+            firebaseConfig = DEFAULT_FIREBASE_CONFIG;
+          }
         } catch (parseError) {
-          console.error("Error parsing __firebase_config:", parseError);
-          setError("Firebase configuration is invalid. Please ensure it's a valid JSON string.");
-          setLoading(false);
-          return; // Stop initialization if config is bad
+          console.error("Error parsing __firebase_config, falling back to DEFAULT_FIREBASE_CONFIG:", parseError);
+          firebaseConfig = DEFAULT_FIREBASE_CONFIG;
         }
       } else {
-        console.warn("No __firebase_config provided.");
-        setError("Firebase configuration is missing. Please ensure your environment is set up correctly.");
-        setLoading(false);
-        return; // Stop initialization if config is missing
+        // If neither VITE env vars nor __firebase_config are present, use the hardcoded default.
+        console.warn("Neither VITE environment variables nor __firebase_config provided. Falling back to DEFAULT_FIREBASE_CONFIG.");
+        firebaseConfig = DEFAULT_FIREBASE_CONFIG;
       }
 
-      console.log("Firebase config being used:", firebaseConfig);
+      // Check if the final firebaseConfig is still empty or missing critical keys
+      if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
+        setError("Firebase configuration is incomplete. Please ensure API Key and Project ID are provided via environment variables or directly in DEFAULT_FIREBASE_CONFIG.");
+        setLoading(false);
+        return;
+      }
+
+      console.log("Final Firebase config to initialize with:", firebaseConfig);
       console.log("App ID being used:", appId);
 
       const initializedApp = initializeApp(firebaseConfig);
@@ -198,12 +235,15 @@ const App = () => {
           }
         } catch (e) {
           console.error("Firebase Auth Error during final sign-in attempt:", e);
+          // Provide more specific error messages based on Firebase error codes
           if (e.code === 'auth/invalid-api-key') {
-              setError("Authentication failed: Invalid API Key. Check your Firebase project settings and ensure your API key is correct and unrestricted.");
+              setError("Authentication failed: Invalid API Key. Please verify your Firebase project's API key in Google Cloud Console and ensure it has no unnecessary restrictions.");
           } else if (e.code === 'auth/unauthorized-domain') {
-              setError("Authentication failed: Unauthorized Domain. Add the current domain to your Firebase project's authorized domains.");
+              setError("Authentication failed: Unauthorized Domain. Add the current domain to your Firebase project's authorized domains (Firebase Console > Authentication > Settings).");
+          } else if (e.code === 'auth/operation-not-allowed') {
+              setError("Authentication failed: Operation Not Allowed. Ensure Anonymous Authentication is enabled in your Firebase project (Firebase Console > Authentication > Sign-in method).");
           } else {
-              setError(`Authentication failed: ${e.message}. Ensure Anonymous Authentication is enabled in Firebase.`);
+              setError(`Authentication failed: ${e.message}. Please check Firebase console for details.`);
           }
         } finally {
           setLoading(false); // Stop loading after auth attempt (success or fail)
@@ -227,7 +267,7 @@ const App = () => {
       return () => unsubscribeAuth(); // Cleanup auth listener on component unmount
     } catch (e) {
       console.error("Firebase initialization error:", e);
-      setError(`Failed to initialize Firebase: ${e.message}. Ensure your Firebase configuration is complete.`);
+      setError(`Failed to initialize Firebase: ${e.message}. Double-check your Firebase configuration and network.`);
       setLoading(false);
     }
   }, [app]); // Dependency on 'app' ensures this effect runs only once when the app state is null
@@ -597,7 +637,7 @@ const App = () => {
   // --- Edit Reservation Logic ---
   // Populates the reservation form with data from a selected reservation for editing.
   const handleEditReservation = useCallback((reservation) => {
-    // Convert Firebase Timestamps back to YYYY-MM-DD date strings for input fields
+    // Convert Firebase Timestamps back to ISO date strings for input fields
     const checkInDate = reservation.checkIn?.toDate().toISOString().split('T')[0] || '';
     const checkOutDate = reservation.checkOut?.toDate().toISOString().split('T')[0] || '';
     const creationDate = reservation.creationDate?.toDate().toISOString().split('T')[0] || '';
@@ -657,7 +697,7 @@ const App = () => {
     setShowConfirmModal(true); // Display the modal
   };
 
-  // --- Customer Module Logic ---
+  // --- Customer Management (for Add/Edit Reservation) ---
   // Sets the selected customer for editing and opens the customer edit modal.
   const handleEditCustomer = (customer) => {
     setCustomerEditForm({ ...customer });
@@ -790,7 +830,7 @@ const App = () => {
 
   // Populates the tour form with data from a selected tour for editing.
   const handleEditTour = useCallback((tour) => {
-    // Convert Firebase Timestamps back to YYYY-MM-DD date strings for input fields
+    // Convert Firebase Timestamps back to ISO date strings for input fields
     const departureDate = tour.departureDate?.toDate().toISOString().split('T')[0] || '';
     const arrivalDate = tour.arrivalDate?.toDate().toISOString().split('T')[0] || '';
 
@@ -2402,4 +2442,3 @@ const App = () => {
 };
 
 export default App;
-
