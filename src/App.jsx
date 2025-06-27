@@ -4,8 +4,48 @@ import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged }
 import {
   getFirestore, collection, addDoc, getDocs, doc, getDoc, setDoc, updateDoc, deleteDoc,
   query, where, onSnapshot,
-  serverTimestamp, Timestamp // Import Timestamp for explicit type handling
+  serverTimestamp, Timestamp
 } from 'firebase/firestore';
+
+// Define the Firebase configuration directly in the component for robust initialization.
+// This ensures the app can always initialize, even if __firebase_config is not perfectly passed.
+const DEFAULT_FIREBASE_CONFIG = {
+  apiKey: "AIzaSyD9w0f6FeIeIWMNUsagjF9Ycs7JHDKHs4",
+  authDomain: "dyt-ops-app.firebaseapp.com",
+  projectId: "dyt-ops-app",
+  storageBucket: "dyt-ops-app.appspot.com",
+  messagingSenderId: "198745203064",
+  appId: "1:198745203064:web:31ab81ef1c036b847438d"
+};
+
+// Confirmation Modal Component
+const ConfirmationModal = ({ show, title, message, onConfirm, onCancel }) => {
+  if (!show) return null;
+
+  return (
+    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm relative">
+        <h3 className="text-xl font-semibold mb-4 text-gray-800">{title}</h3>
+        <p className="text-gray-700 mb-6">{message}</p>
+        <div className="flex justify-end space-x-3">
+          <button
+            onClick={onCancel}
+            className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition duration-200"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition duration-200"
+          >
+            Confirm
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 
 const App = () => {
   // Firebase App, Auth, and Firestore instances
@@ -107,20 +147,45 @@ const App = () => {
   const [reportFilterType, setReportFilterType] = useState('all'); // 'all', 'income', 'expense'
   const [reportFilterAssociation, setReportFilterAssociation] = useState(''); // Res ID or Tour ID
 
+  // State for the custom confirmation modal
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [confirmModalContent, setConfirmModalContent] = useState({
+    title: '',
+    message: '',
+    onConfirm: () => {},
+    onCancel: () => {},
+  });
+
 
   // --- Firebase Initialization and Authentication ---
   useEffect(() => {
     try {
       const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-      const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+      // Use the provided __firebase_config if it's a valid JSON string, otherwise use DEFAULT_FIREBASE_CONFIG
+      let config = DEFAULT_FIREBASE_CONFIG;
+      if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+        try {
+          const parsedConfig = JSON.parse(__firebase_config);
+          // Simple validation to ensure it's not an empty object if something was intended
+          if (Object.keys(parsedConfig).length > 0) {
+            config = parsedConfig;
+          } else {
+            console.warn("Parsed __firebase_config was empty, falling back to DEFAULT_FIREBASE_CONFIG.");
+          }
+        } catch (parseError) {
+          console.error("Error parsing __firebase_config, falling back to DEFAULT_FIREBASE_CONFIG:", parseError);
+        }
+      } else {
+        console.warn("No __firebase_config provided or it was undefined, falling back to DEFAULT_FIREBASE_CONFIG.");
+      }
 
       // Log config for debugging purposes
-      console.log("Firebase config being used:", firebaseConfig);
+      console.log("Firebase config being used:", config);
       console.log("App ID being used:", appId);
 
 
       if (!app) {
-        const initializedApp = initializeApp(firebaseConfig);
+        const initializedApp = initializeApp(config);
         setApp(initializedApp);
         const authInstance = getAuth(initializedApp);
         setAuth(authInstance);
@@ -555,27 +620,33 @@ const App = () => {
 
   // --- Delete Reservation Logic ---
   const handleDeleteReservation = async (reservationId) => {
-    if (!db || !userId) {
-      setError("Database not ready. Cannot delete.");
-      return;
-    }
+    setConfirmModalContent({
+      title: 'Delete Reservation',
+      message: 'Are you sure you want to delete this reservation?',
+      onConfirm: async () => {
+        setShowConfirmModal(false); // Close modal before action
+        if (!db || !userId) {
+          setError("Database not ready. Cannot delete.");
+          return;
+        }
 
-    const confirmDelete = window.confirm("Are you sure you want to delete this reservation?");
-    if (!confirmDelete) return;
+        setLoading(true);
+        setError(null);
+        setMessage('');
 
-    setLoading(true);
-    setError(null);
-    setMessage('');
-
-    try {
-      await deleteDoc(doc(db, `artifacts/${__app_id}/users/${userId}/reservations`, reservationId));
-      showMessage('Reservation deleted successfully!', 'success');
-    } catch (err) {
-      console.error("Error deleting reservation:", err);
-      setError("Failed to delete reservation. Please try again.");
-    } finally {
-      setLoading(false);
-    }
+        try {
+          await deleteDoc(doc(db, `artifacts/${__app_id}/users/${userId}/reservations`, reservationId));
+          showMessage('Reservation deleted successfully!', 'success');
+        } catch (err) {
+          console.error("Error deleting reservation:", err);
+          setError("Failed to delete reservation. Please try again.");
+        } finally {
+          setLoading(false);
+        }
+      },
+      onCancel: () => setShowConfirmModal(false)
+    });
+    setShowConfirmModal(true);
   };
 
   // --- Customer Module Logic ---
@@ -714,27 +785,33 @@ const App = () => {
   }, []);
 
   const handleDeleteTour = async (tourId) => {
-    if (!db || !userId) {
-      setError("Database not ready. Cannot delete.");
-      return;
-    }
+    setConfirmModalContent({
+      title: 'Delete Tour',
+      message: 'Are you sure you want to delete this tour? This will not un-link existing reservations.',
+      onConfirm: async () => {
+        setShowConfirmModal(false); // Close modal before action
+        if (!db || !userId) {
+          setError("Database not ready. Cannot delete.");
+          return;
+        }
 
-    const confirmDelete = window.confirm("Are you sure you want to delete this tour? This will not un-link existing reservations.");
-    if (!confirmDelete) return;
+        setLoading(true);
+        setError(null);
+        setMessage('');
 
-    setLoading(true);
-    setError(null);
-    setMessage('');
-
-    try {
-      await deleteDoc(doc(db, `artifacts/${__app_id}/users/${userId}/tours`, tourId));
-      showMessage('Tour deleted successfully!', 'success');
-    } catch (err) {
-      console.error("Error deleting tour:", err);
-      setError("Failed to delete tour. Please try again.");
-    } finally {
-      setLoading(false);
-    }
+        try {
+          await deleteDoc(doc(db, `artifacts/${__app_id}/users/${userId}/tours`, tourId));
+          showMessage('Tour deleted successfully!', 'success');
+        } catch (err) {
+          console.error("Error deleting tour:", err);
+          setError("Failed to delete tour. Please try again.");
+        } finally {
+          setLoading(false);
+        }
+      },
+      onCancel: () => setShowConfirmModal(false)
+    });
+    setShowConfirmModal(true);
   };
 
   // Helper to get reservations linked to a specific tour
@@ -2262,9 +2339,19 @@ const App = () => {
           {renderContent()}
         </main>
       </div>
+
+      {/* Render the custom confirmation modal */}
+      <ConfirmationModal
+        show={showConfirmModal}
+        title={confirmModalContent.title}
+        message={confirmModalContent.message}
+        onConfirm={confirmModalContent.onConfirm}
+        onCancel={confirmModalContent.onCancel}
+      />
     </div>
   );
 };
 
 export default App;
+
 
