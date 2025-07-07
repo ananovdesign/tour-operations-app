@@ -1,20 +1,35 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 // Import Firebase modules
-import { app, auth, db, appId, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from './firebase'; // Assuming firebase.js is in the same directory
+import {
+  app,
+  auth,
+  db,
+  appId,
+  signInAnonymously,
+  signInWithCustomToken,
+  onAuthStateChanged,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut
+} from './firebase';
 import { collection, doc, addDoc, setDoc, deleteDoc, onSnapshot, query, where, getDocs } from 'firebase/firestore';
 
 const App = () => {
-  // State for Firebase user authentication status
+  // Authentication states
   const [userId, setUserId] = useState(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
+  const [authMode, setAuthMode] = useState('login'); // 'login' or 'register'
+  const [userEmail, setUserEmail] = useState('');
+  const [userPassword, setUserPassword] = useState('');
+  const [authError, setAuthError] = useState(null);
 
   // Application state for navigation and selected items
   const [activeTab, setActiveTab] = useState('dashboard');
   const [selectedReservation, setSelectedReservation] = useState(null);
   const [selectedTour, setSelectedTour] = useState(null);
-  const [selectedFinancialTransaction, setSelectedFinancialTransaction] = useState(null); // New: for editing payments
+  const [selectedFinancialTransaction, setSelectedFinancialTransaction] = useState(null);
 
-  // Data states - populated from Firestore public collections
+  // Data states - populated from Firestore (now user-specific)
   const [reservations, setReservations] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [tours, setTours] = useState([]);
@@ -101,65 +116,119 @@ const App = () => {
   const [reportFilterType, setReportFilterType] = useState('all');
   const [reportFilterAssociation, setReportFilterAssociation] = useState('');
 
-  // New: States for Filters on Reservations
+  // States for Filters on Reservations
   const [filterReservationStatus, setFilterReservationStatus] = useState('All');
   const [filterReservationHotel, setFilterReservationHotel] = useState('');
   const [filterReservationTourType, setFilterReservationTourType] = useState('All');
   const [filterReservationCheckInDate, setFilterReservationCheckInDate] = useState('');
   const [filterReservationCheckOutDate, setFilterReservationCheckOutDate] = useState('');
 
-  // New: States for Filters on Tours
+  // States for Filters on Tours
   const [filterTourHotel, setFilterTourHotel] = useState('');
   const [filterTourTransportCompany, setFilterTourTransportCompany] = useState('');
   const [filterTourDepartureDate, setFilterTourDepartureDate] = useState('');
   const [filterTourArrivalDate, setFilterTourArrivalDate] = useState('');
 
-  // New: State for Delete Confirmation Modal
+  // State for Delete Confirmation Modal
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [confirmMessage, setConfirmMessage] = useState('');
-  const [confirmAction, setConfirmAction] = useState(null); // Function to execute on confirm
+  const [confirmAction, setConfirmAction] = useState(null);
 
 
-  // --- Firebase Initialization and Auth Management ---
+  // --- Firebase Authentication Management ---
   useEffect(() => {
-    const initAuth = async () => {
-      try {
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-        if (initialAuthToken) {
-          await signInWithCustomToken(auth, initialAuthToken);
-        } else {
-          await signInAnonymously(auth);
-        }
-      } catch (err) {
-        console.error("Firebase authentication error:", err);
-        setError("Failed to authenticate with Firebase. Some features may not work.");
-      }
-    };
-
-    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       if (user) {
         setUserId(user.uid);
-        setIsAuthReady(true);
         console.log("Firebase User Authenticated:", user.uid);
       } else {
         setUserId(null);
-        setIsAuthReady(true);
-        console.log("No Firebase User. Signing in anonymously...");
-        initAuth();
+        console.log("No Firebase User. Attempting anonymous sign-in for initial load...");
+        try {
+          // Attempt custom token sign-in first if available (for Canvas environment)
+          const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+          if (initialAuthToken) {
+            await signInWithCustomToken(auth, initialAuthToken);
+          } else {
+            // Fallback to anonymous sign-in if no custom token
+            await signInAnonymously(auth);
+          }
+        } catch (err) {
+          console.error("Anonymous sign-in failed:", err);
+          setAuthError("Please log in to access the application.");
+        }
       }
+      setIsAuthReady(true);
       setLoading(false);
     });
 
     return () => unsubscribeAuth();
   }, []);
 
-  // --- Firestore Data Listeners ---
-  // Data is now stored in /artifacts/{appId}/public/data/{collectionName} for shared access
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setAuthError(null);
+    try {
+      await signInWithEmailAndPassword(auth, userEmail, userPassword);
+      showMessage('Logged in successfully!', 'success');
+      setUserEmail('');
+      setUserPassword('');
+    } catch (err) {
+      console.error("Login error:", err);
+      setAuthError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setAuthError(null);
+    try {
+      await createUserWithEmailAndPassword(auth, userEmail, userPassword);
+      showMessage('Account created and logged in successfully!', 'success');
+      setUserEmail('');
+      setUserPassword('');
+    } catch (err) {
+      console.error("Registration error:", err);
+      setAuthError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      await signOut(auth);
+      showMessage('Logged out successfully!', 'info');
+      // Clear all data states on logout
+      setReservations([]);
+      setCustomers([]);
+      setTours([]);
+      setFinancialTransactions([]);
+      setActiveTab('dashboard'); // Go back to dashboard or login screen
+    } catch (err) {
+      console.error("Logout error:", err);
+      setError("Failed to log out. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // --- Firestore Data Listeners (now user-specific) ---
+  // Data is now stored under /artifacts/{appId}/users/{userId}/{collectionName}
 
   useEffect(() => {
-    if (!isAuthReady) return;
+    if (!isAuthReady || !userId) {
+      setReservations([]); // Clear data if not authenticated
+      return;
+    }
     setLoading(true);
-    const reservationsCollectionRef = collection(db, `artifacts/${appId}/public/data/reservations`);
+    const reservationsCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/reservations`);
     const unsubscribe = onSnapshot(reservationsCollectionRef, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
       setReservations(data);
@@ -170,12 +239,15 @@ const App = () => {
       setLoading(false);
     });
     return () => unsubscribe();
-  }, [isAuthReady]);
+  }, [isAuthReady, userId]); // Dependency on userId
 
   useEffect(() => {
-    if (!isAuthReady) return;
+    if (!isAuthReady || !userId) {
+      setCustomers([]);
+      return;
+    }
     setLoading(true);
-    const customersCollectionRef = collection(db, `artifacts/${appId}/public/data/customers`);
+    const customersCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/customers`);
     const unsubscribe = onSnapshot(customersCollectionRef, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
       setCustomers(data);
@@ -186,12 +258,15 @@ const App = () => {
       setLoading(false);
     });
     return () => unsubscribe();
-  }, [isAuthReady]);
+  }, [isAuthReady, userId]);
 
   useEffect(() => {
-    if (!isAuthReady) return;
+    if (!isAuthReady || !userId) {
+      setTours([]);
+      return;
+    }
     setLoading(true);
-    const toursCollectionRef = collection(db, `artifacts/${appId}/public/data/tours`);
+    const toursCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/tours`);
     const unsubscribe = onSnapshot(toursCollectionRef, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
       setTours(data);
@@ -202,12 +277,15 @@ const App = () => {
       setLoading(false);
     });
     return () => unsubscribe();
-  }, [isAuthReady]);
+  }, [isAuthReady, userId]);
 
   useEffect(() => {
-    if (!isAuthReady) return;
+    if (!isAuthReady || !userId) {
+      setFinancialTransactions([]);
+      return;
+    }
     setLoading(true);
-    const financialTransactionsCollectionRef = collection(db, `artifacts/${appId}/public/data/financialTransactions`);
+    const financialTransactionsCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/financialTransactions`);
     const unsubscribe = onSnapshot(financialTransactionsCollectionRef, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
       setFinancialTransactions(data);
@@ -218,7 +296,7 @@ const App = () => {
       setLoading(false);
     });
     return () => unsubscribe();
-  }, [isAuthReady]);
+  }, [isAuthReady, userId]);
 
 
   // --- Helper Functions ---
@@ -240,7 +318,8 @@ const App = () => {
   };
 
   const generateReservationNumber = useCallback(async () => {
-    const q = query(collection(db, `artifacts/${appId}/public/data/reservations`));
+    if (!userId) return null;
+    const q = query(collection(db, `artifacts/${appId}/users/${userId}/reservations`));
     const querySnapshot = await getDocs(q);
     let highestNum = 100100;
     querySnapshot.forEach((doc) => {
@@ -253,10 +332,11 @@ const App = () => {
       }
     });
     return `DYT${highestNum + 1}`;
-  }, []);
+  }, [userId]);
 
   const generateTourId = useCallback(async () => {
-    const q = query(collection(db, `artifacts/${appId}/public/data/tours`));
+    if (!userId) return null;
+    const q = query(collection(db, `artifacts/${appId}/users/${userId}/tours`));
     const querySnapshot = await getDocs(q);
     let highestNum = 0;
     querySnapshot.forEach((doc) => {
@@ -269,7 +349,7 @@ const App = () => {
       }
     });
     return `DYT${String(highestNum + 1).padStart(3, '0')}`;
-  }, []);
+  }, [userId]);
 
 
   // --- Handlers for Reservation Form ---
@@ -320,9 +400,10 @@ const App = () => {
     }));
   }, []);
 
-  // --- Customer Management (uses Firestore public collection) ---
+  // --- Customer Management (uses Firestore user-specific collection) ---
   const manageCustomerRecords = useCallback(async (tourists) => {
-    const customersCollectionRef = collection(db, `artifacts/${appId}/public/data/customers`);
+    if (!userId) return;
+    const customersCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/customers`);
 
     for (const tourist of tourists) {
       if (!tourist.id) {
@@ -354,18 +435,18 @@ const App = () => {
         console.log(`Customer ${tourist.id} added.`);
       }
     }
-  }, []);
+  }, [userId]);
 
 
-  // --- Submit Reservation Form (uses Firestore public collection) ---
+  // --- Submit Reservation Form (uses Firestore user-specific collection) ---
   const handleSubmitReservation = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
     setMessage('');
 
-    if (!isAuthReady) {
-      setError("App not ready. Please wait for authentication.");
+    if (!userId) {
+      setError("User not authenticated. Please log in to save data.");
       setLoading(false);
       return;
     }
@@ -396,7 +477,7 @@ const App = () => {
 
       await manageCustomerRecords(reservationForm.tourists);
 
-      const reservationsCollectionRef = collection(db, `artifacts/${appId}/public/data/reservations`);
+      const reservationsCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/reservations`);
 
       if (selectedReservation) {
         const resDocRef = doc(reservationsCollectionRef, selectedReservation.id);
@@ -431,7 +512,7 @@ const App = () => {
     setSelectedReservation(null);
   }, []);
 
-  // --- Edit Reservation Logic (uses Firestore public collection) ---
+  // --- Edit Reservation Logic (uses Firestore user-specific collection) ---
   const handleEditReservation = useCallback((reservation) => {
     setReservationForm({
       ...reservation,
@@ -451,15 +532,20 @@ const App = () => {
     setActiveTab('addReservation');
   }, []);
 
-  // --- Delete Reservation Logic (uses Firestore public collection) ---
+  // --- Delete Reservation Logic (uses Firestore user-specific collection) ---
   const handleDeleteReservation = useCallback((reservationId) => {
     setConfirmMessage("Are you sure you want to delete this reservation?");
     setConfirmAction(() => async () => {
       setLoading(true);
       setError(null);
       setMessage('');
+      if (!userId) {
+        setError("User not authenticated. Please log in to delete data.");
+        setLoading(false);
+        return;
+      }
       try {
-        const reservationDocRef = doc(db, `artifacts/${appId}/public/data/reservations`, reservationId);
+        const reservationDocRef = doc(db, `artifacts/${appId}/users/${userId}/reservations`, reservationId);
         await deleteDoc(reservationDocRef);
         showMessage('Reservation deleted successfully!', 'success');
       } catch (err) {
@@ -470,9 +556,9 @@ const App = () => {
       }
     });
     setShowConfirmModal(true);
-  }, []);
+  }, [userId]);
 
-  // --- Customer Module Logic (uses Firestore public collection) ---
+  // --- Customer Module Logic (uses Firestore user-specific collection) ---
   const handleEditCustomer = (customer) => {
     setCustomerEditForm({ ...customer });
     setShowCustomerEditModal(true);
@@ -494,14 +580,14 @@ const App = () => {
     setError(null);
     setMessage('');
 
-    if (!isAuthReady) {
-      setError("App not ready. Cannot update customer.");
+    if (!userId) {
+      setError("User not authenticated. Please log in to update data.");
       setLoading(false);
       return;
     }
 
     try {
-      const customerDocRef = doc(db, `artifacts/${appId}/public/data/customers`, customerEditForm.id);
+      const customerDocRef = doc(db, `artifacts/${appId}/users/${userId}/customers`, customerEditForm.id);
       await setDoc(customerDocRef, customerEditForm, { merge: true });
       showMessage('Customer updated successfully!', 'success');
       setShowCustomerEditModal(false);
@@ -513,7 +599,7 @@ const App = () => {
     }
   };
 
-  // --- Tour Module Logic (uses Firestore public collection) ---
+  // --- Tour Module Logic (uses Firestore user-specific collection) ---
   const handleTourFormChange = useCallback((e) => {
     const { name, value } = e.target;
     setTourForm(prev => {
@@ -534,8 +620,8 @@ const App = () => {
     setError(null);
     setMessage('');
 
-    if (!isAuthReady) {
-      setError("App not ready. Cannot save tour.");
+    if (!userId) {
+      setError("User not authenticated. Please log in to save data.");
       setLoading(false);
       return;
     }
@@ -557,7 +643,7 @@ const App = () => {
         arrivalDate: tourForm.arrivalDate,
       };
 
-      const toursCollectionRef = collection(db, `artifacts/${appId}/public/data/tours`);
+      const toursCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/tours`);
 
       if (selectedTour) {
         const tourDocRef = doc(toursCollectionRef, selectedTour.id);
@@ -603,8 +689,13 @@ const App = () => {
       setLoading(true);
       setError(null);
       setMessage('');
+      if (!userId) {
+        setError("User not authenticated. Please log in to delete data.");
+        setLoading(false);
+        return;
+      }
       try {
-        const toursCollectionRef = collection(db, `artifacts/${appId}/public/data/tours`);
+        const toursCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/tours`);
         const q = query(toursCollectionRef, where("tourId", "==", tourId));
         const querySnapshot = await getDocs(q);
 
@@ -623,14 +714,14 @@ const App = () => {
       }
     });
     setShowConfirmModal(true);
-  }, []);
+  }, [userId]);
 
   const getLinkedReservations = useCallback((tourId) => {
     return reservations.filter(res => res.linkedTourId === tourId);
   }, [reservations]);
 
 
-  // --- Financial Transaction Module Logic (uses Firestore public collection) ---
+  // --- Financial Transaction Module Logic (uses Firestore user-specific collection) ---
 
   const handleFinancialTransactionFormChange = useCallback((e) => {
     const { name, value, type } = e.target;
@@ -655,8 +746,8 @@ const App = () => {
     setError(null);
     setMessage('');
 
-    if (!isAuthReady) {
-      setError("App not ready. Cannot save financial transaction.");
+    if (!userId) {
+      setError("User not authenticated. Please log in to save data.");
       setLoading(false);
       return;
     }
@@ -669,15 +760,13 @@ const App = () => {
         date: financialTransactionForm.date,
       };
 
-      const financialTransactionsCollectionRef = collection(db, `artifacts/${appId}/public/data/financialTransactions`);
+      const financialTransactionsCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/financialTransactions`);
 
       if (selectedFinancialTransaction) {
-        // Update existing transaction
         const ftDocRef = doc(financialTransactionsCollectionRef, selectedFinancialTransaction.id);
         await setDoc(ftDocRef, transactionData, { merge: true });
         showMessage('Transaction updated successfully!', 'success');
       } else {
-        // Add new transaction
         await addDoc(financialTransactionsCollectionRef, transactionData);
         showMessage(`${financialTransactionForm.type === 'income' ? 'Payment' : 'Expense'} added successfully!`, 'success');
       }
@@ -697,10 +786,9 @@ const App = () => {
       date: '', method: 'Bank', amount: 0, reasonDescription: '', vat: 0,
       type: 'income', associatedReservationId: '', associatedTourId: '',
     });
-    setSelectedFinancialTransaction(null); // Clear selected transaction on reset
+    setSelectedFinancialTransaction(null);
   }, []);
 
-  // New: Handle Edit Financial Transaction
   const handleEditFinancialTransaction = useCallback((transaction) => {
     setFinancialTransactionForm({
       ...transaction,
@@ -711,15 +799,19 @@ const App = () => {
     setActiveTab('addFinancialTransaction');
   }, []);
 
-  // New: Handle Delete Financial Transaction
   const handleDeleteFinancialTransaction = useCallback((transactionId) => {
     setConfirmMessage("Are you sure you want to delete this financial transaction?");
     setConfirmAction(() => async () => {
       setLoading(true);
       setError(null);
       setMessage('');
+      if (!userId) {
+        setError("User not authenticated. Please log in to delete data.");
+        setLoading(false);
+        return;
+      }
       try {
-        const ftDocRef = doc(db, `artifacts/${appId}/public/data/financialTransactions`, transactionId);
+        const ftDocRef = doc(db, `artifacts/${appId}/users/${userId}/financialTransactions`, transactionId);
         await deleteDoc(ftDocRef);
         showMessage('Transaction deleted successfully!', 'success');
       } catch (err) {
@@ -730,10 +822,10 @@ const App = () => {
       }
     });
     setShowConfirmModal(true);
-  }, []);
+  }, [userId]);
 
 
-  // --- Dashboard Calculations (Uses Firestore public data) ---
+  // --- Dashboard Calculations (Uses Firestore user-specific data) ---
   const dashboardStats = useMemo(() => {
     const totalReservations = reservations.length;
     const totalProfit = reservations.reduce((sum, res) => sum + (res.profit || 0), 0);
@@ -776,7 +868,7 @@ const App = () => {
   }, [reservations, financialTransactions, tours]);
 
 
-  // --- Financial Reports Logic (Uses Firestore public data) ---
+  // --- Financial Reports Logic (Uses Firestore user-specific data) ---
 
   const handleReportFilterChange = useCallback((e) => {
     const { name, value } = e.target;
@@ -834,7 +926,7 @@ const App = () => {
   }, []);
 
 
-  // --- New: Filtered Reservations Logic ---
+  // --- Filtered Reservations Logic ---
   const handleReservationFilterChange = useCallback((e) => {
     const { name, value } = e.target;
     if (name === 'filterReservationStatus') setFilterReservationStatus(value);
@@ -854,22 +946,17 @@ const App = () => {
 
   const filteredReservations = useMemo(() => {
     return reservations.filter(res => {
-      // Status filter
       if (filterReservationStatus !== 'All' && res.status !== filterReservationStatus) return false;
-      // Hotel filter
       if (filterReservationHotel && !res.hotel?.toLowerCase().includes(filterReservationHotel.toLowerCase())) return false;
-      // Tour Type filter
       if (filterReservationTourType !== 'All' && res.tourType !== filterReservationTourType) return false;
-      // Check-in Date filter
       if (filterReservationCheckInDate && new Date(res.checkIn) < new Date(filterReservationCheckInDate)) return false;
-      // Check-out Date filter
       if (filterReservationCheckOutDate && new Date(res.checkOut) > new Date(filterReservationCheckOutDate)) return false;
       return true;
-    }).sort((a, b) => new Date(b.creationDate) - new Date(a.creationDate)); // Sort by creation date descending
+    }).sort((a, b) => new Date(b.creationDate) - new Date(a.creationDate));
   }, [reservations, filterReservationStatus, filterReservationHotel, filterReservationTourType, filterReservationCheckInDate, filterReservationCheckOutDate]);
 
 
-  // --- New: Filtered Tours Logic ---
+  // --- Filtered Tours Logic ---
   const handleTourFilterChange = useCallback((e) => {
     const { name, value } = e.target;
     if (name === 'filterTourHotel') setFilterTourHotel(value);
@@ -887,16 +974,12 @@ const App = () => {
 
   const filteredTours = useMemo(() => {
     return tours.filter(tour => {
-      // Hotel filter
       if (filterTourHotel && !tour.hotel?.toLowerCase().includes(filterTourHotel.toLowerCase())) return false;
-      // Transport Company filter
       if (filterTourTransportCompany && !tour.transportCompany?.toLowerCase().includes(filterTourTransportCompany.toLowerCase())) return false;
-      // Departure Date filter
       if (filterTourDepartureDate && new Date(tour.departureDate) < new Date(filterTourDepartureDate)) return false;
-      // Arrival Date filter
       if (filterTourArrivalDate && new Date(tour.arrivalDate) > new Date(filterTourArrivalDate)) return false;
       return true;
-    }).sort((a, b) => new Date(b.departureDate) - new Date(a.departureDate)); // Sort by departure date descending
+    }).sort((a, b) => new Date(b.departureDate) - new Date(a.departureDate));
   }, [tours, filterTourHotel, filterTourTransportCompany, filterTourDepartureDate, filterTourArrivalDate]);
 
 
@@ -933,6 +1016,78 @@ const App = () => {
       return (
         <div className="flex justify-center items-center h-full min-h-[calc(100vh-100px)]">
           <div className="text-orange-500 text-lg animate-pulse">Loading data...</div>
+        </div>
+      );
+    }
+    if (!userId) {
+      return (
+        <div className="flex justify-center items-center h-full min-h-[calc(100vh-100px)]">
+          <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md">
+            <h2 className="text-3xl font-bold mb-6 text-gray-800 text-center">
+              {authMode === 'login' ? 'Login to Dynamex' : 'Register for Dynamex'}
+            </h2>
+            {authError && (
+              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md relative mb-4" role="alert">
+                <span className="block sm:inline">{authError}</span>
+              </div>
+            )}
+            <form onSubmit={authMode === 'login' ? handleLogin : handleRegister} className="space-y-4">
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email</label>
+                <input
+                  type="email"
+                  id="email"
+                  value={userEmail}
+                  onChange={(e) => setUserEmail(e.target.value)}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  required
+                />
+              </div>
+              <div>
+                <label htmlFor="password" className="block text-sm font-medium text-gray-700">Password</label>
+                <input
+                  type="password"
+                  id="password"
+                  value={userPassword}
+                  onChange={(e) => setUserPassword(e.target.value)}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  required
+                />
+              </div>
+              <button
+                type="submit"
+                className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200 shadow-md font-semibold text-lg transform hover:scale-105"
+                disabled={loading}
+              >
+                {loading ? 'Processing...' : (authMode === 'login' ? 'Login' : 'Register')}
+              </button>
+            </form>
+            <p className="mt-6 text-center text-gray-600">
+              {authMode === 'login' ? (
+                <>
+                  Don't have an account?{' '}
+                  <button
+                    type="button"
+                    onClick={() => { setAuthMode('register'); setAuthError(null); }}
+                    className="text-blue-600 hover:text-blue-800 font-medium"
+                  >
+                    Register
+                  </button>
+                </>
+              ) : (
+                <>
+                  Already have an account?{' '}
+                  <button
+                    type="button"
+                    onClick={() => { setAuthMode('login'); setAuthError(null); }}
+                    className="text-blue-600 hover:text-blue-800 font-medium"
+                  >
+                    Login
+                  </button>
+                </>
+              )}
+            </p>
+          </div>
         </div>
       );
     }
@@ -1929,7 +2084,7 @@ const App = () => {
                       <th className="py-3 px-4 text-left">VAT</th>
                       <th className="py-3 px-4 text-left">Description</th>
                       <th className="py-3 px-4 text-left">Linked To</th>
-                      <th className="py-3 px-4 text-center">Actions</th> {/* New: Actions column */}
+                      <th className="py-3 px-4 text-center">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="text-gray-700">
@@ -2424,8 +2579,27 @@ const App = () => {
                   Financial Reports
                 </button>
               </li>
+              {userId && (
+                <li className="mb-2">
+                  <button
+                    onClick={handleLogout}
+                    className="flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-lg hover:bg-red-700 text-white"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                    </svg>
+                    Logout
+                  </button>
+                </li>
+              )}
             </ul>
           </nav>
+          {userId && (
+            <div className="mt-8 pt-4 border-t border-blue-800 text-sm text-gray-400">
+              <p>Logged in as:</p>
+              <p className="break-all font-mono text-xs">{auth.currentUser?.email || 'Anonymous'}</p>
+            </div>
+          )}
         </aside>
 
         {/* Main Content Area */}
@@ -2462,4 +2636,3 @@ const App = () => {
 };
 
 export default App;
-
