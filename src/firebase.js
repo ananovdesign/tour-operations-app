@@ -1,6 +1,14 @@
 // firebase.js
 import { initializeApp } from 'firebase/app';
-import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'firebase/auth';
+import {
+  getAuth,
+  signInAnonymously,
+  signInWithCustomToken,
+  onAuthStateChanged,
+  createUserWithEmailAndPassword, // New: for user registration
+  signInWithEmailAndPassword,   // New: for user login
+  signOut                     // New: for user logout
+} from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
 // Define firebaseConfig using environment variables, which are typically loaded by Vite
@@ -13,7 +21,6 @@ const firebaseConfig = {
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
-  // If you have a measurementId for Google Analytics, add it here:
   // measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
 };
 
@@ -31,4 +38,16 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 // Export the initialized Firebase instances and utility functions for use throughout your app.
-export { app, auth, db, appId, signInAnonymously, signInWithCustomToken, onAuthStateChanged };
+export {
+  app,
+  auth,
+  db,
+  appId,
+  signInAnonymously,
+  signInWithCustomToken,
+  onAuthStateChanged,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut
+};
+
