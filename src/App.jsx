@@ -15,6 +15,10 @@ import { collection, doc, addDoc, setDoc, deleteDoc, onSnapshot, query, where, g
 // Import your logo image
 import Logo from './Logo.png'; // Assuming Logo.png is in the same directory as App.jsx
 
+// Load jsPDF and jspdf-autotable from CDN for client-side PDF generation
+// In a real project, you would install these via npm (npm install jspdf jspdf-autotable)
+// and import them directly: import jsPDF from 'jspdf'; import 'jspdf-autotable';
+
 const App = () => {
   // Authentication states
   const [userId, setUserId] = useState(null);
@@ -816,7 +820,7 @@ const App = () => {
       setActiveTab('payments');
     } catch (err) {
       console.error("Error saving financial transaction:", err);
-      setError(`Failed to save financial transaction: ${err.message || err.toString()}`);
+      setError(`Failed to save financial transaction: ${err.message || err.toString()}`, 'error');
       addNotification(`Failed to save financial transaction: ${err.message || err.toString()}`, 'error');
     } finally {
       setLoading(false);
@@ -1082,6 +1086,199 @@ const App = () => {
     });
 
   }, [reservations, tours, isAuthReady, userId, addNotification]);
+
+
+  // --- PDF Export Functions ---
+  const exportReservationsAndToursToPdf = useCallback(() => {
+    // Ensure jsPDF and autoTable are loaded
+    if (typeof window.jsPDF === 'undefined' || typeof window.jspdf.AutoTable === 'undefined') {
+      addNotification("PDF generation libraries not loaded. Please ensure internet connectivity.", 'error');
+      return;
+    }
+
+    const doc = new window.jsPDF.default('p', 'pt', 'a4'); // 'p' for portrait, 'pt' for points, 'a4' size
+    const margin = 40;
+    let y = margin;
+
+    // Set font for better aesthetics
+    doc.setFont('helvetica');
+    doc.setFontSize(16);
+    doc.setTextColor(40, 40, 40); // Dark gray
+
+    // Header
+    doc.text("Dynamex - All Reservations & Tours Report", margin, y);
+    y += 30;
+
+    // Tours Section
+    doc.setFontSize(14);
+    doc.text("Bus Tours Overview", margin, y);
+    y += 20;
+
+    const tourTableData = filteredTours.map(tour => [
+      tour.tourId,
+      tour.hotel,
+      tour.departureDate,
+      tour.arrivalDate,
+      tour.maxPassengers,
+      getLinkedReservations(tour.tourId).reduce((sum, res) => sum + (res.adults || 0) + (res.children || 0), 0),
+      `${(tour.maxPassengers > 0 ? (getLinkedReservations(tour.tourId).reduce((sum, res) => sum + (res.adults || 0) + (res.children || 0), 0) / tour.maxPassengers) * 100 : 0).toFixed(1)}%`
+    ]);
+
+    doc.autoTable({
+      startY: y,
+      head: [['Tour ID', 'Hotel', 'Departure', 'Arrival', 'Max Pass.', 'Booked Pass.', 'Fulfillment %']],
+      body: tourTableData,
+      theme: 'grid',
+      styles: { fontSize: 8, cellPadding: 5, overflow: 'linebreak' },
+      headStyles: { fillColor: [30, 58, 138], textColor: [255, 255, 255] }, // blue-900
+      margin: { left: margin, right: margin },
+      didDrawPage: function (data) {
+        // Footer
+        let str = "Page " + doc.internal.getNumberOfPages();
+        doc.setFontSize(8);
+        doc.setTextColor(150);
+        doc.text(str, doc.internal.pageSize.width / 2, doc.internal.pageSize.height - 10, { align: 'center' });
+      }
+    });
+    y = doc.autoTable.previous.finalY + 30;
+
+    // Add Linked Reservations under each tour
+    filteredTours.forEach(tour => {
+      const linkedRes = getLinkedReservations(tour.tourId);
+      if (linkedRes.length > 0) {
+        if (y + 100 > doc.internal.pageSize.height - margin) { // Check if new page is needed
+          doc.addPage();
+          y = margin;
+        }
+        doc.setFontSize(12);
+        doc.text(`Reservations for Tour: ${tour.tourId} - ${tour.hotel}`, margin, y);
+        y += 15;
+
+        const linkedResTableData = linkedRes.map(res => [
+          res.reservationNumber,
+          `${res.tourists && res.tourists.length > 0 ? `${res.tourists[0].firstName} ${res.tourists[0].familyName}` : 'N/A'}`,
+          `${res.adults}/${res.children}`,
+          `${res.checkIn} - ${res.checkOut}`,
+          res.status,
+          `$${res.profit.toFixed(2)}`
+        ]);
+
+        doc.autoTable({
+          startY: y,
+          head: [['Res. No.', 'Lead Guest', 'A/C', 'Dates', 'Status', 'Profit']],
+          body: linkedResTableData,
+          theme: 'striped',
+          styles: { fontSize: 7, cellPadding: 4 },
+          headStyles: { fillColor: [55, 65, 81], textColor: [255, 255, 255] }, // gray-700
+          margin: { left: margin + 20, right: margin },
+          didDrawPage: function (data) {
+            let str = "Page " + doc.internal.getNumberOfPages();
+            doc.setFontSize(8);
+            doc.setTextColor(150);
+            doc.text(str, doc.internal.pageSize.width / 2, doc.internal.pageSize.height - 10, { align: 'center' });
+          }
+        });
+        y = doc.autoTable.previous.finalY + 20;
+      }
+    });
+
+    // Standalone Reservations Section
+    const standaloneReservations = filteredReservations.filter(res => !res.linkedTourId);
+    if (standaloneReservations.length > 0) {
+      if (y + 100 > doc.internal.pageSize.height - margin) {
+        doc.addPage();
+        y = margin;
+      }
+      doc.setFontSize(14);
+      doc.text("Standalone Hotel Reservations", margin, y);
+      y += 20;
+
+      const standaloneResTableData = standaloneReservations.map(res => [
+        res.reservationNumber,
+        res.hotel,
+        `${res.tourists && res.tourists.length > 0 ? `${res.tourists[0].firstName} ${res.tourists[0].familyName}` : 'N/A'}`,
+        res.depositPaid ? 'Yes' : 'No',
+        `${res.checkIn} - ${res.checkOut}`,
+        res.status,
+        `$${res.profit.toFixed(2)}`
+      ]);
+
+      doc.autoTable({
+        startY: y,
+        head: [['Res. No.', 'Hotel', 'Lead Guest', 'Deposit Paid', 'Dates', 'Status', 'Profit']],
+        body: standaloneResTableData,
+        theme: 'grid',
+        styles: { fontSize: 8, cellPadding: 5, overflow: 'linebreak' },
+        headStyles: { fillColor: [30, 58, 138], textColor: [255, 255, 255] }, // blue-900
+        margin: { left: margin, right: margin },
+        didDrawPage: function (data) {
+          let str = "Page " + doc.internal.getNumberOfPages();
+          doc.setFontSize(8);
+          doc.setTextColor(150);
+          doc.text(str, doc.internal.pageSize.width / 2, doc.internal.pageSize.height - 10, { align: 'center' });
+        }
+      });
+    }
+
+    doc.save('Dynamex_Reservations_Tours_Report.pdf');
+    addNotification('Reservations and Tours report generated successfully!', 'success');
+  }, [filteredTours, filteredReservations, getLinkedReservations, addNotification]);
+
+
+  const exportFinancialReportsToPdf = useCallback(() => {
+    if (typeof window.jsPDF === 'undefined' || typeof window.jspdf.AutoTable === 'undefined') {
+      addNotification("PDF generation libraries not loaded. Please ensure internet connectivity.", 'error');
+      return;
+    }
+
+    const doc = new window.jsPDF.default('p', 'pt', 'a4');
+    const margin = 40;
+    let y = margin;
+
+    doc.setFont('helvetica');
+    doc.setFontSize(16);
+    doc.setTextColor(40, 40, 40);
+
+    doc.text("Dynamex - Financial Report", margin, y);
+    y += 30;
+
+    // Summary Totals
+    doc.setFontSize(12);
+    doc.text(`Total Income: $${reportTotals.totalIncome.toFixed(2)}`, margin, y);
+    doc.text(`Total Expenses: $${reportTotals.totalExpenses.toFixed(2)}`, margin, y + 15);
+    doc.text(`Net Profit/Loss: $${reportTotals.netProfit.toFixed(2)}`, margin, y + 30);
+    y += 50;
+
+    // Transactions Table
+    const financialTableData = filteredFinancialTransactions.map(ft => [
+      ft.date,
+      ft.type.charAt(0).toUpperCase() + ft.type.slice(1),
+      ft.method,
+      `$${(ft.amount || 0).toFixed(2)}`,
+      `$${(ft.vat || 0).toFixed(2)}`,
+      ft.reasonDescription,
+      ft.associatedReservationId ? `Res: ${ft.associatedReservationId}` : (ft.associatedTourId ? `Tour: ${ft.associatedTourId}` : 'N/A')
+    ]);
+
+    doc.autoTable({
+      startY: y,
+      head: [['Date', 'Type', 'Method', 'Amount', 'VAT', 'Description', 'Linked To']],
+      body: financialTableData,
+      theme: 'grid',
+      styles: { fontSize: 8, cellPadding: 5, overflow: 'linebreak' },
+      headStyles: { fillColor: [30, 58, 138], textColor: [255, 255, 255] }, // blue-900
+      margin: { left: margin, right: margin },
+      didDrawPage: function (data) {
+        let str = "Page " + doc.internal.getNumberOfPages();
+        doc.setFontSize(8);
+        doc.setTextColor(150);
+        doc.text(str, doc.internal.pageSize.width / 2, doc.internal.pageSize.height - 10, { align: 'center' });
+      }
+    });
+
+    doc.save('Dynamex_Financial_Report.pdf');
+    addNotification('Financial report generated successfully!', 'success');
+  }, [filteredFinancialTransactions, reportTotals, addNotification]);
 
 
   // --- Confirmation Modal Component ---
@@ -2310,6 +2507,7 @@ const App = () => {
                 >
                   <option value="Bank">Bank</option>
                   <option value="Cash">Cash</option>
+                  <option value="Cash 2">Cash 2</option> {/* New: Cash 2 option */}
                 </select>
               </div>
               <div>
@@ -2762,4 +2960,3 @@ const App = () => {
 };
 
 export default App;
-
