@@ -1029,57 +1029,54 @@ const App = () => {
       if (filterTourHotel && !tour.hotel?.toLowerCase().includes(filterTourHotel.toLowerCase())) return false;
       if (filterTourTransportCompany && !tour.transportCompany?.toLowerCase().includes(filterTourTransportCompany.toLowerCase())) return false;
       if (filterTourDepartureDate && new Date(tour.departureDate) < new Date(filterTourDepartureDate)) return false;
-      if (filterTourArrivalDate && new Date(tour.arrivalDate) > new Date(filterTourArrivalDate)) return false;
+      if (filterTourArrivalDate && new Date(tour.arrivalDate) > new Date(tour.arrivalDate)) return false;
       return true;
     }).sort((a, b) => new Date(b.departureDate) - new Date(a.departureDate));
   }, [tours, filterTourHotel, filterTourTransportCompany, filterTourDepartureDate, filterTourArrivalDate]);
 
 
-  // --- New: Notification Generation Logic ---
+  // --- Notification Generation Logic ---
   useEffect(() => {
     if (!isAuthReady || !userId) return;
 
     const today = new Date();
-    today.setHours(0, 0, 0, 0); // Normalize to start of day
+    today.setHours(0, 0, 0, 0);
 
-    // Clear previous automated notifications to avoid duplicates on re-render
     setNotifications(prev => prev.filter(n => !(n.source === 'auto-res' || n.source === 'auto-tour')));
 
-    // Check for Upcoming Reservations
     reservations.forEach(res => {
       const checkInDate = new Date(res.checkIn);
       checkInDate.setHours(0, 0, 0, 0);
       const diffDays = Math.ceil((checkInDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
-      if (diffDays >= 0 && diffDays <= 7) { // Check in today or within next 7 days
+      if (diffDays >= 0 && diffDays <= 7) {
         addNotification(
           `Reservation ${res.reservationNumber} for ${res.hotel} checks in on ${res.checkIn} (in ${diffDays} days).`,
           'warning',
-          true, // dismissible
-          null // no auto-dismiss, user must dismiss
+          true,
+          null
         );
       }
     });
 
-    // Check for Low Passenger Tours
     tours.forEach(tour => {
       const departureDate = new Date(tour.departureDate);
       departureDate.setHours(0, 0, 0, 0);
       const diffDays = Math.ceil((departureDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
-      if (diffDays >= 0 && diffDays <= 30) { // Departing today or within next 30 days
+      if (diffDays >= 0 && diffDays <= 30) {
         const linkedReservations = reservations.filter(res => res.linkedTourId === tour.tourId);
         const bookedPassengers = linkedReservations.reduce((sum, res) => sum + (res.adults || 0) + (res.children || 0), 0);
         const fulfillment = tour.maxPassengers > 0 ? (bookedPassengers / tour.maxPassengers) * 100 : 0;
 
-        if (fulfillment < 50 && bookedPassengers > 0) { // Only if some passengers are booked
+        if (fulfillment < 50 && bookedPassengers > 0) {
           addNotification(
             `Tour ${tour.tourId} to ${tour.hotel} has only ${fulfillment.toFixed(1)}% passengers booked (departing in ${diffDays} days).`,
             'warning',
             true,
             null
           );
-        } else if (fulfillment === 0 && diffDays <= 14) { // If no passengers and close to departure
+        } else if (fulfillment === 0 && diffDays <= 14) {
            addNotification(
             `Tour ${tour.tourId} to ${tour.hotel} has NO passengers booked (departing in ${diffDays} days).`,
             'error',
@@ -1354,15 +1351,7 @@ const App = () => {
               </div>
             </div>
 
-            <div className="flex justify-end mb-4">
-              <button
-                onClick={exportReservationsAndToursToPdf}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200 shadow-md transform hover:scale-105"
-              >
-                Export to PDF
-              </button>
-            </div>
-
+            {/* Removed PDF Export Button */}
             {filteredReservations.length === 0 ? (
               <p className="text-gray-600 text-center py-8">No reservations found matching your criteria. Add a new reservation to get started!</p>
             ) : (
@@ -1638,7 +1627,7 @@ const App = () => {
                       <input type="text" name="familyName" id={`familyName-${index}`} value={tourist.familyName} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2" required />
                     </div>
                     <div>
-                      <label htmlFor={`id-${index}`} className="block text-sm font-medium text-gray-700">ID (Unique)</label>
+                      <label htmlFor={`id-${index}`} className="block text-sm font-medium text-gray-700">ID</label>
                       <input type="text" name="id" id={`id-${index}`} value={tourist.id} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2" placeholder="e.g., Passport/National ID" required />
                     </div>
                     <div>
@@ -2497,14 +2486,7 @@ const App = () => {
               </div>
             </div>
 
-            <div className="flex justify-end mb-4">
-              <button
-                onClick={exportFinancialReportsToPdf}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200 shadow-md transform hover:scale-105"
-              >
-                Export to PDF
-              </button>
-            </div>
+            {/* Removed PDF Export Button */}
 
             {/* Totals Summary */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
@@ -2790,5 +2772,6 @@ const App = () => {
 };
 
 export default App;
+
 
 
