@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 // Import Firebase modules
 import {
   app,
@@ -12,15 +12,18 @@ import {
 } from './firebase';
 import { collection, doc, addDoc, setDoc, deleteDoc, onSnapshot, query, where, getDocs } from 'firebase/firestore';
 
+// Import your logo image
+import Logo from './Logo.png'; // Assuming Logo.png is in the same directory as App.jsx
+
 const App = () => {
   // Authentication states
   const [userId, setUserId] = useState(null);
-  const [isAuthReady, setIsAuthReady] = useState(false); // Tracks if Firebase auth state has been checked
+  const [isAuthReady, setIsAuthReady] = useState(false);
   const [authMode, setAuthMode] = useState('login'); // 'login' or 'register'
   const [userEmail, setUserEmail] = useState('');
   const [userPassword, setUserPassword] = useState('');
   const [authError, setAuthError] = useState(null);
-  const [isEmailPasswordUser, setIsEmailPasswordUser] = useState(false); // True if current user authenticated via email/password
+  const [isEmailPasswordUser, setIsEmailPasswordUser] = useState(false);
 
   // Application state for navigation and selected items
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -33,9 +36,12 @@ const App = () => {
   const [customers, setCustomers] = useState([]);
   const [tours, setTours] = useState([]);
   const [financialTransactions, setFinancialTransactions] = useState([]);
-  const [loading, setLoading] = useState(true); // Initial loading state for auth check
-  const [error, setError] = useState(null); // General app error
-  const [message, setMessage] = useState(''); // Success/info messages
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Notification states
+  const [notifications, setNotifications] = useState([]);
+  const notificationIdCounter = useRef(0); // For unique notification IDs
 
   // State for Add/Edit Reservation Form
   const [reservationForm, setReservationForm] = useState({
@@ -134,38 +140,55 @@ const App = () => {
   const [confirmAction, setConfirmAction] = useState(null);
 
 
+  // --- Notification System Functions ---
+  const addNotification = useCallback((message, type = 'info', dismissible = true, autoDismiss = 5000) => {
+    const id = notificationIdCounter.current++;
+    setNotifications(prev => [...prev, { id, message, type, dismissible }]);
+
+    if (autoDismiss && dismissible) {
+      setTimeout(() => {
+        removeNotification(id);
+      }, autoDismiss);
+    }
+  }, []);
+
+  const removeNotification = useCallback((id) => {
+    setNotifications(prev => prev.filter(n => n.id !== id));
+  }, []);
+
+  // Override the previous showMessage to use the new notification system
+  const showMessage = useCallback((msg, type = 'success') => {
+    addNotification(msg, type);
+  }, [addNotification]);
+
+
   // --- Firebase Authentication Management ---
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       if (user) {
-        // Check if the user is authenticated via email/password
         const isCurrentEmailPasswordUser = user.providerData.some(provider => provider.providerId === 'password');
 
         if (!isCurrentEmailPasswordUser) {
-          // If the user is NOT email/password authenticated (e.g., anonymous from Canvas), sign them out
-          // This forces the login/register screen to appear.
           console.log("Detected non-email/password user. Signing out to force login form.");
           signOut(auth).catch(err => console.error("Error signing out anonymous user:", err));
-          setUserId(null); // Clear userId immediately
+          setUserId(null);
           setIsEmailPasswordUser(false);
         } else {
-          // User is an email/password user, proceed normally
           setUserId(user.uid);
           setIsEmailPasswordUser(true);
           console.log("Firebase User Authenticated:", user.uid, "Email/Password:", true);
         }
       } else {
-        // No user is logged in, or anonymous user was just signed out
         setUserId(null);
         setIsEmailPasswordUser(false);
         console.log("No Firebase User. Displaying login/register form.");
       }
-      setIsAuthReady(true); // Auth state has been checked
-      setLoading(false); // Initial loading for auth check is complete
+      setIsAuthReady(true);
+      setLoading(false);
     });
 
     return () => unsubscribeAuth();
-  }, []); // Empty dependency array means this effect runs once on mount
+  }, []);
 
 
   const handleLogin = async (e) => {
@@ -317,11 +340,6 @@ const App = () => {
 
   // --- Helper Functions ---
 
-  const showMessage = (msg, type = 'success') => {
-    setMessage({ text: msg, type });
-    setTimeout(() => setMessage(''), 5000);
-  };
-
   const calculateDaysBetweenDates = (date1, date2) => {
     if (date1 && date2) {
       const d1 = new Date(date1);
@@ -459,10 +477,10 @@ const App = () => {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    setMessage('');
+    addNotification(''); // Clear previous messages
 
     if (!userId) {
-      setError("User not authenticated. Please log in to save data.");
+      addNotification("User not authenticated. Please log in to save data.", 'error');
       setLoading(false);
       return;
     }
@@ -498,10 +516,10 @@ const App = () => {
       if (selectedReservation) {
         const resDocRef = doc(reservationsCollectionRef, selectedReservation.id);
         await setDoc(resDocRef, reservationData, { merge: true });
-        showMessage('Reservation updated successfully!', 'success');
+        addNotification('Reservation updated successfully!', 'success');
       } else {
         await addDoc(reservationsCollectionRef, reservationData);
-        showMessage('Reservation added successfully!', 'success');
+        addNotification('Reservation added successfully!', 'success');
       }
 
       resetReservationForm();
@@ -509,6 +527,7 @@ const App = () => {
     } catch (err) {
       console.error("Error saving reservation:", err);
       setError(`Failed to save reservation: ${err.message || err.toString()}`);
+      addNotification(`Failed to save reservation: ${err.message || err.toString()}`, 'error');
     } finally {
       setLoading(false);
     }
@@ -554,25 +573,26 @@ const App = () => {
     setConfirmAction(() => async () => {
       setLoading(true);
       setError(null);
-      setMessage('');
+      addNotification('');
       if (!userId) {
-        setError("User not authenticated. Please log in to delete data.");
+        addNotification("User not authenticated. Please log in to delete data.", 'error');
         setLoading(false);
         return;
       }
       try {
         const reservationDocRef = doc(db, `artifacts/${appId}/users/${userId}/reservations`, reservationId);
         await deleteDoc(reservationDocRef);
-        showMessage('Reservation deleted successfully!', 'success');
+        addNotification('Reservation deleted successfully!', 'success');
       } catch (err) {
         console.error("Error deleting reservation:", err);
         setError("Failed to delete reservation. Please try again.");
+        addNotification(`Failed to delete reservation: ${err.message || err.toString()}`, 'error');
       } finally {
         setLoading(false);
       }
     });
     setShowConfirmModal(true);
-  }, [userId]);
+  }, [userId, addNotification]);
 
   // --- Customer Module Logic (uses Firestore user-specific collection) ---
   const handleEditCustomer = (customer) => {
@@ -589,15 +609,16 @@ const App = () => {
     e.preventDefault();
     if (!customerEditForm.id) {
       setError("Customer ID not found. Cannot update.");
+      addNotification("Customer ID not found. Cannot update.", 'error');
       return;
     }
 
     setLoading(true);
     setError(null);
-    setMessage('');
+    addNotification('');
 
     if (!userId) {
-      setError("User not authenticated. Please log in to update data.");
+      addNotification("User not authenticated. Please log in to update data.", 'error');
       setLoading(false);
       return;
     }
@@ -605,11 +626,12 @@ const App = () => {
     try {
       const customerDocRef = doc(db, `artifacts/${appId}/users/${userId}/customers`, customerEditForm.id);
       await setDoc(customerDocRef, customerEditForm, { merge: true });
-      showMessage('Customer updated successfully!', 'success');
+      addNotification('Customer updated successfully!', 'success');
       setShowCustomerEditModal(false);
     } catch (err) {
       console.error("Error updating customer:", err);
       setError("Failed to update customer. Please try again.");
+      addNotification(`Failed to update customer: ${err.message || err.toString()}`, 'error');
     } finally {
       setLoading(false);
     }
@@ -634,10 +656,10 @@ const App = () => {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    setMessage('');
+    addNotification('');
 
     if (!userId) {
-      setError("User not authenticated. Please log in to save data.");
+      addNotification("User not authenticated. Please log in to save data.", 'error');
       setLoading(false);
       return;
     }
@@ -664,10 +686,10 @@ const App = () => {
       if (selectedTour) {
         const tourDocRef = doc(toursCollectionRef, selectedTour.id);
         await setDoc(tourDocRef, tourData, { merge: true });
-        showMessage('Tour updated successfully!', 'success');
+        addNotification('Tour updated successfully!', 'success');
       } else {
         await addDoc(toursCollectionRef, tourData);
-        showMessage('Tour added successfully!', 'success');
+        addNotification('Tour added successfully!', 'success');
       }
 
       resetTourForm();
@@ -675,6 +697,7 @@ const App = () => {
     } catch (err) {
       console.error("Error saving tour:", err);
       setError(`Failed to save tour: ${err.message || err.toString()}`);
+      addNotification(`Failed to save tour: ${err.message || err.toString()}`, 'error');
     } finally {
       setLoading(false);
     }
@@ -704,9 +727,9 @@ const App = () => {
     setConfirmAction(() => async () => {
       setLoading(true);
       setError(null);
-      setMessage('');
+      addNotification('');
       if (!userId) {
-        setError("User not authenticated. Please log in to delete data.");
+        addNotification("User not authenticated. Please log in to delete data.", 'error');
         setLoading(false);
         return;
       }
@@ -718,19 +741,21 @@ const App = () => {
         if (!querySnapshot.empty) {
           const docToDelete = querySnapshot.docs[0].ref;
           await deleteDoc(docToDelete);
-          showMessage('Tour deleted successfully!', 'success');
+          addNotification('Tour deleted successfully!', 'success');
         } else {
           setError("Tour not found or already deleted.");
+          addNotification("Tour not found or already deleted.", 'error');
         }
       } catch (err) {
         console.error("Error deleting tour:", err);
         setError("Failed to delete tour. Please try again.");
+        addNotification(`Failed to delete tour: ${err.message || err.toString()}`, 'error');
       } finally {
         setLoading(false);
       }
     });
     setShowConfirmModal(true);
-  }, [userId]);
+  }, [userId, addNotification]);
 
   const getLinkedReservations = useCallback((tourId) => {
     return reservations.filter(res => res.linkedTourId === tourId);
@@ -760,10 +785,10 @@ const App = () => {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    setMessage('');
+    addNotification('');
 
     if (!userId) {
-      setError("User not authenticated. Please log in to save data.");
+      addNotification("User not authenticated. Please log in to save data.", 'error');
       setLoading(false);
       return;
     }
@@ -781,10 +806,10 @@ const App = () => {
       if (selectedFinancialTransaction) {
         const ftDocRef = doc(financialTransactionsCollectionRef, selectedFinancialTransaction.id);
         await setDoc(ftDocRef, transactionData, { merge: true });
-        showMessage('Transaction updated successfully!', 'success');
+        addNotification('Transaction updated successfully!', 'success');
       } else {
         await addDoc(financialTransactionsCollectionRef, transactionData);
-        showMessage(`${financialTransactionForm.type === 'income' ? 'Payment' : 'Expense'} added successfully!`, 'success');
+        addNotification(`${financialTransactionForm.type === 'income' ? 'Payment' : 'Expense'} added successfully!`, 'success');
       }
 
       resetFinancialTransactionForm();
@@ -792,6 +817,7 @@ const App = () => {
     } catch (err) {
       console.error("Error saving financial transaction:", err);
       setError(`Failed to save financial transaction: ${err.message || err.toString()}`);
+      addNotification(`Failed to save financial transaction: ${err.message || err.toString()}`, 'error');
     } finally {
       setLoading(false);
     }
@@ -820,25 +846,26 @@ const App = () => {
     setConfirmAction(() => async () => {
       setLoading(true);
       setError(null);
-      setMessage('');
+      addNotification('');
       if (!userId) {
-        setError("User not authenticated. Please log in to delete data.");
+        addNotification("User not authenticated. Please log in to delete data.", 'error');
         setLoading(false);
         return;
       }
       try {
         const ftDocRef = doc(db, `artifacts/${appId}/users/${userId}/financialTransactions`, transactionId);
         await deleteDoc(ftDocRef);
-        showMessage('Transaction deleted successfully!', 'success');
+        addNotification('Transaction deleted successfully!', 'success');
       } catch (err) {
         console.error("Error deleting financial transaction:", err);
         setError("Failed to delete financial transaction. Please try again.");
+        addNotification(`Failed to delete financial transaction: ${err.message || err.toString()}`, 'error');
       } finally {
         setLoading(false);
       }
     });
     setShowConfirmModal(true);
-  }, [userId]);
+  }, [userId, addNotification]);
 
 
   // --- Dashboard Calculations (Uses Firestore user-specific data) ---
@@ -999,6 +1026,64 @@ const App = () => {
   }, [tours, filterTourHotel, filterTourTransportCompany, filterTourDepartureDate, filterTourArrivalDate]);
 
 
+  // --- New: Notification Generation Logic ---
+  useEffect(() => {
+    if (!isAuthReady || !userId) return;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Normalize to start of day
+
+    // Clear previous automated notifications to avoid duplicates on re-render
+    setNotifications(prev => prev.filter(n => !(n.source === 'auto-res' || n.source === 'auto-tour')));
+
+    // Check for Upcoming Reservations
+    reservations.forEach(res => {
+      const checkInDate = new Date(res.checkIn);
+      checkInDate.setHours(0, 0, 0, 0);
+      const diffDays = Math.ceil((checkInDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+      if (diffDays >= 0 && diffDays <= 7) { // Check in today or within next 7 days
+        addNotification(
+          `Reservation ${res.reservationNumber} for ${res.hotel} checks in on ${res.checkIn} (in ${diffDays} days).`,
+          'warning',
+          true, // dismissible
+          null // no auto-dismiss, user must dismiss
+        );
+      }
+    });
+
+    // Check for Low Passenger Tours
+    tours.forEach(tour => {
+      const departureDate = new Date(tour.departureDate);
+      departureDate.setHours(0, 0, 0, 0);
+      const diffDays = Math.ceil((departureDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+      if (diffDays >= 0 && diffDays <= 30) { // Departing today or within next 30 days
+        const linkedReservations = reservations.filter(res => res.linkedTourId === tour.tourId);
+        const bookedPassengers = linkedReservations.reduce((sum, res) => sum + (res.adults || 0) + (res.children || 0), 0);
+        const fulfillment = tour.maxPassengers > 0 ? (bookedPassengers / tour.maxPassengers) * 100 : 0;
+
+        if (fulfillment < 50 && bookedPassengers > 0) { // Only if some passengers are booked
+          addNotification(
+            `Tour ${tour.tourId} to ${tour.hotel} has only ${fulfillment.toFixed(1)}% passengers booked (departing in ${diffDays} days).`,
+            'warning',
+            true,
+            null
+          );
+        } else if (fulfillment === 0 && diffDays <= 14) { // If no passengers and close to departure
+           addNotification(
+            `Tour ${tour.tourId} to ${tour.hotel} has NO passengers booked (departing in ${diffDays} days).`,
+            'error',
+            true,
+            null
+          );
+        }
+      }
+    });
+
+  }, [reservations, tours, isAuthReady, userId, addNotification]);
+
+
   // --- Confirmation Modal Component ---
   const ConfirmationModal = ({ show, message, onConfirm, onCancel }) => {
     if (!show) return null;
@@ -1026,9 +1111,37 @@ const App = () => {
     );
   };
 
+  // --- Notification Display Component ---
+  const NotificationDisplay = ({ notifications, onDismiss }) => {
+    return (
+      <div className="fixed top-4 right-4 z-50 space-y-3 w-full max-w-sm">
+        {notifications.map(notification => (
+          <div
+            key={notification.id}
+            className={`p-4 rounded-lg shadow-lg flex items-center justify-between transition-all duration-300 ease-in-out transform
+              ${notification.type === 'success' ? 'bg-green-100 border border-green-400 text-green-800' :
+                notification.type === 'info' ? 'bg-blue-100 border border-blue-400 text-blue-800' :
+                notification.type === 'warning' ? 'bg-yellow-100 border border-yellow-400 text-yellow-800' :
+                notification.type === 'error' ? 'bg-red-100 border border-red-400 text-red-800' : ''
+              }`}
+          >
+            <span className="font-medium">{notification.message}</span>
+            {notification.dismissible && (
+              <button onClick={() => onDismiss(notification.id)} className="ml-4 text-gray-600 hover:text-gray-900">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+
   // --- Render UI based on activeTab ---
   const renderContent = () => {
-    // Show loading screen until Firebase auth state is determined
     if (!isAuthReady || loading) {
       return (
         <div className="flex justify-center items-center h-full min-h-[calc(100vh-100px)]">
@@ -1037,7 +1150,6 @@ const App = () => {
       );
     }
 
-    // If auth is ready but no userId (meaning not logged in), show login/register form
     if (!userId) {
       return (
         <div className="flex justify-center items-center h-full min-h-[calc(100vh-100px)]">
@@ -1110,7 +1222,6 @@ const App = () => {
         </div>
       );
     }
-    // If there's a general app error (e.g., data fetching error)
     if (error) {
       return (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md relative mb-4" role="alert">
@@ -1120,7 +1231,6 @@ const App = () => {
       );
     }
 
-    // Main application content
     switch (activeTab) {
       case 'dashboard':
         return (
@@ -2469,11 +2579,8 @@ const App = () => {
         {/* Sidebar Navigation */}
         <aside className="w-full md:w-64 bg-blue-900 text-white p-4 rounded-b-xl md:rounded-r-xl md:rounded-b-none shadow-lg">
           <div className="flex items-center justify-center md:justify-start mb-6">
-            {/* Lion Logo Placeholder */}
-            <span className="text-orange-500 text-4xl mr-3">
-              🦁
-            </span>
-            <h1 className="text-3xl font-bold text-orange-500">Dynamex</h1>
+            {/* Replace the text logo with your image logo */}
+            <img src={Logo} alt="Dynamex Logo" className="h-12 w-auto mr-3" /> {/* Adjust height/width as needed */}
           </div>
           <nav>
             <ul>
@@ -2598,7 +2705,6 @@ const App = () => {
                       Financial Reports
                     </button>
                   </li>
-                  {/* Logout button only for email/password users */}
                   {isEmailPasswordUser && (
                     <li className="mb-2">
                       <button
@@ -2626,11 +2732,9 @@ const App = () => {
 
         {/* Main Content Area */}
         <main className="flex-1 p-6 md:p-8 overflow-y-auto">
-          {message && (
-            <div className={`px-4 py-3 rounded-lg relative mb-4 ${message.type === 'success' ? 'bg-green-100 border border-green-400 text-green-700' : 'bg-blue-100 border border-blue-400 text-blue-700'}`} role="alert">
-              <span className="block sm:inline">{message.text}</span>
-            </div>
-          )}
+          {/* Notifications will appear here */}
+          <NotificationDisplay notifications={notifications} onDismiss={removeNotification} />
+
           {renderContent()}
         </main>
       </div>
@@ -2658,5 +2762,4 @@ const App = () => {
 };
 
 export default App;
-
 
