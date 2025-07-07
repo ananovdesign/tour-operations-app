@@ -1542,6 +1542,15 @@ const App = () => {
               </div>
             </div>
 
+            <div className="flex justify-end mb-4">
+              <button
+                onClick={exportReservationsAndToursToPdf}
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200 shadow-md transform hover:scale-105"
+              >
+                Export to PDF
+              </button>
+            </div>
+
             {filteredReservations.length === 0 ? (
               <p className="text-gray-600 text-center py-8">No reservations found matching your criteria. Add a new reservation to get started!</p>
             ) : (
@@ -2676,6 +2685,15 @@ const App = () => {
               </div>
             </div>
 
+            <div className="flex justify-end mb-4">
+              <button
+                onClick={exportFinancialReportsToPdf}
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200 shadow-md transform hover:scale-105"
+              >
+                Export to PDF
+              </button>
+            </div>
+
             {/* Totals Summary */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
               <div className="bg-green-50 p-6 rounded-xl shadow-md border border-green-200 text-center">
@@ -2960,3 +2978,4 @@ const App = () => {
 };
 
 export default App;
+
