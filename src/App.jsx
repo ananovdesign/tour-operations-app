@@ -4,21 +4,22 @@ import { app, auth, db, appId, signInAnonymously, signInWithCustomToken, onAuthS
 import { collection, doc, addDoc, setDoc, deleteDoc, onSnapshot, query, where, getDocs } from 'firebase/firestore';
 
 const App = () => {
-  // State for Firebase instances and user
-  const [userId, setUserId] = useState(null); // Still useful for auth status, but not for data segregation
-  const [isAuthReady, setIsAuthReady] = useState(false); // Auth state needs to be ready before fetching data
+  // State for Firebase user authentication status
+  const [userId, setUserId] = useState(null);
+  const [isAuthReady, setIsAuthReady] = useState(false);
 
-  // Application state for navigation
+  // Application state for navigation and selected items
   const [activeTab, setActiveTab] = useState('dashboard');
   const [selectedReservation, setSelectedReservation] = useState(null);
   const [selectedTour, setSelectedTour] = useState(null);
+  const [selectedFinancialTransaction, setSelectedFinancialTransaction] = useState(null); // New: for editing payments
 
-  // Data states - now populated from Firestore public collections
+  // Data states - populated from Firestore public collections
   const [reservations, setReservations] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [tours, setTours] = useState([]);
   const [financialTransactions, setFinancialTransactions] = useState([]);
-  const [loading, setLoading] = useState(true); // Set to true initially as data fetch is async
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [message, setMessage] = useState('');
 
@@ -38,7 +39,7 @@ const App = () => {
       firstName: '',
       fatherName: '',
       familyName: '',
-      id: '', // Unique ID for customer (e.g., Passport/National ID)
+      id: '',
       address: '',
       city: '',
       postCode: '',
@@ -68,9 +69,9 @@ const App = () => {
     maxPassengers: 0,
   });
 
-  // State for Edit Customer Form
+  // State for Edit Customer Form (used in a modal)
   const [customerEditForm, setCustomerEditForm] = useState({
-    id: '', // Firestore document ID for customer
+    id: '',
     firstName: '',
     fatherName: '',
     familyName: '',
@@ -90,20 +91,36 @@ const App = () => {
     reasonDescription: '',
     vat: 0,
     type: 'income',
-    associatedReservationId: '', // Stores reservationNumber
-    associatedTourId: '', // Stores tourId
+    associatedReservationId: '',
+    associatedTourId: '',
   });
 
-  // States for Financial Reports
+  // States for Financial Reports filters
   const [reportStartDate, setReportStartDate] = useState('');
   const [reportEndDate, setReportEndDate] = useState('');
   const [reportFilterType, setReportFilterType] = useState('all');
   const [reportFilterAssociation, setReportFilterAssociation] = useState('');
 
+  // New: States for Filters on Reservations
+  const [filterReservationStatus, setFilterReservationStatus] = useState('All');
+  const [filterReservationHotel, setFilterReservationHotel] = useState('');
+  const [filterReservationTourType, setFilterReservationTourType] = useState('All');
+  const [filterReservationCheckInDate, setFilterReservationCheckInDate] = useState('');
+  const [filterReservationCheckOutDate, setFilterReservationCheckOutDate] = useState('');
+
+  // New: States for Filters on Tours
+  const [filterTourHotel, setFilterTourHotel] = useState('');
+  const [filterTourTransportCompany, setFilterTourTransportCompany] = useState('');
+  const [filterTourDepartureDate, setFilterTourDepartureDate] = useState('');
+  const [filterTourArrivalDate, setFilterTourArrivalDate] = useState('');
+
+  // New: State for Delete Confirmation Modal
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [confirmMessage, setConfirmMessage] = useState('');
+  const [confirmAction, setConfirmAction] = useState(null); // Function to execute on confirm
+
 
   // --- Firebase Initialization and Auth Management ---
-  // This remains to ensure an authenticated user session is established,
-  // which is required by the security rules even for public data.
   useEffect(() => {
     const initAuth = async () => {
       try {
@@ -136,14 +153,11 @@ const App = () => {
     return () => unsubscribeAuth();
   }, []);
 
-  // --- Firestore Data Listeners (useEffect hooks) ---
-  // Paths changed to /artifacts/{appId}/public/data/{collectionName} for shared data
+  // --- Firestore Data Listeners ---
+  // Data is now stored in /artifacts/{appId}/public/data/{collectionName} for shared access
 
-  // Listen for Reservations
   useEffect(() => {
-    if (!isAuthReady) { // Only check isAuthReady, userId is not needed for public data path
-      return;
-    }
+    if (!isAuthReady) return;
     setLoading(true);
     const reservationsCollectionRef = collection(db, `artifacts/${appId}/public/data/reservations`);
     const unsubscribe = onSnapshot(reservationsCollectionRef, (snapshot) => {
@@ -156,13 +170,10 @@ const App = () => {
       setLoading(false);
     });
     return () => unsubscribe();
-  }, [isAuthReady]); // Depend only on isAuthReady
+  }, [isAuthReady]);
 
-  // Listen for Customers
   useEffect(() => {
-    if (!isAuthReady) {
-      return;
-    }
+    if (!isAuthReady) return;
     setLoading(true);
     const customersCollectionRef = collection(db, `artifacts/${appId}/public/data/customers`);
     const unsubscribe = onSnapshot(customersCollectionRef, (snapshot) => {
@@ -177,11 +188,8 @@ const App = () => {
     return () => unsubscribe();
   }, [isAuthReady]);
 
-  // Listen for Tours
   useEffect(() => {
-    if (!isAuthReady) {
-      return;
-    }
+    if (!isAuthReady) return;
     setLoading(true);
     const toursCollectionRef = collection(db, `artifacts/${appId}/public/data/tours`);
     const unsubscribe = onSnapshot(toursCollectionRef, (snapshot) => {
@@ -196,11 +204,8 @@ const App = () => {
     return () => unsubscribe();
   }, [isAuthReady]);
 
-  // Listen for Financial Transactions
   useEffect(() => {
-    if (!isAuthReady) {
-      return;
-    }
+    if (!isAuthReady) return;
     setLoading(true);
     const financialTransactionsCollectionRef = collection(db, `artifacts/${appId}/public/data/financialTransactions`);
     const unsubscribe = onSnapshot(financialTransactionsCollectionRef, (snapshot) => {
@@ -234,7 +239,6 @@ const App = () => {
     return 0;
   };
 
-  // Generate unique reservation number (now checks existing Firestore data in public path)
   const generateReservationNumber = useCallback(async () => {
     const q = query(collection(db, `artifacts/${appId}/public/data/reservations`));
     const querySnapshot = await getDocs(q);
@@ -251,7 +255,6 @@ const App = () => {
     return `DYT${highestNum + 1}`;
   }, []);
 
-  // Generate unique tour ID (now checks existing Firestore data in public path)
   const generateTourId = useCallback(async () => {
     const q = query(collection(db, `artifacts/${appId}/public/data/tours`));
     const querySnapshot = await getDocs(q);
@@ -317,7 +320,7 @@ const App = () => {
     }));
   }, []);
 
-  // --- Customer Management (now uses Firestore public collection) ---
+  // --- Customer Management (uses Firestore public collection) ---
   const manageCustomerRecords = useCallback(async (tourists) => {
     const customersCollectionRef = collection(db, `artifacts/${appId}/public/data/customers`);
 
@@ -354,7 +357,7 @@ const App = () => {
   }, []);
 
 
-  // --- Submit Reservation Form (now uses Firestore public collection) ---
+  // --- Submit Reservation Form (uses Firestore public collection) ---
   const handleSubmitReservation = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -428,7 +431,7 @@ const App = () => {
     setSelectedReservation(null);
   }, []);
 
-  // --- Edit Reservation Logic (now uses Firestore public collection) ---
+  // --- Edit Reservation Logic (uses Firestore public collection) ---
   const handleEditReservation = useCallback((reservation) => {
     setReservationForm({
       ...reservation,
@@ -448,36 +451,28 @@ const App = () => {
     setActiveTab('addReservation');
   }, []);
 
-  // --- Delete Reservation Logic (now uses Firestore public collection) ---
-  const handleDeleteReservation = async (reservationId) => {
-    console.warn("Delete confirmation dialog is not visible in Canvas. Implementing a custom modal is recommended.");
-    const confirmDelete = true;
+  // --- Delete Reservation Logic (uses Firestore public collection) ---
+  const handleDeleteReservation = useCallback((reservationId) => {
+    setConfirmMessage("Are you sure you want to delete this reservation?");
+    setConfirmAction(() => async () => {
+      setLoading(true);
+      setError(null);
+      setMessage('');
+      try {
+        const reservationDocRef = doc(db, `artifacts/${appId}/public/data/reservations`, reservationId);
+        await deleteDoc(reservationDocRef);
+        showMessage('Reservation deleted successfully!', 'success');
+      } catch (err) {
+        console.error("Error deleting reservation:", err);
+        setError("Failed to delete reservation. Please try again.");
+      } finally {
+        setLoading(false);
+      }
+    });
+    setShowConfirmModal(true);
+  }, []);
 
-    if (!confirmDelete) return;
-
-    setLoading(true);
-    setError(null);
-    setMessage('');
-
-    if (!isAuthReady) {
-      setError("App not ready. Cannot delete reservation.");
-      setLoading(false);
-      return;
-    }
-
-    try {
-      const reservationDocRef = doc(db, `artifacts/${appId}/public/data/reservations`, reservationId);
-      await deleteDoc(reservationDocRef);
-      showMessage('Reservation deleted successfully!', 'success');
-    } catch (err) {
-      console.error("Error deleting reservation:", err);
-      setError("Failed to delete reservation. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // --- Customer Module Logic (now uses Firestore public collection) ---
+  // --- Customer Module Logic (uses Firestore public collection) ---
   const handleEditCustomer = (customer) => {
     setCustomerEditForm({ ...customer });
     setShowCustomerEditModal(true);
@@ -518,7 +513,7 @@ const App = () => {
     }
   };
 
-  // --- Tour Module Logic (now uses Firestore public collection) ---
+  // --- Tour Module Logic (uses Firestore public collection) ---
   const handleTourFormChange = useCallback((e) => {
     const { name, value } = e.target;
     setTourForm(prev => {
@@ -602,49 +597,40 @@ const App = () => {
     setActiveTab('addTour');
   }, []);
 
-  const handleDeleteTour = async (tourId) => {
-    console.warn("Delete confirmation dialog is not visible in Canvas. Implementing a custom modal is recommended.");
-    const confirmDelete = true;
+  const handleDeleteTour = useCallback((tourId) => {
+    setConfirmMessage("Are you sure you want to delete this tour? This will not un-link existing reservations.");
+    setConfirmAction(() => async () => {
+      setLoading(true);
+      setError(null);
+      setMessage('');
+      try {
+        const toursCollectionRef = collection(db, `artifacts/${appId}/public/data/tours`);
+        const q = query(toursCollectionRef, where("tourId", "==", tourId));
+        const querySnapshot = await getDocs(q);
 
-    if (!confirmDelete) return;
-
-    setLoading(true);
-    setError(null);
-    setMessage('');
-
-    if (!isAuthReady) {
-      setError("App not ready. Cannot delete tour.");
-      setLoading(false);
-      return;
-    }
-
-    try {
-      const toursCollectionRef = collection(db, `artifacts/${appId}/public/data/tours`);
-      const q = query(toursCollectionRef, where("tourId", "==", tourId));
-      const querySnapshot = await getDocs(q);
-
-      if (!querySnapshot.empty) {
-        const docToDelete = querySnapshot.docs[0].ref;
-        await deleteDoc(docToDelete);
-        showMessage('Tour deleted successfully!', 'success');
-      } else {
-        setError("Tour not found or already deleted.");
+        if (!querySnapshot.empty) {
+          const docToDelete = querySnapshot.docs[0].ref;
+          await deleteDoc(docToDelete);
+          showMessage('Tour deleted successfully!', 'success');
+        } else {
+          setError("Tour not found or already deleted.");
+        }
+      } catch (err) {
+        console.error("Error deleting tour:", err);
+        setError("Failed to delete tour. Please try again.");
+      } finally {
+        setLoading(false);
       }
-    } catch (err) {
-      console.error("Error deleting tour:", err);
-      setError("Failed to delete tour. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
+    });
+    setShowConfirmModal(true);
+  }, []);
 
-  // Helper to get reservations linked to a specific tour
   const getLinkedReservations = useCallback((tourId) => {
     return reservations.filter(res => res.linkedTourId === tourId);
   }, [reservations]);
 
 
-  // --- Financial Transaction Module Logic (now uses Firestore public collection) ---
+  // --- Financial Transaction Module Logic (uses Firestore public collection) ---
 
   const handleFinancialTransactionFormChange = useCallback((e) => {
     const { name, value, type } = e.target;
@@ -684,8 +670,18 @@ const App = () => {
       };
 
       const financialTransactionsCollectionRef = collection(db, `artifacts/${appId}/public/data/financialTransactions`);
-      await addDoc(financialTransactionsCollectionRef, transactionData);
-      showMessage(`${financialTransactionForm.type === 'income' ? 'Payment' : 'Expense'} added successfully!`, 'success');
+
+      if (selectedFinancialTransaction) {
+        // Update existing transaction
+        const ftDocRef = doc(financialTransactionsCollectionRef, selectedFinancialTransaction.id);
+        await setDoc(ftDocRef, transactionData, { merge: true });
+        showMessage('Transaction updated successfully!', 'success');
+      } else {
+        // Add new transaction
+        await addDoc(financialTransactionsCollectionRef, transactionData);
+        showMessage(`${financialTransactionForm.type === 'income' ? 'Payment' : 'Expense'} added successfully!`, 'success');
+      }
+
       resetFinancialTransactionForm();
       setActiveTab('payments');
     } catch (err) {
@@ -701,6 +697,39 @@ const App = () => {
       date: '', method: 'Bank', amount: 0, reasonDescription: '', vat: 0,
       type: 'income', associatedReservationId: '', associatedTourId: '',
     });
+    setSelectedFinancialTransaction(null); // Clear selected transaction on reset
+  }, []);
+
+  // New: Handle Edit Financial Transaction
+  const handleEditFinancialTransaction = useCallback((transaction) => {
+    setFinancialTransactionForm({
+      ...transaction,
+      amount: parseFloat(transaction.amount) || 0,
+      vat: parseFloat(transaction.vat) || 0,
+    });
+    setSelectedFinancialTransaction(transaction);
+    setActiveTab('addFinancialTransaction');
+  }, []);
+
+  // New: Handle Delete Financial Transaction
+  const handleDeleteFinancialTransaction = useCallback((transactionId) => {
+    setConfirmMessage("Are you sure you want to delete this financial transaction?");
+    setConfirmAction(() => async () => {
+      setLoading(true);
+      setError(null);
+      setMessage('');
+      try {
+        const ftDocRef = doc(db, `artifacts/${appId}/public/data/financialTransactions`, transactionId);
+        await deleteDoc(ftDocRef);
+        showMessage('Transaction deleted successfully!', 'success');
+      } catch (err) {
+        console.error("Error deleting financial transaction:", err);
+        setError("Failed to delete financial transaction. Please try again.");
+      } finally {
+        setLoading(false);
+      }
+    });
+    setShowConfirmModal(true);
   }, []);
 
 
@@ -805,12 +834,105 @@ const App = () => {
   }, []);
 
 
-  // Render UI based on activeTab
+  // --- New: Filtered Reservations Logic ---
+  const handleReservationFilterChange = useCallback((e) => {
+    const { name, value } = e.target;
+    if (name === 'filterReservationStatus') setFilterReservationStatus(value);
+    else if (name === 'filterReservationHotel') setFilterReservationHotel(value);
+    else if (name === 'filterReservationTourType') setFilterReservationTourType(value);
+    else if (name === 'filterReservationCheckInDate') setFilterReservationCheckInDate(value);
+    else if (name === 'filterReservationCheckOutDate') setFilterReservationCheckOutDate(value);
+  }, []);
+
+  const resetReservationFilters = useCallback(() => {
+    setFilterReservationStatus('All');
+    setFilterReservationHotel('');
+    setFilterReservationTourType('All');
+    setFilterReservationCheckInDate('');
+    setFilterReservationCheckOutDate('');
+  }, []);
+
+  const filteredReservations = useMemo(() => {
+    return reservations.filter(res => {
+      // Status filter
+      if (filterReservationStatus !== 'All' && res.status !== filterReservationStatus) return false;
+      // Hotel filter
+      if (filterReservationHotel && !res.hotel?.toLowerCase().includes(filterReservationHotel.toLowerCase())) return false;
+      // Tour Type filter
+      if (filterReservationTourType !== 'All' && res.tourType !== filterReservationTourType) return false;
+      // Check-in Date filter
+      if (filterReservationCheckInDate && new Date(res.checkIn) < new Date(filterReservationCheckInDate)) return false;
+      // Check-out Date filter
+      if (filterReservationCheckOutDate && new Date(res.checkOut) > new Date(filterReservationCheckOutDate)) return false;
+      return true;
+    }).sort((a, b) => new Date(b.creationDate) - new Date(a.creationDate)); // Sort by creation date descending
+  }, [reservations, filterReservationStatus, filterReservationHotel, filterReservationTourType, filterReservationCheckInDate, filterReservationCheckOutDate]);
+
+
+  // --- New: Filtered Tours Logic ---
+  const handleTourFilterChange = useCallback((e) => {
+    const { name, value } = e.target;
+    if (name === 'filterTourHotel') setFilterTourHotel(value);
+    else if (name === 'filterTourTransportCompany') setFilterTourTransportCompany(value);
+    else if (name === 'filterTourDepartureDate') setFilterTourDepartureDate(value);
+    else if (name === 'filterTourArrivalDate') setFilterTourArrivalDate(value);
+  }, []);
+
+  const resetTourFilters = useCallback(() => {
+    setFilterTourHotel('');
+    setFilterTourTransportCompany('');
+    setFilterTourDepartureDate('');
+    setFilterTourArrivalDate('');
+  }, []);
+
+  const filteredTours = useMemo(() => {
+    return tours.filter(tour => {
+      // Hotel filter
+      if (filterTourHotel && !tour.hotel?.toLowerCase().includes(filterTourHotel.toLowerCase())) return false;
+      // Transport Company filter
+      if (filterTourTransportCompany && !tour.transportCompany?.toLowerCase().includes(filterTourTransportCompany.toLowerCase())) return false;
+      // Departure Date filter
+      if (filterTourDepartureDate && new Date(tour.departureDate) < new Date(filterTourDepartureDate)) return false;
+      // Arrival Date filter
+      if (filterTourArrivalDate && new Date(tour.arrivalDate) > new Date(filterTourArrivalDate)) return false;
+      return true;
+    }).sort((a, b) => new Date(b.departureDate) - new Date(a.departureDate)); // Sort by departure date descending
+  }, [tours, filterTourHotel, filterTourTransportCompany, filterTourDepartureDate, filterTourArrivalDate]);
+
+
+  // --- Confirmation Modal Component ---
+  const ConfirmationModal = ({ show, message, onConfirm, onCancel }) => {
+    if (!show) return null;
+    return (
+      <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm relative">
+          <h3 className="text-xl font-semibold mb-4 text-gray-800">Confirm Action</h3>
+          <p className="text-gray-700 mb-6">{message}</p>
+          <div className="flex justify-end space-x-3">
+            <button
+              onClick={onCancel}
+              className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition duration-200 shadow-sm"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={onConfirm}
+              className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition duration-200 shadow-md"
+            >
+              Confirm
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // --- Render UI based on activeTab ---
   const renderContent = () => {
     if (loading || !isAuthReady) {
       return (
-        <div className="flex justify-center items-center h-full">
-          <div className="text-orange-500 text-lg">Loading data...</div>
+        <div className="flex justify-center items-center h-full min-h-[calc(100vh-100px)]">
+          <div className="text-orange-500 text-lg animate-pulse">Loading data...</div>
         </div>
       );
     }
@@ -826,44 +948,122 @@ const App = () => {
     switch (activeTab) {
       case 'dashboard':
         return (
-          <div className="p-6 bg-white rounded-lg shadow-md">
-            <h2 className="text-2xl font-semibold mb-6 text-gray-800">Dashboard & Analytics</h2>
+          <div className="p-6 bg-white rounded-xl shadow-lg">
+            <h2 className="text-3xl font-bold mb-8 text-gray-800 border-b pb-4">Dashboard & Analytics</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {/* Reservation Stats */}
-              <div className="bg-blue-50 p-4 rounded-lg shadow-sm border border-blue-200">
-                <h3 className="font-semibold text-lg text-blue-800 mb-2">Reservation Metrics</h3>
-                <p className="text-gray-700">Total Reservations: <span className="font-bold text-blue-900">{dashboardStats.totalReservations}</span></p>
-                <p className="text-gray-700">Total Profit: <span className="font-bold text-blue-900">${dashboardStats.totalProfit.toFixed(2)}</span></p>
-                <p className="text-gray-700">Avg. Profit/Res: <span className="font-bold text-blue-900">${dashboardStats.averageProfitPerReservation.toFixed(2)}</span></p>
-                <p className="text-gray-700">Avg. Stay/Res: <span className="font-bold text-blue-900">{dashboardStats.averageStayPerReservation.toFixed(1)} nights</span></p>
+              <div className="bg-blue-50 p-6 rounded-xl shadow-md border border-blue-200">
+                <h3 className="font-semibold text-xl text-blue-800 mb-3">Reservation Metrics</h3>
+                <p className="text-gray-700 text-lg">Total Reservations: <span className="font-bold text-blue-900">{dashboardStats.totalReservations}</span></p>
+                <p className="text-gray-700 text-lg">Total Profit: <span className="font-bold text-blue-900">${dashboardStats.totalProfit.toFixed(2)}</span></p>
+                <p className="text-gray-700 text-lg">Avg. Profit/Res: <span className="font-bold text-blue-900">${dashboardStats.averageProfitPerReservation.toFixed(2)}</span></p>
+                <p className="text-gray-700 text-lg">Avg. Stay/Res: <span className="font-bold text-blue-900">{dashboardStats.averageStayPerReservation.toFixed(1)} nights</span></p>
               </div>
 
               {/* Financial Stats */}
-              <div className="bg-green-50 p-4 rounded-lg shadow-sm border border-green-200">
-                <h3 className="font-semibold text-lg text-green-800 mb-2">Financial Overview</h3>
-                <p className="text-gray-700">Total Income: <span className="font-bold text-green-900">${dashboardStats.totalIncome.toFixed(2)}</span></p>
-                <p className="text-gray-700">Total Expenses: <span className="font-bold text-red-900">${dashboardStats.totalExpenses.toFixed(2)}</span></p>
-                <p className="text-gray-700">Net Profit/Loss: <span className={`font-bold ${dashboardStats.totalIncome - dashboardStats.totalExpenses >= 0 ? 'text-green-900' : 'text-red-900'}`}>${(dashboardStats.totalIncome - dashboardStats.totalExpenses).toFixed(2)}</span></p>
+              <div className="bg-green-50 p-6 rounded-xl shadow-md border border-green-200">
+                <h3 className="font-semibold text-xl text-green-800 mb-3">Financial Overview</h3>
+                <p className="text-gray-700 text-lg">Total Income: <span className="font-bold text-green-900">${dashboardStats.totalIncome.toFixed(2)}</span></p>
+                <p className="text-gray-700 text-lg">Total Expenses: <span className="font-bold text-red-900">${dashboardStats.totalExpenses.toFixed(2)}</span></p>
+                <p className="text-gray-700 text-lg">Net Profit/Loss: <span className={`font-bold ${dashboardStats.totalIncome - dashboardStats.totalExpenses >= 0 ? 'text-green-900' : 'text-red-900'}`}>${(dashboardStats.totalIncome - dashboardStats.totalExpenses).toFixed(2)}</span></p>
               </div>
 
               {/* Bus Tour Stats */}
-              <div className="bg-purple-50 p-4 rounded-lg shadow-sm border border-purple-200">
-                <h3 className="font-semibold text-lg text-purple-800 mb-2">Bus Tour Performance</h3>
-                <p className="text-gray-700">Total Bus Passengers Booked: <span className="font-bold text-purple-900">{dashboardStats.totalBusPassengersBooked}</span></p>
-                <p className="text-gray-700">Overall Fulfillment: <span className="font-bold text-purple-900">{dashboardStats.overallBusTourFulfillment.toFixed(1)}%</span></p>
+              <div className="bg-purple-50 p-6 rounded-xl shadow-md border border-purple-200">
+                <h3 className="font-semibold text-xl text-purple-800 mb-3">Bus Tour Performance</h3>
+                <p className="text-gray-700 text-lg">Total Bus Passengers Booked: <span className="font-bold text-purple-900">{dashboardStats.totalBusPassengersBooked}</span></p>
+                <p className="text-gray-700 text-lg">Overall Fulfillment: <span className="font-bold text-purple-900">{dashboardStats.overallBusTourFulfillment.toFixed(1)}%</span></p>
               </div>
             </div>
           </div>
         );
       case 'reservations':
         return (
-          <div className="p-6 bg-white rounded-lg shadow-md">
-            <h2 className="text-2xl font-semibold mb-6 text-gray-800">Hotel Reservations</h2>
-            {reservations.length === 0 ? (
-              <p className="text-gray-600">No reservations found. Add a new reservation to get started!</p>
+          <div className="p-6 bg-white rounded-xl shadow-lg">
+            <h2 className="text-3xl font-bold mb-8 text-gray-800 border-b pb-4">Hotel Reservations</h2>
+
+            {/* Filters for Reservations */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <div>
+                <label htmlFor="filterReservationStatus" className="block text-sm font-medium text-gray-700">Status</label>
+                <select
+                  name="filterReservationStatus"
+                  id="filterReservationStatus"
+                  value={filterReservationStatus}
+                  onChange={handleReservationFilterChange}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                >
+                  <option value="All">All</option>
+                  <option value="Pending">Pending</option>
+                  <option value="Confirmed">Confirmed</option>
+                  <option value="Cancelled">Cancelled</option>
+                  <option value="Past">Past</option>
+                </select>
+              </div>
+              <div>
+                <label htmlFor="filterReservationHotel" className="block text-sm font-medium text-gray-700">Hotel</label>
+                <input
+                  type="text"
+                  name="filterReservationHotel"
+                  id="filterReservationHotel"
+                  value={filterReservationHotel}
+                  onChange={handleReservationFilterChange}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  placeholder="Filter by hotel name"
+                />
+              </div>
+              <div>
+                <label htmlFor="filterReservationTourType" className="block text-sm font-medium text-gray-700">Tour Type</label>
+                <select
+                  name="filterReservationTourType"
+                  id="filterReservationTourType"
+                  value={filterReservationTourType}
+                  onChange={handleReservationFilterChange}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                >
+                  <option value="All">All</option>
+                  <option value="PARTNER">PARTNER</option>
+                  <option value="HOTEL ONLY">HOTEL ONLY</option>
+                </select>
+              </div>
+              <div>
+                <label htmlFor="filterReservationCheckInDate" className="block text-sm font-medium text-gray-700">Check-in After</label>
+                <input
+                  type="date"
+                  name="filterReservationCheckInDate"
+                  id="filterReservationCheckInDate"
+                  value={filterReservationCheckInDate}
+                  onChange={handleReservationFilterChange}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                />
+              </div>
+              <div>
+                <label htmlFor="filterReservationCheckOutDate" className="block text-sm font-medium text-gray-700">Check-out Before</label>
+                <input
+                  type="date"
+                  name="filterReservationCheckOutDate"
+                  id="filterReservationCheckOutDate"
+                  value={filterReservationCheckOutDate}
+                  onChange={handleReservationFilterChange}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                />
+              </div>
+              <div className="md:col-span-full flex justify-end">
+                <button
+                  type="button"
+                  onClick={resetReservationFilters}
+                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition duration-200 shadow-sm"
+                >
+                  Reset Filters
+                </button>
+              </div>
+            </div>
+
+            {filteredReservations.length === 0 ? (
+              <p className="text-gray-600 text-center py-8">No reservations found matching your criteria. Add a new reservation to get started!</p>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full bg-white rounded-lg overflow-hidden">
+              <div className="overflow-x-auto rounded-lg shadow-md border border-gray-200">
+                <table className="min-w-full bg-white">
                   <thead className="bg-blue-900 text-white">
                     <tr>
                       <th className="py-3 px-4 text-left">Reservation Number</th>
@@ -878,8 +1078,8 @@ const App = () => {
                     </tr>
                   </thead>
                   <tbody className="text-gray-700">
-                    {reservations.map(res => (
-                      <tr key={res.id} className="border-b border-gray-200 hover:bg-gray-50">
+                    {filteredReservations.map(res => (
+                      <tr key={res.id} className="border-b border-gray-200 hover:bg-gray-50 transition-colors duration-150">
                         <td className="py-3 px-4">{res.reservationNumber}</td>
                         <td className="py-3 px-4">{res.hotel}</td>
                         <td className="py-3 px-4">{res.tourists && res.tourists.length > 0 ? `${res.tourists[0].firstName} ${res.tourists[0].familyName}` : 'N/A'}</td>
@@ -902,7 +1102,7 @@ const App = () => {
                         <td className="py-3 px-4 flex justify-center space-x-2">
                           <button
                             onClick={() => handleEditReservation(res)}
-                            className="bg-orange-500 hover:bg-orange-600 text-white p-2 rounded-full shadow-md transition duration-200"
+                            className="bg-orange-500 hover:bg-orange-600 text-white p-2 rounded-full shadow-md transition duration-200 transform hover:scale-105"
                             title="Edit"
                           >
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -912,7 +1112,7 @@ const App = () => {
                           </button>
                           <button
                             onClick={() => handleDeleteReservation(res.id)}
-                            className="bg-red-500 hover:bg-red-600 text-white p-2 rounded-full shadow-md transition duration-200"
+                            className="bg-red-500 hover:bg-red-600 text-white p-2 rounded-full shadow-md transition duration-200 transform hover:scale-105"
                             title="Delete"
                           >
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -931,12 +1131,13 @@ const App = () => {
 
       case 'addReservation':
         return (
-          <div className="p-6 bg-white rounded-lg shadow-md">
-            <h2 className="text-2xl font-semibold mb-6 text-gray-800">
+          <div className="p-6 bg-white rounded-xl shadow-lg">
+            <h2 className="text-3xl font-bold mb-8 text-gray-800 border-b pb-4">
               {selectedReservation ? 'Edit Hotel Reservation' : 'Add New Hotel Reservation'}
             </h2>
-            <form onSubmit={handleSubmitReservation} className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+            <form onSubmit={handleSubmitReservation} className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
               {/* Basic Info */}
+              <div className="col-span-full text-lg font-semibold text-gray-800">Basic Information</div>
               <div>
                 <label htmlFor="creationDate" className="block text-sm font-medium text-gray-700">Creation Date</label>
                 <input
@@ -957,7 +1158,7 @@ const App = () => {
                   id="reservationNumber"
                   value={reservationForm.reservationNumber}
                   onChange={handleReservationFormChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2 bg-gray-100"
                   placeholder="Auto-generated or editable"
                   disabled={!!selectedReservation}
                 />
@@ -1069,7 +1270,8 @@ const App = () => {
                 />
               </div>
 
-              {/* Phase 2: Link to Tour */}
+              {/* Link to Tour */}
+              <div className="col-span-full text-lg font-semibold text-gray-800 pt-4 border-t border-gray-200">Tour Association</div>
               <div>
                 <label htmlFor="linkedTourId" className="block text-sm font-medium text-gray-700">Select Tour (Optional)</label>
                 <select
@@ -1103,15 +1305,15 @@ const App = () => {
 
               {/* Tourist Details */}
               <div className="md:col-span-2 border-t border-gray-200 pt-4 mt-4">
-                <h3 className="text-xl font-semibold mb-4 text-gray-800">Tourist Details</h3>
+                <h3 className="text-lg font-semibold mb-4 text-gray-800">Tourist Details</h3>
                 {reservationForm.tourists.map((tourist, index) => (
-                  <div key={index} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 border border-gray-200 rounded-lg p-4 mb-4 relative">
-                    <h4 className="col-span-full text-lg font-medium text-gray-700 mb-2">Tourist {index + 1}</h4>
+                  <div key={index} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 border border-gray-200 rounded-lg p-4 mb-4 relative shadow-sm">
+                    <h4 className="col-span-full text-md font-medium text-gray-700 mb-2">Tourist {index + 1}</h4>
                     {reservationForm.tourists.length > 1 && (
                       <button
                         type="button"
                         onClick={() => removeTourist(index)}
-                        className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white p-1 rounded-full text-xs"
+                        className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white p-1 rounded-full text-xs transition duration-200 transform hover:scale-110"
                         title="Remove Tourist"
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1160,7 +1362,7 @@ const App = () => {
                 <button
                   type="button"
                   onClick={addTourist}
-                  className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition duration-200 shadow-md"
+                  className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200 shadow-md transform hover:scale-105"
                 >
                   Add Another Tourist
                 </button>
@@ -1168,7 +1370,7 @@ const App = () => {
 
               {/* Financial Info */}
               <div className="md:col-span-2 border-t border-gray-200 pt-4 mt-4">
-                <h3 className="text-xl font-semibold mb-4 text-gray-800">Financial Info</h3>
+                <h3 className="text-lg font-semibold mb-4 text-gray-800">Financial Info</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="flex items-center">
                     <input
@@ -1177,7 +1379,7 @@ const App = () => {
                       id="depositPaid"
                       checked={reservationForm.depositPaid}
                       onChange={handleReservationFormChange}
-                      className="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
+                      className="h-5 w-5 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
                     />
                     <label htmlFor="depositPaid" className="ml-2 block text-sm font-medium text-gray-700">Deposit Paid</label>
                   </div>
@@ -1262,20 +1464,20 @@ const App = () => {
                 </div>
               </div>
 
-              <div className="md:col-span-2 flex justify-end space-x-3 mt-6">
+              <div className="md:col-span-2 flex justify-end space-x-3 mt-8">
                 <button
                   type="button"
                   onClick={() => {
                     resetReservationForm();
                     setActiveTab('reservations');
                   }}
-                  className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition duration-200 shadow-sm"
+                  className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition duration-200 shadow-sm"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 transition duration-200 shadow-md"
+                  className="px-6 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition duration-200 shadow-md transform hover:scale-105"
                   disabled={loading}
                 >
                   {loading ? 'Saving...' : selectedReservation ? 'Update Reservation' : 'Add Reservation'}
@@ -1287,13 +1489,13 @@ const App = () => {
 
       case 'customers':
         return (
-          <div className="p-6 bg-white rounded-lg shadow-md">
-            <h2 className="text-2xl font-semibold mb-6 text-gray-800">Customers List</h2>
+          <div className="p-6 bg-white rounded-xl shadow-lg">
+            <h2 className="text-3xl font-bold mb-8 text-gray-800 border-b pb-4">Customers List</h2>
             {customers.length === 0 ? (
-              <p className="text-gray-600">No customers found. Customers are automatically added when you create a reservation.</p>
+              <p className="text-gray-600 text-center py-8">No customers found. Customers are automatically added when you create a reservation.</p>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full bg-white rounded-lg overflow-hidden">
+              <div className="overflow-x-auto rounded-lg shadow-md border border-gray-200">
+                <table className="min-w-full bg-white">
                   <thead className="bg-blue-900 text-white">
                     <tr>
                       <th className="py-3 px-4 text-left">Name</th>
@@ -1305,7 +1507,7 @@ const App = () => {
                   </thead>
                   <tbody className="text-gray-700">
                     {customers.map(cust => (
-                      <tr key={cust.id} className="border-b border-gray-200 hover:bg-gray-50">
+                      <tr key={cust.id} className="border-b border-gray-200 hover:bg-gray-50 transition-colors duration-150">
                         <td className="py-3 px-4">{cust.firstName} {cust.fatherName ? cust.fatherName + ' ' : ''}{cust.familyName}</td>
                         <td className="py-3 px-4">{cust.id}</td>
                         <td className="py-3 px-4">{cust.email}</td>
@@ -1313,7 +1515,7 @@ const App = () => {
                         <td className="py-3 px-4 flex justify-center">
                           <button
                             onClick={() => handleEditCustomer(cust)}
-                            className="bg-orange-500 hover:bg-orange-600 text-white p-2 rounded-full shadow-md transition duration-200"
+                            className="bg-orange-500 hover:bg-orange-600 text-white p-2 rounded-full shadow-md transition duration-200 transform hover:scale-105"
                             title="Edit Customer"
                           >
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -1331,8 +1533,8 @@ const App = () => {
             {/* Customer Edit Modal */}
             {showCustomerEditModal && (
               <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 z-50">
-                <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md relative">
-                  <h3 className="text-xl font-semibold mb-4 text-gray-800">Edit Customer Details</h3>
+                <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md relative">
+                  <h3 className="text-2xl font-semibold mb-4 text-gray-800">Edit Customer Details</h3>
                   <form onSubmit={handleUpdateCustomer} className="grid grid-cols-1 gap-4">
                     <div>
                       <label htmlFor="edit-firstName" className="block text-sm font-medium text-gray-700">First Name</label>
@@ -1374,13 +1576,13 @@ const App = () => {
                       <button
                         type="button"
                         onClick={() => setShowCustomerEditModal(false)}
-                        className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition duration-200"
+                        className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition duration-200 shadow-sm"
                       >
                         Cancel
                       </button>
                       <button
                         type="submit"
-                        className="px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 transition duration-200"
+                        className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition duration-200 shadow-md transform hover:scale-105"
                         disabled={loading}
                       >
                         {loading ? 'Updating...' : 'Update Customer'}
@@ -1395,13 +1597,73 @@ const App = () => {
 
       case 'tours':
         return (
-          <div className="p-6 bg-white rounded-lg shadow-md">
-            <h2 className="text-2xl font-semibold mb-6 text-gray-800">Bus Tours</h2>
-            {tours.length === 0 ? (
-              <p className="text-gray-600">No bus tours found. Add a new tour to get started!</p>
+          <div className="p-6 bg-white rounded-xl shadow-lg">
+            <h2 className="text-3xl font-bold mb-8 text-gray-800 border-b pb-4">Bus Tours</h2>
+
+            {/* Filters for Tours */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <div>
+                <label htmlFor="filterTourHotel" className="block text-sm font-medium text-gray-700">Hotel</label>
+                <input
+                  type="text"
+                  name="filterTourHotel"
+                  id="filterTourHotel"
+                  value={filterTourHotel}
+                  onChange={handleTourFilterChange}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  placeholder="Filter by hotel name"
+                />
+              </div>
+              <div>
+                <label htmlFor="filterTourTransportCompany" className="block text-sm font-medium text-gray-700">Transport Company</label>
+                <input
+                  type="text"
+                  name="filterTourTransportCompany"
+                  id="filterTourTransportCompany"
+                  value={filterTourTransportCompany}
+                  onChange={handleTourFilterChange}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  placeholder="Filter by company"
+                />
+              </div>
+              <div>
+                <label htmlFor="filterTourDepartureDate" className="block text-sm font-medium text-gray-700">Departure After</label>
+                <input
+                  type="date"
+                  name="filterTourDepartureDate"
+                  id="filterTourDepartureDate"
+                  value={filterTourDepartureDate}
+                  onChange={handleTourFilterChange}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                />
+              </div>
+              <div>
+                <label htmlFor="filterTourArrivalDate" className="block text-sm font-medium text-gray-700">Arrival Before</label>
+                <input
+                  type="date"
+                  name="filterTourArrivalDate"
+                  id="filterTourArrivalDate"
+                  value={filterTourArrivalDate}
+                  onChange={handleTourFilterChange}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                />
+              </div>
+              <div className="md:col-span-full flex justify-end">
+                <button
+                  type="button"
+                  onClick={resetTourFilters}
+                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition duration-200 shadow-sm"
+                >
+                  Reset Filters
+                </button>
+              </div>
+            </div>
+
+            {filteredTours.length === 0 ? (
+              <p className="text-gray-600 text-center py-8">No bus tours found matching your criteria. Add a new tour to get started!</p>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full bg-white rounded-lg overflow-hidden">
+              <div className="overflow-x-auto rounded-lg shadow-md border border-gray-200">
+                <table className="min-w-full bg-white">
                   <thead className="bg-blue-900 text-white">
                     <tr>
                       <th className="py-3 px-4 text-left">Tour ID</th>
@@ -1415,12 +1677,12 @@ const App = () => {
                     </tr>
                   </thead>
                   <tbody className="text-gray-700">
-                    {tours.map(tour => {
+                    {filteredTours.map(tour => {
                       const linkedReservations = getLinkedReservations(tour.tourId);
                       const bookedPassengers = linkedReservations.reduce((sum, res) => sum + (res.adults || 0) + (res.children || 0), 0);
                       const fulfillment = tour.maxPassengers > 0 ? (bookedPassengers / tour.maxPassengers) * 100 : 0;
                       return (
-                        <tr key={tour.id} className="border-b border-gray-200 hover:bg-gray-50">
+                        <tr key={tour.id} className="border-b border-gray-200 hover:bg-gray-50 transition-colors duration-150">
                           <td className="py-3 px-4">{tour.tourId}</td>
                           <td className="py-3 px-4">{tour.hotel}</td>
                           <td className="py-3 px-4">{tour.departureDate}</td>
@@ -1431,7 +1693,7 @@ const App = () => {
                           <td className="py-3 px-4 flex justify-center space-x-2">
                             <button
                               onClick={() => setSelectedTour(tour)}
-                              className="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-full shadow-md transition duration-200"
+                              className="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-full shadow-md transition duration-200 transform hover:scale-105"
                               title="View Tour Details"
                             >
                               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1441,7 +1703,7 @@ const App = () => {
                             </button>
                             <button
                               onClick={() => handleEditTour(tour)}
-                              className="bg-orange-500 hover:bg-orange-600 text-white p-2 rounded-full shadow-md transition duration-200"
+                              className="bg-orange-500 hover:bg-orange-600 text-white p-2 rounded-full shadow-md transition duration-200 transform hover:scale-105"
                               title="Edit Tour"
                             >
                               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -1451,7 +1713,7 @@ const App = () => {
                             </button>
                             <button
                               onClick={() => handleDeleteTour(tour.tourId)}
-                              className="bg-red-500 hover:bg-red-600 text-white p-2 rounded-full shadow-md transition duration-200"
+                              className="bg-red-500 hover:bg-red-600 text-white p-2 rounded-full shadow-md transition duration-200 transform hover:scale-105"
                               title="Delete Tour"
                             >
                               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -1469,7 +1731,7 @@ const App = () => {
             {/* Tour Details Modal */}
             {selectedTour && (
               <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 z-50">
-                <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl relative">
+                <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-2xl relative">
                   <h3 className="text-2xl font-semibold mb-4 text-gray-800">Tour Details: {selectedTour.tourId}</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-700 mb-6">
                     <div><strong>Departure:</strong> {selectedTour.departureDate}</div>
@@ -1486,8 +1748,8 @@ const App = () => {
                   {getLinkedReservations(selectedTour.tourId).length === 0 ? (
                     <p className="text-gray-600">No reservations linked to this tour.</p>
                   ) : (
-                    <div className="overflow-x-auto max-h-60">
-                      <table className="min-w-full bg-white rounded-lg overflow-hidden">
+                    <div className="overflow-x-auto max-h-60 rounded-lg border border-gray-100">
+                      <table className="min-w-full bg-white">
                         <thead className="bg-gray-100 text-gray-700">
                           <tr>
                             <th className="py-2 px-3 text-left text-sm">Res. No.</th>
@@ -1498,7 +1760,7 @@ const App = () => {
                         </thead>
                         <tbody>
                           {getLinkedReservations(selectedTour.tourId).map(res => (
-                            <tr key={res.id} className="border-b border-gray-100">
+                            <tr key={res.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors duration-150">
                               <td className="py-2 px-3 text-sm">{res.reservationNumber}</td>
                               <td className="py-2 px-3 text-sm">{res.tourists && res.tourists.length > 0 ? `${res.tourists[0].firstName} ${res.tourists[0].familyName}` : 'N/A'}</td>
                               <td className="py-2 px-3 text-sm">{res.checkIn} - {res.checkOut}</td>
@@ -1512,7 +1774,7 @@ const App = () => {
                   <div className="flex justify-end mt-6">
                     <button
                       onClick={() => setSelectedTour(null)}
-                      className="px-6 py-2 bg-blue-900 text-white rounded-md hover:bg-blue-800 transition duration-200 shadow-md"
+                      className="px-6 py-2 bg-blue-900 text-white rounded-lg hover:bg-blue-800 transition duration-200 shadow-md transform hover:scale-105"
                     >
                       Close
                     </button>
@@ -1525,11 +1787,11 @@ const App = () => {
 
       case 'addTour':
         return (
-          <div className="p-6 bg-white rounded-lg shadow-md">
-            <h2 className="text-2xl font-semibold mb-6 text-gray-800">
+          <div className="p-6 bg-white rounded-xl shadow-lg">
+            <h2 className="text-3xl font-bold mb-8 text-gray-800 border-b pb-4">
               {selectedTour ? 'Edit Bus Tour' : 'Create New Bus Tour'}
             </h2>
-            <form onSubmit={handleSubmitTour} className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+            <form onSubmit={handleSubmitTour} className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
               <div>
                 <label htmlFor="tourId" className="block text-sm font-medium text-gray-700">Tour ID</label>
                 <input
@@ -1538,7 +1800,7 @@ const App = () => {
                   id="tourId"
                   value={tourForm.tourId}
                   onChange={handleTourFormChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2 bg-gray-100"
                   placeholder="Auto-generated or editable"
                   disabled={!!selectedTour}
                 />
@@ -1626,20 +1888,20 @@ const App = () => {
                 />
               </div>
 
-              <div className="md:col-span-2 flex justify-end space-x-3 mt-6">
+              <div className="md:col-span-2 flex justify-end space-x-3 mt-8">
                 <button
                   type="button"
                   onClick={() => {
                     resetTourForm();
                     setActiveTab('tours');
                   }}
-                  className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition duration-200 shadow-sm"
+                  className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition duration-200 shadow-sm"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 transition duration-200 shadow-md"
+                  className="px-6 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition duration-200 shadow-md transform hover:scale-105"
                   disabled={loading}
                 >
                   {loading ? 'Saving...' : selectedTour ? 'Update Tour' : 'Create Tour'}
@@ -1651,13 +1913,13 @@ const App = () => {
 
       case 'payments':
         return (
-          <div className="p-6 bg-white rounded-lg shadow-md">
-            <h2 className="text-2xl font-semibold mb-6 text-gray-800">Financial Transactions</h2>
+          <div className="p-6 bg-white rounded-xl shadow-lg">
+            <h2 className="text-3xl font-bold mb-8 text-gray-800 border-b pb-4">Financial Transactions</h2>
             {financialTransactions.length === 0 ? (
-              <p className="text-gray-600">No financial transactions found. Add income or expenses to get started!</p>
+              <p className="text-gray-600 text-center py-8">No financial transactions found. Add income or expenses to get started!</p>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full bg-white rounded-lg overflow-hidden">
+              <div className="overflow-x-auto rounded-lg shadow-md border border-gray-200">
+                <table className="min-w-full bg-white">
                   <thead className="bg-blue-900 text-white">
                     <tr>
                       <th className="py-3 px-4 text-left">Date</th>
@@ -1667,11 +1929,12 @@ const App = () => {
                       <th className="py-3 px-4 text-left">VAT</th>
                       <th className="py-3 px-4 text-left">Description</th>
                       <th className="py-3 px-4 text-left">Linked To</th>
+                      <th className="py-3 px-4 text-center">Actions</th> {/* New: Actions column */}
                     </tr>
                   </thead>
                   <tbody className="text-gray-700">
                     {filteredFinancialTransactions.map(ft => (
-                      <tr key={ft.id} className="border-b border-gray-200 hover:bg-gray-50">
+                      <tr key={ft.id} className="border-b border-gray-200 hover:bg-gray-50 transition-colors duration-150">
                         <td className="py-3 px-4">{ft.date}</td>
                         <td className="py-3 px-4">
                           <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
@@ -1688,6 +1951,27 @@ const App = () => {
                           {ft.associatedReservationId ? `Res: ${ft.associatedReservationId}` :
                             ft.associatedTourId ? `Tour: ${ft.associatedTourId}` : 'N/A'}
                         </td>
+                        <td className="py-3 px-4 flex justify-center space-x-2">
+                          <button
+                            onClick={() => handleEditFinancialTransaction(ft)}
+                            className="bg-orange-500 hover:bg-orange-600 text-white p-2 rounded-full shadow-md transition duration-200 transform hover:scale-105"
+                            title="Edit"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                              <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zm-5.69 5.69L11.586 7.586 14.414 10.414 11.586 13.242 8.758 10.414l2.828-2.828z" />
+                              <path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm-4 8a1 1 0 011-1h1a1 1 0 110 2H7a1 1 0 01-1-1zm10 0a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1zM4 14a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm10 0a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1zM3 18a1 1 0 011-1h1a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => handleDeleteFinancialTransaction(ft.id)}
+                            className="bg-red-500 hover:bg-red-600 text-white p-2 rounded-full shadow-md transition duration-200 transform hover:scale-105"
+                            title="Delete"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1zm-1 3a1 1 0 011-1h4a1 1 0 110 2H7a1 1 0 01-1-1zm-1 3a1 1 0 011-1h4a1 1 0 110 2H7a1 1 0 01-1-1z" clipRule="evenodd" />
+                            </svg>
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -1699,9 +1983,11 @@ const App = () => {
 
       case 'addFinancialTransaction':
         return (
-          <div className="p-6 bg-white rounded-lg shadow-md">
-            <h2 className="text-2xl font-semibold mb-6 text-gray-800">Add Financial Transaction</h2>
-            <form onSubmit={handleSubmitFinancialTransaction} className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+          <div className="p-6 bg-white rounded-xl shadow-lg">
+            <h2 className="text-3xl font-bold mb-8 text-gray-800 border-b pb-4">
+              {selectedFinancialTransaction ? 'Edit Financial Transaction' : 'Add Financial Transaction'}
+            </h2>
+            <form onSubmit={handleSubmitFinancialTransaction} className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
               <div>
                 <label htmlFor="transactionDate" className="block text-sm font-medium text-gray-700">Date</label>
                 <input
@@ -1817,23 +2103,23 @@ const App = () => {
                 </select>
               </div>
 
-              <div className="md:col-span-2 flex justify-end space-x-3 mt-6">
+              <div className="md:col-span-2 flex justify-end space-x-3 mt-8">
                 <button
                   type="button"
                   onClick={() => {
                     resetFinancialTransactionForm();
                     setActiveTab('payments');
                   }}
-                  className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition duration-200 shadow-sm"
+                  className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition duration-200 shadow-sm"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 transition duration-200 shadow-md"
+                  className="px-6 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition duration-200 shadow-md transform hover:scale-105"
                   disabled={loading}
                 >
-                  {loading ? 'Saving...' : `Add ${financialTransactionForm.type === 'income' ? 'Payment' : 'Expense'}`}
+                  {loading ? 'Saving...' : selectedFinancialTransaction ? 'Update Transaction' : 'Add Transaction'}
                 </button>
               </div>
             </form>
@@ -1842,8 +2128,8 @@ const App = () => {
 
       case 'financialReports':
         return (
-          <div className="p-6 bg-white rounded-lg shadow-md">
-            <h2 className="text-2xl font-semibold mb-6 text-gray-800">Financial Reports</h2>
+          <div className="p-6 bg-white rounded-xl shadow-lg">
+            <h2 className="text-3xl font-bold mb-8 text-gray-800 border-b pb-4">Financial Reports</h2>
 
             {/* Filter Controls */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
@@ -1908,26 +2194,26 @@ const App = () => {
 
             {/* Totals Summary */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-              <div className="bg-green-50 p-4 rounded-lg shadow-sm border border-green-200 text-center">
-                <h3 className="font-semibold text-lg text-green-800">Total Income</h3>
+              <div className="bg-green-50 p-6 rounded-xl shadow-md border border-green-200 text-center">
+                <h3 className="font-semibold text-xl text-green-800">Total Income</h3>
                 <p className="text-2xl font-bold text-green-900">${reportTotals.totalIncome.toFixed(2)}</p>
               </div>
-              <div className="bg-red-50 p-4 rounded-lg shadow-sm border border-red-200 text-center">
-                <h3 className="font-semibold text-lg text-red-800">Total Expenses</h3>
+              <div className="bg-red-50 p-6 rounded-xl shadow-md border border-red-200 text-center">
+                <h3 className="font-semibold text-xl text-red-800">Total Expenses</h3>
                 <p className="text-2xl font-bold text-red-900">${reportTotals.totalExpenses.toFixed(2)}</p>
               </div>
-              <div className={`p-4 rounded-lg shadow-sm text-center ${reportTotals.netProfit >= 0 ? 'bg-blue-50 border border-blue-200' : 'bg-red-50 border border-red-200'}`}>
-                <h3 className="font-semibold text-lg text-gray-800">Net Profit/Loss</h3>
+              <div className={`p-6 rounded-xl shadow-md text-center ${reportTotals.netProfit >= 0 ? 'bg-blue-50 border border-blue-200' : 'bg-red-50 border border-red-200'}`}>
+                <h3 className="font-semibold text-xl text-gray-800">Net Profit/Loss</h3>
                 <p className={`text-2xl font-bold ${reportTotals.netProfit >= 0 ? 'text-blue-900' : 'text-red-900'}`}>${reportTotals.netProfit.toFixed(2)}</p>
               </div>
             </div>
 
             {/* Transactions Table */}
             {filteredFinancialTransactions.length === 0 ? (
-              <p className="text-gray-600">No transactions match the selected filters.</p>
+              <p className="text-gray-600 text-center py-8">No transactions match the selected filters.</p>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full bg-white rounded-lg overflow-hidden">
+              <div className="overflow-x-auto rounded-lg shadow-md border border-gray-200">
+                <table className="min-w-full bg-white">
                   <thead className="bg-blue-900 text-white">
                     <tr>
                       <th className="py-3 px-4 text-left">Date</th>
@@ -1941,7 +2227,7 @@ const App = () => {
                   </thead>
                   <tbody className="text-gray-700">
                     {filteredFinancialTransactions.map(ft => (
-                      <tr key={ft.id} className="border-b border-gray-200 hover:bg-gray-50">
+                      <tr key={ft.id} className="border-b border-gray-200 hover:bg-gray-50 transition-colors duration-150">
                         <td className="py-3 px-4">{ft.date}</td>
                         <td className="py-3 px-4">
                           <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
@@ -1966,7 +2252,6 @@ const App = () => {
             )}
           </div>
         );
-
 
       default:
         return <div>Select a module from the sidebar.</div>;
@@ -2006,11 +2291,11 @@ const App = () => {
 
       <div className="flex flex-col md:flex-row min-h-screen">
         {/* Sidebar Navigation */}
-        <aside className="w-full md:w-64 bg-blue-900 text-white p-4 rounded-b-lg md:rounded-r-lg md:rounded-b-none shadow-lg">
+        <aside className="w-full md:w-64 bg-blue-900 text-white p-4 rounded-b-xl md:rounded-r-xl md:rounded-b-none shadow-lg">
           <div className="flex items-center justify-center md:justify-start mb-6">
             {/* Lion Logo Placeholder */}
             <span className="text-orange-500 text-4xl mr-3">
-              🏝️
+              🦁
             </span>
             <h1 className="text-3xl font-bold text-orange-500">Dynamex</h1>
           </div>
@@ -2019,8 +2304,8 @@ const App = () => {
               <li className="mb-2">
                 <button
                   onClick={() => { setActiveTab('dashboard'); resetReservationForm(); resetTourForm(); resetFinancialTransactionForm(); resetFinancialReportsFilters(); }}
-                  className={`flex items-center w-full px-4 py-2 rounded-lg transition-all duration-200
-                    ${activeTab === 'dashboard' ? 'bg-orange-500 text-blue-900 shadow-md' : 'hover:bg-blue-800 text-orange-500'}
+                  className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-lg
+                    ${activeTab === 'dashboard' ? 'bg-orange-500 text-blue-900 shadow-md font-semibold' : 'hover:bg-blue-800 text-orange-500'}
                   `}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -2033,8 +2318,8 @@ const App = () => {
               <li className="mb-2">
                 <button
                   onClick={() => { setActiveTab('reservations'); resetReservationForm(); }}
-                  className={`flex items-center w-full px-4 py-2 rounded-lg transition-all duration-200
-                    ${activeTab === 'reservations' ? 'bg-orange-500 text-blue-900 shadow-md' : 'hover:bg-blue-800 text-orange-500'}
+                  className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-lg
+                    ${activeTab === 'reservations' ? 'bg-orange-500 text-blue-900 shadow-md font-semibold' : 'hover:bg-blue-800 text-orange-500'}
                   `}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -2046,8 +2331,8 @@ const App = () => {
               <li className="mb-2">
                 <button
                   onClick={() => { setActiveTab('addReservation'); resetReservationForm(); }}
-                  className={`flex items-center w-full px-4 py-2 rounded-lg transition-all duration-200
-                    ${activeTab === 'addReservation' ? 'bg-orange-500 text-blue-900 shadow-md' : 'hover:bg-blue-800 text-orange-500'}
+                  className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-lg
+                    ${activeTab === 'addReservation' ? 'bg-orange-500 text-blue-900 shadow-md font-semibold' : 'hover:bg-blue-800 text-orange-500'}
                   `}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -2059,8 +2344,8 @@ const App = () => {
               <li className="mb-2">
                 <button
                   onClick={() => { setActiveTab('customers'); resetReservationForm(); }}
-                  className={`flex items-center w-full px-4 py-2 rounded-lg transition-all duration-200
-                    ${activeTab === 'customers' ? 'bg-orange-500 text-blue-900 shadow-md' : 'hover:bg-blue-800 text-orange-500'}
+                  className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-lg
+                    ${activeTab === 'customers' ? 'bg-orange-500 text-blue-900 shadow-md font-semibold' : 'hover:bg-blue-800 text-orange-500'}
                   `}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -2073,8 +2358,8 @@ const App = () => {
               <li className="mb-2">
                 <button
                   onClick={() => setActiveTab('tours')}
-                  className={`flex items-center w-full px-4 py-2 rounded-lg transition-all duration-200
-                    ${activeTab === 'tours' ? 'bg-orange-500 text-blue-900 shadow-md' : 'hover:bg-blue-800 text-orange-500'}
+                  className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-lg
+                    ${activeTab === 'tours' ? 'bg-orange-500 text-blue-900 shadow-md font-semibold' : 'hover:bg-blue-800 text-orange-500'}
                   `}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -2086,8 +2371,8 @@ const App = () => {
               <li className="mb-2">
                 <button
                   onClick={() => { setActiveTab('addTour'); resetTourForm(); }}
-                  className={`flex items-center w-full px-4 py-2 rounded-lg transition-all duration-200
-                    ${activeTab === 'addTour' ? 'bg-orange-500 text-blue-900 shadow-md' : 'hover:bg-blue-800 text-orange-500'}
+                  className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-lg
+                    ${activeTab === 'addTour' ? 'bg-orange-500 text-blue-900 shadow-md font-semibold' : 'hover:bg-blue-800 text-orange-500'}
                   `}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -2101,8 +2386,8 @@ const App = () => {
               <li className="mb-2">
                 <button
                   onClick={() => setActiveTab('payments')}
-                  className={`flex items-center w-full px-4 py-2 rounded-lg transition-all duration-200
-                    ${activeTab === 'payments' ? 'bg-orange-500 text-blue-900 shadow-md' : 'hover:bg-blue-800 text-orange-500'}
+                  className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-lg
+                    ${activeTab === 'payments' ? 'bg-orange-500 text-blue-900 shadow-md font-semibold' : 'hover:bg-blue-800 text-orange-500'}
                   `}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -2114,8 +2399,8 @@ const App = () => {
               <li className="mb-2">
                 <button
                   onClick={() => { setActiveTab('addFinancialTransaction'); resetFinancialTransactionForm(); }}
-                  className={`flex items-center w-full px-4 py-2 rounded-lg transition-all duration-200
-                    ${activeTab === 'addFinancialTransaction' ? 'bg-orange-500 text-blue-900 shadow-md' : 'hover:bg-blue-800 text-orange-500'}
+                  className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-lg
+                    ${activeTab === 'addFinancialTransaction' ? 'bg-orange-500 text-blue-900 shadow-md font-semibold' : 'hover:bg-blue-800 text-orange-500'}
                   `}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -2129,8 +2414,8 @@ const App = () => {
               <li className="mb-2">
                 <button
                   onClick={() => { setActiveTab('financialReports'); resetFinancialReportsFilters(); }}
-                  className={`flex items-center w-full px-4 py-2 rounded-lg transition-all duration-200
-                    ${activeTab === 'financialReports' ? 'bg-orange-500 text-blue-900 shadow-md' : 'hover:bg-blue-800 text-orange-500'}
+                  className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-lg
+                    ${activeTab === 'financialReports' ? 'bg-orange-500 text-blue-900 shadow-md font-semibold' : 'hover:bg-blue-800 text-orange-500'}
                   `}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -2141,23 +2426,40 @@ const App = () => {
               </li>
             </ul>
           </nav>
-          {/* Removed userId display as it's no longer relevant for data segregation */}
         </aside>
 
         {/* Main Content Area */}
         <main className="flex-1 p-6 md:p-8 overflow-y-auto">
           {message && (
-            <div className={`px-4 py-3 rounded-md relative mb-4 ${message.type === 'success' ? 'bg-green-100 border border-green-400 text-green-700' : 'bg-blue-100 border border-blue-400 text-blue-700'}`} role="alert">
+            <div className={`px-4 py-3 rounded-lg relative mb-4 ${message.type === 'success' ? 'bg-green-100 border border-green-400 text-green-700' : 'bg-blue-100 border border-blue-400 text-blue-700'}`} role="alert">
               <span className="block sm:inline">{message.text}</span>
             </div>
           )}
           {renderContent()}
         </main>
       </div>
+
+      {/* Global Confirmation Modal */}
+      <ConfirmationModal
+        show={showConfirmModal}
+        message={confirmMessage}
+        onConfirm={() => {
+          if (confirmAction) {
+            confirmAction();
+          }
+          setShowConfirmModal(false);
+          setConfirmAction(null);
+          setConfirmMessage('');
+        }}
+        onCancel={() => {
+          setShowConfirmModal(false);
+          setConfirmAction(null);
+          setConfirmMessage('');
+        }}
+      />
     </div>
   );
 };
 
 export default App;
-
 
