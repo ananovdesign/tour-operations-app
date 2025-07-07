@@ -5,7 +5,7 @@ import {
   auth,
   db,
   appId,
-  signInAnonymously,
+  // signInAnonymously, // Removed: No longer automatically signing in anonymously
   signInWithCustomToken,
   onAuthStateChanged,
   createUserWithEmailAndPassword,
@@ -22,6 +22,7 @@ const App = () => {
   const [userEmail, setUserEmail] = useState('');
   const [userPassword, setUserPassword] = useState('');
   const [authError, setAuthError] = useState(null);
+  const [isEmailPasswordUser, setIsEmailPasswordUser] = useState(false); // New: Track if user is email/password authenticated
 
   // Application state for navigation and selected items
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -140,26 +141,28 @@ const App = () => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       if (user) {
         setUserId(user.uid);
-        console.log("Firebase User Authenticated:", user.uid);
+        // Check if the user is an email/password user or anonymous
+        setIsEmailPasswordUser(user.providerData.some(provider => provider.providerId === 'password'));
+        console.log("Firebase User Authenticated:", user.uid, "Email/Password:", isEmailPasswordUser);
       } else {
         setUserId(null);
-        console.log("No Firebase User. Attempting anonymous sign-in for initial load...");
-        try {
-          // Attempt custom token sign-in first if available (for Canvas environment)
-          const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-          if (initialAuthToken) {
+        setIsEmailPasswordUser(false);
+        console.log("No Firebase User.");
+        // Only attempt custom token sign-in if it's available (for Canvas environment)
+        // Otherwise, the login/register form will be displayed.
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        if (initialAuthToken) {
+          try {
             await signInWithCustomToken(auth, initialAuthToken);
-          } else {
-            // Fallback to anonymous sign-in if no custom token
-            await signInAnonymously(auth);
+            console.log("Signed in with custom token.");
+          } catch (err) {
+            console.error("Custom token sign-in failed:", err);
+            setAuthError("Failed to authenticate with custom token. Please log in.");
           }
-        } catch (err) {
-          console.error("Anonymous sign-in failed:", err);
-          setAuthError("Please log in to access the application.");
         }
       }
-      setIsAuthReady(true);
-      setLoading(false);
+      setIsAuthReady(true); // Auth listener has run, app is ready to determine UI
+      setLoading(false); // Initial loading is complete
     });
 
     return () => unsubscribeAuth();
@@ -219,83 +222,100 @@ const App = () => {
     }
   };
 
-  // --- Firestore Data Listeners (now user-specific) ---
-  // Data is now stored under /artifacts/{appId}/users/{userId}/{collectionName}
+  // --- Firestore Data Listeners (user-specific) ---
+  // Data is stored under /artifacts/{appId}/users/{userId}/{collectionName}
+  // These effects now correctly depend on userId being present.
 
   useEffect(() => {
-    if (!isAuthReady || !userId) {
-      setReservations([]); // Clear data if not authenticated
-      return;
+    let unsubscribe;
+    if (isAuthReady && userId) {
+      setLoading(true);
+      const reservationsCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/reservations`);
+      unsubscribe = onSnapshot(reservationsCollectionRef, (snapshot) => {
+        const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+        setReservations(data);
+        setLoading(false);
+      }, (err) => {
+        console.error("Error fetching reservations:", err);
+        setError("Failed to load reservations. Please try again.");
+        setLoading(false);
+      });
+    } else if (isAuthReady && !userId) {
+      setReservations([]); // Clear data if not logged in
+      setLoading(false);
     }
-    setLoading(true);
-    const reservationsCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/reservations`);
-    const unsubscribe = onSnapshot(reservationsCollectionRef, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
-      setReservations(data);
-      setLoading(false);
-    }, (err) => {
-      console.error("Error fetching reservations:", err);
-      setError("Failed to load reservations. Please try again.");
-      setLoading(false);
-    });
-    return () => unsubscribe();
-  }, [isAuthReady, userId]); // Dependency on userId
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [isAuthReady, userId]);
 
   useEffect(() => {
-    if (!isAuthReady || !userId) {
+    let unsubscribe;
+    if (isAuthReady && userId) {
+      setLoading(true);
+      const customersCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/customers`);
+      unsubscribe = onSnapshot(customersCollectionRef, (snapshot) => {
+        const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+        setCustomers(data);
+        setLoading(false);
+      }, (err) => {
+        console.error("Error fetching customers:", err);
+        setError("Failed to load customers. Please try again.");
+        setLoading(false);
+      });
+    } else if (isAuthReady && !userId) {
       setCustomers([]);
-      return;
+      setLoading(false);
     }
-    setLoading(true);
-    const customersCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/customers`);
-    const unsubscribe = onSnapshot(customersCollectionRef, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
-      setCustomers(data);
-      setLoading(false);
-    }, (err) => {
-      console.error("Error fetching customers:", err);
-      setError("Failed to load customers. Please try again.");
-      setLoading(false);
-    });
-    return () => unsubscribe();
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
   }, [isAuthReady, userId]);
 
   useEffect(() => {
-    if (!isAuthReady || !userId) {
+    let unsubscribe;
+    if (isAuthReady && userId) {
+      setLoading(true);
+      const toursCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/tours`);
+      unsubscribe = onSnapshot(toursCollectionRef, (snapshot) => {
+        const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+        setTours(data);
+        setLoading(false);
+      }, (err) => {
+        console.error("Error fetching tours:", err);
+        setError("Failed to load tours. Please try again.");
+        setLoading(false);
+      });
+    } else if (isAuthReady && !userId) {
       setTours([]);
-      return;
+      setLoading(false);
     }
-    setLoading(true);
-    const toursCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/tours`);
-    const unsubscribe = onSnapshot(toursCollectionRef, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
-      setTours(data);
-      setLoading(false);
-    }, (err) => {
-      console.error("Error fetching tours:", err);
-      setError("Failed to load tours. Please try again.");
-      setLoading(false);
-    });
-    return () => unsubscribe();
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
   }, [isAuthReady, userId]);
 
   useEffect(() => {
-    if (!isAuthReady || !userId) {
+    let unsubscribe;
+    if (isAuthReady && userId) {
+      setLoading(true);
+      const financialTransactionsCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/financialTransactions`);
+      unsubscribe = onSnapshot(financialTransactionsCollectionRef, (snapshot) => {
+        const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+        setFinancialTransactions(data);
+        setLoading(false);
+      }, (err) => {
+        console.error("Error fetching financial transactions:", err);
+        setError("Failed to load financial transactions. Please try again.");
+        setLoading(false);
+      });
+    } else if (isAuthReady && !userId) {
       setFinancialTransactions([]);
-      return;
+      setLoading(false);
     }
-    setLoading(true);
-    const financialTransactionsCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/financialTransactions`);
-    const unsubscribe = onSnapshot(financialTransactionsCollectionRef, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
-      setFinancialTransactions(data);
-      setLoading(false);
-    }, (err) => {
-      console.error("Error fetching financial transactions:", err);
-      setError("Failed to load financial transactions. Please try again.");
-      setLoading(false);
-    });
-    return () => unsubscribe();
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
   }, [isAuthReady, userId]);
 
 
@@ -1019,7 +1039,8 @@ const App = () => {
         </div>
       );
     }
-    if (!userId) {
+    // If not an email/password user AND no userId (meaning anonymous or custom token sign-in failed/not present), show login form
+    if (!isEmailPasswordUser && !userId) { // Changed condition
       return (
         <div className="flex justify-center items-center h-full min-h-[calc(100vh-100px)]">
           <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md">
@@ -2579,7 +2600,8 @@ const App = () => {
                   Financial Reports
                 </button>
               </li>
-              {userId && (
+              {/* Only show logout if an email/password user is logged in */}
+              {isEmailPasswordUser && (
                 <li className="mb-2">
                   <button
                     onClick={handleLogout}
