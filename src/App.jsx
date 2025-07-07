@@ -5,8 +5,6 @@ import {
   auth,
   db,
   appId,
-  // signInAnonymously, // No longer used
-  // signInWithCustomToken, // No longer used for initial auth flow
   onAuthStateChanged,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
@@ -138,24 +136,34 @@ const App = () => {
 
   // --- Firebase Authentication Management ---
   useEffect(() => {
-    // This listener runs whenever the user's sign-in state changes.
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       if (user) {
-        setUserId(user.uid);
         // Check if the user is authenticated via email/password
-        setIsEmailPasswordUser(user.providerData.some(provider => provider.providerId === 'password'));
-        console.log("Firebase User Authenticated:", user.uid, "Email/Password:", user.providerData.some(provider => provider.providerId === 'password'));
+        const isCurrentEmailPasswordUser = user.providerData.some(provider => provider.providerId === 'password');
+
+        if (!isCurrentEmailPasswordUser) {
+          // If the user is NOT email/password authenticated (e.g., anonymous from Canvas), sign them out
+          // This forces the login/register screen to appear.
+          console.log("Detected non-email/password user. Signing out to force login form.");
+          signOut(auth).catch(err => console.error("Error signing out anonymous user:", err));
+          setUserId(null); // Clear userId immediately
+          setIsEmailPasswordUser(false);
+        } else {
+          // User is an email/password user, proceed normally
+          setUserId(user.uid);
+          setIsEmailPasswordUser(true);
+          console.log("Firebase User Authenticated:", user.uid, "Email/Password:", true);
+        }
       } else {
-        // No user is logged in
+        // No user is logged in, or anonymous user was just signed out
         setUserId(null);
         setIsEmailPasswordUser(false);
         console.log("No Firebase User. Displaying login/register form.");
       }
-      setIsAuthReady(true); // Auth state has been checked, UI can now render appropriately
+      setIsAuthReady(true); // Auth state has been checked
       setLoading(false); // Initial loading for auth check is complete
     });
 
-    // Cleanup the subscription when the component unmounts
     return () => unsubscribeAuth();
   }, []); // Empty dependency array means this effect runs once on mount
 
@@ -163,15 +171,15 @@ const App = () => {
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setAuthError(null); // Clear previous auth errors
+    setAuthError(null);
     try {
       await signInWithEmailAndPassword(auth, userEmail, userPassword);
       showMessage('Logged in successfully!', 'success');
-      setUserEmail(''); // Clear form fields on success
+      setUserEmail('');
       setUserPassword('');
     } catch (err) {
       console.error("Login error:", err);
-      setAuthError(err.message); // Display Firebase error message to user
+      setAuthError(err.message);
     } finally {
       setLoading(false);
     }
@@ -180,15 +188,15 @@ const App = () => {
   const handleRegister = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setAuthError(null); // Clear previous auth errors
+    setAuthError(null);
     try {
       await createUserWithEmailAndPassword(auth, userEmail, userPassword);
       showMessage('Account created and logged in successfully!', 'success');
-      setUserEmail(''); // Clear form fields on success
+      setUserEmail('');
       setUserPassword('');
     } catch (err) {
       console.error("Registration error:", err);
-      setAuthError(err.message); // Display Firebase error message to user
+      setAuthError(err.message);
     } finally {
       setLoading(false);
     }
@@ -196,16 +204,15 @@ const App = () => {
 
   const handleLogout = async () => {
     setLoading(true);
-    setError(null); // Clear general app errors
+    setError(null);
     try {
       await signOut(auth);
       showMessage('Logged out successfully!', 'info');
-      // Clear all data states on logout to prevent stale data display
       setReservations([]);
       setCustomers([]);
       setTours([]);
       setFinancialTransactions([]);
-      setActiveTab('dashboard'); // Reset to default view
+      setActiveTab('dashboard');
     } catch (err) {
       console.error("Logout error:", err);
       setError("Failed to log out. Please try again.");
@@ -215,31 +222,28 @@ const App = () => {
   };
 
   // --- Firestore Data Listeners (user-specific) ---
-  // These effects now correctly depend on userId being present.
-  // Data is fetched only when a userId is available (i.e., user is logged in).
-
   useEffect(() => {
     let unsubscribe;
-    if (isAuthReady && userId) { // Fetch data only if auth is ready and user is logged in
-      setLoading(true); // Set loading for data fetch
+    if (isAuthReady && userId) {
+      setLoading(true);
       const reservationsCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/reservations`);
       unsubscribe = onSnapshot(reservationsCollectionRef, (snapshot) => {
         const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
         setReservations(data);
-        setLoading(false); // Data loaded
+        setLoading(false);
       }, (err) => {
         console.error("Error fetching reservations:", err);
         setError("Failed to load reservations. Please try again.");
-        setLoading(false); // Loading finished with error
+        setLoading(false);
       });
     } else if (isAuthReady && !userId) {
-      setReservations([]); // Clear data if not logged in
-      setLoading(false); // No data to load, so not loading
+      setReservations([]);
+      setLoading(false);
     }
     return () => {
-      if (unsubscribe) unsubscribe(); // Cleanup listener
+      if (unsubscribe) unsubscribe();
     };
-  }, [isAuthReady, userId]); // Re-run when auth state or userId changes
+  }, [isAuthReady, userId]);
 
   useEffect(() => {
     let unsubscribe;
@@ -252,7 +256,7 @@ const App = () => {
         setLoading(false);
       }, (err) => {
         console.error("Error fetching customers:", err);
-        setError("Failed to load customers. PleaseLoading finished with error try again.");
+        setError("Failed to load customers. Please try again.");
         setLoading(false);
       });
     } else if (isAuthReady && !userId) {
@@ -2654,4 +2658,5 @@ const App = () => {
 };
 
 export default App;
+
 
