@@ -5,8 +5,8 @@ import {
   auth,
   db,
   appId,
-  // signInAnonymously, // Removed: No longer automatically signing in anonymously
-  signInWithCustomToken,
+  // signInAnonymously, // No longer used
+  // signInWithCustomToken, // No longer used for initial auth flow
   onAuthStateChanged,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
@@ -17,12 +17,12 @@ import { collection, doc, addDoc, setDoc, deleteDoc, onSnapshot, query, where, g
 const App = () => {
   // Authentication states
   const [userId, setUserId] = useState(null);
-  const [isAuthReady, setIsAuthReady] = useState(false);
+  const [isAuthReady, setIsAuthReady] = useState(false); // Tracks if Firebase auth state has been checked
   const [authMode, setAuthMode] = useState('login'); // 'login' or 'register'
   const [userEmail, setUserEmail] = useState('');
   const [userPassword, setUserPassword] = useState('');
   const [authError, setAuthError] = useState(null);
-  const [isEmailPasswordUser, setIsEmailPasswordUser] = useState(false); // New: Track if user is email/password authenticated
+  const [isEmailPasswordUser, setIsEmailPasswordUser] = useState(false); // True if current user authenticated via email/password
 
   // Application state for navigation and selected items
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -30,14 +30,14 @@ const App = () => {
   const [selectedTour, setSelectedTour] = useState(null);
   const [selectedFinancialTransaction, setSelectedFinancialTransaction] = useState(null);
 
-  // Data states - populated from Firestore (now user-specific)
+  // Data states - populated from Firestore (user-specific)
   const [reservations, setReservations] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [tours, setTours] = useState([]);
   const [financialTransactions, setFinancialTransactions] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [message, setMessage] = useState('');
+  const [loading, setLoading] = useState(true); // Initial loading state for auth check
+  const [error, setError] = useState(null); // General app error
+  const [message, setMessage] = useState(''); // Success/info messages
 
   // State for Add/Edit Reservation Form
   const [reservationForm, setReservationForm] = useState({
@@ -138,48 +138,40 @@ const App = () => {
 
   // --- Firebase Authentication Management ---
   useEffect(() => {
-    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
+    // This listener runs whenever the user's sign-in state changes.
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       if (user) {
         setUserId(user.uid);
-        // Check if the user is an email/password user or anonymous
+        // Check if the user is authenticated via email/password
         setIsEmailPasswordUser(user.providerData.some(provider => provider.providerId === 'password'));
-        console.log("Firebase User Authenticated:", user.uid, "Email/Password:", isEmailPasswordUser);
+        console.log("Firebase User Authenticated:", user.uid, "Email/Password:", user.providerData.some(provider => provider.providerId === 'password'));
       } else {
+        // No user is logged in
         setUserId(null);
         setIsEmailPasswordUser(false);
-        console.log("No Firebase User.");
-        // Only attempt custom token sign-in if it's available (for Canvas environment)
-        // Otherwise, the login/register form will be displayed.
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-        if (initialAuthToken) {
-          try {
-            await signInWithCustomToken(auth, initialAuthToken);
-            console.log("Signed in with custom token.");
-          } catch (err) {
-            console.error("Custom token sign-in failed:", err);
-            setAuthError("Failed to authenticate with custom token. Please log in.");
-          }
-        }
+        console.log("No Firebase User. Displaying login/register form.");
       }
-      setIsAuthReady(true); // Auth listener has run, app is ready to determine UI
-      setLoading(false); // Initial loading is complete
+      setIsAuthReady(true); // Auth state has been checked, UI can now render appropriately
+      setLoading(false); // Initial loading for auth check is complete
     });
 
+    // Cleanup the subscription when the component unmounts
     return () => unsubscribeAuth();
-  }, []);
+  }, []); // Empty dependency array means this effect runs once on mount
+
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setAuthError(null);
+    setAuthError(null); // Clear previous auth errors
     try {
       await signInWithEmailAndPassword(auth, userEmail, userPassword);
       showMessage('Logged in successfully!', 'success');
-      setUserEmail('');
+      setUserEmail(''); // Clear form fields on success
       setUserPassword('');
     } catch (err) {
       console.error("Login error:", err);
-      setAuthError(err.message);
+      setAuthError(err.message); // Display Firebase error message to user
     } finally {
       setLoading(false);
     }
@@ -188,15 +180,15 @@ const App = () => {
   const handleRegister = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setAuthError(null);
+    setAuthError(null); // Clear previous auth errors
     try {
       await createUserWithEmailAndPassword(auth, userEmail, userPassword);
       showMessage('Account created and logged in successfully!', 'success');
-      setUserEmail('');
+      setUserEmail(''); // Clear form fields on success
       setUserPassword('');
     } catch (err) {
       console.error("Registration error:", err);
-      setAuthError(err.message);
+      setAuthError(err.message); // Display Firebase error message to user
     } finally {
       setLoading(false);
     }
@@ -204,16 +196,16 @@ const App = () => {
 
   const handleLogout = async () => {
     setLoading(true);
-    setError(null);
+    setError(null); // Clear general app errors
     try {
       await signOut(auth);
       showMessage('Logged out successfully!', 'info');
-      // Clear all data states on logout
+      // Clear all data states on logout to prevent stale data display
       setReservations([]);
       setCustomers([]);
       setTours([]);
       setFinancialTransactions([]);
-      setActiveTab('dashboard'); // Go back to dashboard or login screen
+      setActiveTab('dashboard'); // Reset to default view
     } catch (err) {
       console.error("Logout error:", err);
       setError("Failed to log out. Please try again.");
@@ -223,31 +215,31 @@ const App = () => {
   };
 
   // --- Firestore Data Listeners (user-specific) ---
-  // Data is stored under /artifacts/{appId}/users/{userId}/{collectionName}
   // These effects now correctly depend on userId being present.
+  // Data is fetched only when a userId is available (i.e., user is logged in).
 
   useEffect(() => {
     let unsubscribe;
-    if (isAuthReady && userId) {
-      setLoading(true);
+    if (isAuthReady && userId) { // Fetch data only if auth is ready and user is logged in
+      setLoading(true); // Set loading for data fetch
       const reservationsCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/reservations`);
       unsubscribe = onSnapshot(reservationsCollectionRef, (snapshot) => {
         const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
         setReservations(data);
-        setLoading(false);
+        setLoading(false); // Data loaded
       }, (err) => {
         console.error("Error fetching reservations:", err);
         setError("Failed to load reservations. Please try again.");
-        setLoading(false);
+        setLoading(false); // Loading finished with error
       });
     } else if (isAuthReady && !userId) {
       setReservations([]); // Clear data if not logged in
-      setLoading(false);
+      setLoading(false); // No data to load, so not loading
     }
     return () => {
-      if (unsubscribe) unsubscribe();
+      if (unsubscribe) unsubscribe(); // Cleanup listener
     };
-  }, [isAuthReady, userId]);
+  }, [isAuthReady, userId]); // Re-run when auth state or userId changes
 
   useEffect(() => {
     let unsubscribe;
@@ -260,7 +252,7 @@ const App = () => {
         setLoading(false);
       }, (err) => {
         console.error("Error fetching customers:", err);
-        setError("Failed to load customers. Please try again.");
+        setError("Failed to load customers. PleaseLoading finished with error try again.");
         setLoading(false);
       });
     } else if (isAuthReady && !userId) {
@@ -1032,15 +1024,17 @@ const App = () => {
 
   // --- Render UI based on activeTab ---
   const renderContent = () => {
-    if (loading || !isAuthReady) {
+    // Show loading screen until Firebase auth state is determined
+    if (!isAuthReady || loading) {
       return (
         <div className="flex justify-center items-center h-full min-h-[calc(100vh-100px)]">
-          <div className="text-orange-500 text-lg animate-pulse">Loading data...</div>
+          <div className="text-orange-500 text-lg animate-pulse">Loading application...</div>
         </div>
       );
     }
-    // If not an email/password user AND no userId (meaning anonymous or custom token sign-in failed/not present), show login form
-    if (!isEmailPasswordUser && !userId) { // Changed condition
+
+    // If auth is ready but no userId (meaning not logged in), show login/register form
+    if (!userId) {
       return (
         <div className="flex justify-center items-center h-full min-h-[calc(100vh-100px)]">
           <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md">
@@ -1112,6 +1106,7 @@ const App = () => {
         </div>
       );
     }
+    // If there's a general app error (e.g., data fetching error)
     if (error) {
       return (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md relative mb-4" role="alert">
@@ -1121,6 +1116,7 @@ const App = () => {
       );
     }
 
+    // Main application content
     switch (activeTab) {
       case 'dashboard':
         return (
@@ -1195,7 +1191,7 @@ const App = () => {
                   id="filterReservationTourType"
                   value={filterReservationTourType}
                   onChange={handleReservationFilterChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  className="Hmt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
                 >
                   <option value="All">All</option>
                   <option value="PARTNER">PARTNER</option>
@@ -1708,7 +1704,7 @@ const App = () => {
             )}
             {/* Customer Edit Modal */}
             {showCustomerEditModal && (
-              <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 z-50">
+              <div className="fixed inset-0 bg-gray-600 bg-opacity50 flex items-center justify-center p-4 z-50">
                 <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md relative">
                   <h3 className="text-2xl font-semibold mb-4 text-gray-800">Edit Customer Details</h3>
                   <form onSubmit={handleUpdateCustomer} className="grid grid-cols-1 gap-4">
@@ -2477,142 +2473,142 @@ const App = () => {
           </div>
           <nav>
             <ul>
-              <li className="mb-2">
-                <button
-                  onClick={() => { setActiveTab('dashboard'); resetReservationForm(); resetTourForm(); resetFinancialTransactionForm(); resetFinancialReportsFilters(); }}
-                  className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-lg
-                    ${activeTab === 'dashboard' ? 'bg-orange-500 text-blue-900 shadow-md font-semibold' : 'hover:bg-blue-800 text-orange-500'}
-                  `}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" />
-                  </svg>
-                  Dashboard
-                </button>
-              </li>
-              <li className="mb-2">
-                <button
-                  onClick={() => { setActiveTab('reservations'); resetReservationForm(); }}
-                  className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-lg
-                    ${activeTab === 'reservations' ? 'bg-orange-500 text-blue-900 shadow-md font-semibold' : 'hover:bg-blue-800 text-orange-500'}
-                  `}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v2m-7 13v-3a2 2 0 012-2h2a2 2 0 012 2v3m-7 0H9m-7 0h4" />
-                  </svg>
-                  Reservations
-                </button>
-              </li>
-              <li className="mb-2">
-                <button
-                  onClick={() => { setActiveTab('addReservation'); resetReservationForm(); }}
-                  className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-lg
-                    ${activeTab === 'addReservation' ? 'bg-orange-500 text-blue-900 shadow-md font-semibold' : 'hover:bg-blue-800 text-orange-500'}
-                  `}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  Add Reservation
-                </button>
-              </li>
-              <li className="mb-2">
-                <button
-                  onClick={() => { setActiveTab('customers'); resetReservationForm(); }}
-                  className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-lg
-                    ${activeTab === 'customers' ? 'bg-orange-500 text-blue-900 shadow-md font-semibold' : 'hover:bg-blue-800 text-orange-500'}
-                  `}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h2a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2h2m3-2v2m0-7V11m0 4h.01M17 12h.01M12 12h.01M7 12h.01M6 16h9a2 2 0 002-2V7H6v9z" />
-                  </svg>
-                  Customers
-                </button>
-              </li>
-              {/* Phase 2 Modules */}
-              <li className="mb-2">
-                <button
-                  onClick={() => setActiveTab('tours')}
-                  className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-lg
-                    ${activeTab === 'tours' ? 'bg-orange-500 text-blue-900 shadow-md font-semibold' : 'hover:bg-blue-800 text-orange-500'}
-                  `}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z" />
-                  </svg>
-                  Bus Tours
-                </button>
-              </li>
-              <li className="mb-2">
-                <button
-                  onClick={() => { setActiveTab('addTour'); resetTourForm(); }}
-                  className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-lg
-                    ${activeTab === 'addTour' ? 'bg-orange-500 text-blue-900 shadow-md font-semibold' : 'hover:bg-blue-800 text-orange-500'}
-                  `}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  Create Tour
-                </button>
-              </li>
-
-              {/* Phase 3 Modules */}
-              <li className="mb-2">
-                <button
-                  onClick={() => setActiveTab('payments')}
-                  className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-lg
-                    ${activeTab === 'payments' ? 'bg-orange-500 text-blue-900 shadow-md font-semibold' : 'hover:bg-blue-800 text-orange-500'}
-                  `}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M7 11h10a1 1 0 011 1v5a1 1 0 01-1 1H7a1 1 0 01-1-1v-5a1 1 0 011-1zM12 5V4m0 20v-1m-4-11H3m18 0h-1" />
-                  </svg>
-                  Payments
-                </button>
-              </li>
-              <li className="mb-2">
-                <button
-                  onClick={() => { setActiveTab('addFinancialTransaction'); resetFinancialTransactionForm(); }}
-                  className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-lg
-                    ${activeTab === 'addFinancialTransaction' ? 'bg-orange-500 text-blue-900 shadow-md font-semibold' : 'hover:bg-blue-800 text-orange-500'}
-                  `}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  Add Payment/Expense
-                </button>
-              </li>
-
-              {/* Phase 5 Modules */}
-              <li className="mb-2">
-                <button
-                  onClick={() => { setActiveTab('financialReports'); resetFinancialReportsFilters(); }}
-                  className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-lg
-                    ${activeTab === 'financialReports' ? 'bg-orange-500 text-blue-900 shadow-md font-semibold' : 'hover:bg-blue-800 text-orange-500'}
-                  `}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17v-4m0 0h3m-3 0H7m-1 0v4m-2-4h2a2 2 0 012 2v2a2 2 0 01-2 2H4a2 2 0 01-2-2V7a2 2 0 012-2h4m2 10h.01M17 17v-4m0 0h3m-3 0H17m-1 0v4m-2-4h2a2 2 0 012 2v2a2 2 0 01-2 2H14a2 2 0 01-2-2V7a2 2 0 012-2h4m2 10h.01M7 11a1 1 0 01-1 1H4a1 1 0 01-1-1V9a1 1 0 011-1h2a1 1 0 011 1v2z" />
-                  </svg>
-                  Financial Reports
-                </button>
-              </li>
-              {/* Only show logout if an email/password user is logged in */}
-              {isEmailPasswordUser && (
-                <li className="mb-2">
-                  <button
-                    onClick={handleLogout}
-                    className="flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-lg hover:bg-red-700 text-white"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              {/* These buttons are only visible if the user is logged in */}
+              {userId && (
+                <>
+                  <li className="mb-2">
+                    <button
+                      onClick={() => { setActiveTab('dashboard'); resetReservationForm(); resetTourForm(); resetFinancialTransactionForm(); resetFinancialReportsFilters(); }}
+                      className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-lg
+                        ${activeTab === 'dashboard' ? 'bg-orange-500 text-blue-900 shadow-md font-semibold' : 'hover:bg-blue-800 text-orange-500'}
+                      `}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" />
+                      </svg>
+                      Dashboard
+                    </button>
+                  </li>
+                  <li className="mb-2">
+                    <button
+                      onClick={() => { setActiveTab('reservations'); resetReservationForm(); }}
+                      className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-lg
+                        ${activeTab === 'reservations' ? 'bg-orange-500 text-blue-900 shadow-md font-semibold' : 'hover:bg-blue-800 text-orange-500'}
+                      `}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v2m-7 13v-3a2 2 0 012-2h2a2 2 0 012 2v3m-7 0H9m-7 0h4" />
+                      </svg>
+                      Reservations
+                    </button>
+                  </li>
+                  <li className="mb-2">
+                    <button
+                      onClick={() => { setActiveTab('addReservation'); resetReservationForm(); }}
+                      className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-lg
+                        ${activeTab === 'addReservation' ? 'bg-orange-500 text-blue-900 shadow-md font-semibold' : 'hover:bg-blue-800 text-orange-500'}
+                      `}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      Add Reservation
+                    </button>
+                  </li>
+                  <li className="mb-2">
+                    <button
+                      onClick={() => { setActiveTab('customers'); resetReservationForm(); }}
+                      className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-lg
+                        ${activeTab === 'customers' ? 'bg-orange-500 text-blue-900 shadow-md font-semibold' : 'hover:bg-blue-800 text-orange-500'}
+                      `}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h2a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2h2m3-2v2m0-7V11m0 4h.01M17 12h.01M12 12h.01M7 12h.01M6 16h9a2 2 0 002-2V7H6v9z" />
+                      </svg>
+                      Customers
+                    </button>
+                  </li>
+                  <li className="mb-2">
+                    <button
+                      onClick={() => setActiveTab('tours')}
+                      className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-lg
+                        ${activeTab === 'tours' ? 'bg-orange-500 text-blue-900 shadow-md font-semibold' : 'hover:bg-blue-800 text-orange-500'}
+                      `}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z" />
+                      </svg>
+                      Bus Tours
+                    </button>
+                  </li>
+                  <li className="mb-2">
+                    <button
+                      onClick={() => { setActiveTab('addTour'); resetTourForm(); }}
+                      className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-lg
+                        ${activeTab === 'addTour' ? 'bg-orange-500 text-blue-900 shadow-md font-semibold' : 'hover:bg-blue-800 text-orange-500'}
+                      `}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      Create Tour
+                    </button>
+                  </li>
+                  <li className="mb-2">
+                    <button
+                      onClick={() => setActiveTab('payments')}
+                      className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-lg
+                        ${activeTab === 'payments' ? 'bg-orange-500 text-blue-900 shadow-md font-semibold' : 'hover:bg-blue-800 text-orange-500'}
+                      `}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M7 11h10a1 1 0 011 1v5a1 1 0 01-1 1H7a1 1 0 01-1-1v-5a1 1 0 011-1zM12 5V4m0 20v-1m-4-11H3m18 0h-1" />
+                      </svg>
+                      Payments
+                    </button>
+                  </li>
+                  <li className="mb-2">
+                    <button
+                      onClick={() => { setActiveTab('addFinancialTransaction'); resetFinancialTransactionForm(); }}
+                      className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-lg
+                        ${activeTab === 'addFinancialTransaction' ? 'bg-orange-500 text-blue-900 shadow-md font-semibold' : 'hover:bg-blue-800 text-orange-500'}
+                      `}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      Add Payment/Expense
+                    </button>
+                  </li>
+                  <li className="mb-2">
+                    <button
+                      onClick={() => { setActiveTab('financialReports'); resetFinancialReportsFilters(); }}
+                      className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-lg
+                        ${activeTab === 'financialReports' ? 'bg-orange-500 text-blue-900 shadow-md font-semibold' : 'hover:bg-blue-800 text-orange-500'}
+                      `}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17v-4m0 0h3m-3 0H7m-1 0v4m-2-4h2a2 2 0 012 2v2a2 2 0 01-2 2H4a2 2 0 01-2-2V7a2 2 0 012-2h4m2 10h.01M17 17v-4m0 0h3m-3 0H17m-1 0v4m-2-4h2a2 2 0 012 2v2a2 2 0 01-2 2H14a2 2 0 01-2-2V7a2 2 0 012-2h4m2 10h.01M7 11a1 1 0 01-1 1H4a1 1 0 01-1-1V9a1 1 0 011-1h2a1 1 0 011 1v2z" />
                     </svg>
-                    Logout
-                  </button>
-                </li>
+                      Financial Reports
+                    </button>
+                  </li>
+                  {/* Logout button only for email/password users */}
+                  {isEmailPasswordUser && (
+                    <li className="mb-2">
+                      <button
+                        onClick={handleLogout}
+                        className="flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-lg hover:bg-red-700 text-white"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                        </svg>
+                        Logout
+                      </button>
+                    </li>
+                  )}
+                </>
               )}
             </ul>
           </nav>
@@ -2658,3 +2654,4 @@ const App = () => {
 };
 
 export default App;
+
