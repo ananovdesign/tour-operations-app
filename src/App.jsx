@@ -1007,11 +1007,19 @@ const App = () => {
     const totalSalesInvoices = salesInvoices.length;
     const totalExpenseInvoices = expenseInvoices.length;
 
-    const totalSalesAmount = salesInvoices.reduce((sum, inv) => sum + (inv.totalAmount || 0), 0);
-    const totalSalesVAT = salesInvoices.reduce((sum, inv) => sum + (inv.totalVAT || 0), 0);
+    let totalSalesAmount = 0;
+    let totalSalesVAT = 0;
+    salesInvoices.forEach(inv => {
+      totalSalesAmount += (inv.totalAmount || 0);
+      totalSalesVAT += (inv.totalVAT || 0);
+    });
 
-    const totalExpenseAmount = expenseInvoices.reduce((sum, inv) => sum + (inv.totalAmount || 0), 0);
-    const totalExpenseVAT = expenseInvoices.reduce((sum, inv) => sum + (inv.totalVAT || 0), 0);
+    let totalExpenseAmount = 0;
+    let totalExpenseVAT = 0;
+    expenseInvoices.forEach(inv => {
+      totalExpenseAmount += (inv.totalAmount || 0);
+      totalExpenseVAT += (inv.totalVAT || 0);
+    });
 
     const netProfitInvoicing = totalSalesAmount - totalExpenseAmount;
     const netVAT = totalSalesVAT - totalExpenseVAT;
@@ -2667,21 +2675,70 @@ const App = () => {
           </div>
         );
 
-      default:
-        // Placeholder for new Invoicing tabs
-        if (activeTab.startsWith('invoicing')) {
-          return (
-            <div className="p-6 bg-white rounded-xl shadow-lg">
-              <h2 className="text-3xl font-bold mb-8 text-gray-800 border-b pb-4">
-                {activeTab === 'invoicingDashboard' && 'Invoicing Dashboard'}
-                {activeTab === 'invoicingSales' && 'Sales Invoices'}
-                {activeTab === 'invoicingExpenses' && 'Expense Invoices'}
-                {activeTab === 'invoicingProducts' && 'Product Management'}
-              </h2>
-              <p className="text-gray-600 text-center py-8">Content for {activeTab} coming soon!</p>
+      // New: Invoicing Dashboard UI
+      case 'invoicingDashboard':
+        return (
+          <div className="p-6 bg-white rounded-xl shadow-lg">
+            <h2 className="text-3xl font-bold mb-8 text-gray-800 border-b pb-4">Invoicing Dashboard</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {/* Total Invoices */}
+              <div className="bg-blue-50 p-6 rounded-xl shadow-md border border-blue-200">
+                <h3 className="font-semibold text-xl text-blue-800 mb-3">Total Invoices</h3>
+                <p className="text-gray-700 text-lg">Sales Invoices: <span className="font-bold text-blue-900">{invoicingDashboardStats.totalSalesInvoices}</span></p>
+                <p className="text-gray-700 text-lg">Expense Invoices: <span className="font-bold text-blue-900">{invoicingDashboardStats.totalExpenseInvoices}</span></p>
+              </div>
+
+              {/* Total Sales */}
+              <div className="bg-green-50 p-6 rounded-xl shadow-md border border-green-200">
+                <h3 className="font-semibold text-xl text-green-800 mb-3">Total Sales (Income)</h3>
+                <p className="text-gray-700 text-lg">Amount: <span className="font-bold text-green-900">BGN {invoicingDashboardStats.totalSalesAmount} (EUR {invoicingDashboardStats.totalSalesAmountEUR})</span></p>
+                <p className="text-gray-700 text-lg">VAT: <span className="font-bold text-green-900">BGN {invoicingDashboardStats.totalSalesVAT} (EUR {invoicingDashboardStats.totalSalesVATEUR})</span></p>
+              </div>
+
+              {/* Total Expenses */}
+              <div className="bg-red-50 p-6 rounded-xl shadow-md border border-red-200">
+                <h3 className="font-semibold text-xl text-red-800 mb-3">Total Expenses</h3>
+                <p className="text-gray-700 text-lg">Amount: <span className="font-bold text-red-900">BGN {invoicingDashboardStats.totalExpenseAmount} (EUR {invoicingDashboardStats.totalExpenseAmountEUR})</span></p>
+                <p className="text-gray-700 text-lg">VAT: <span className="font-bold text-red-900">BGN {invoicingDashboardStats.totalExpenseVAT} (EUR {invoicingDashboardStats.totalExpenseVATEUR})</span></p>
+              </div>
+
+              {/* Net Profit/Loss */}
+              <div className={`p-6 rounded-xl shadow-md border ${invoicingDashboardStats.netProfitInvoicing >= 0 ? 'bg-blue-50 border-blue-200' : 'bg-red-50 border-red-200'}`}>
+                <h3 className="font-semibold text-xl text-gray-800 mb-3">Net Profit/Loss</h3>
+                <p className={`text-2xl font-bold ${invoicingDashboardStats.netProfitInvoicing >= 0 ? 'text-blue-900' : 'text-red-900'}`}>BGN {invoicingDashboardStats.netProfitInvoicing} (EUR {invoicingDashboardStats.netProfitInvoicingEUR})</p>
+              </div>
+
+              {/* Net VAT */}
+              <div className={`p-6 rounded-xl shadow-md border ${invoicingDashboardStats.netVAT >= 0 ? 'bg-blue-50 border-blue-200' : 'bg-red-50 border-red-200'}`}>
+                <h3 className="font-semibold text-xl text-gray-800 mb-3">Net VAT</h3>
+                <p className={`text-2xl font-bold ${invoicingDashboardStats.netVAT >= 0 ? 'text-blue-900' : 'text-red-900'}`}>BGN {invoicingDashboardStats.netVAT} (EUR {invoicingDashboardStats.netVATEUR})</p>
+              </div>
             </div>
-          );
-        }
+          </div>
+        );
+
+      case 'invoicingSales':
+        return (
+          <div className="p-6 bg-white rounded-xl shadow-lg">
+            <h2 className="text-3xl font-bold mb-8 text-gray-800 border-b pb-4">Sales Invoices</h2>
+            <p className="text-gray-600 text-center py-8">Content for Sales Invoices coming soon!</p>
+          </div>
+        );
+      case 'invoicingExpenses':
+        return (
+          <div className="p-6 bg-white rounded-xl shadow-lg">
+            <h2 className="text-3xl font-bold mb-8 text-gray-800 border-b pb-4">Expense Invoices</h2>
+            <p className="text-gray-600 text-center py-8">Content for Expense Invoices coming soon!</p>
+          </div>
+        );
+      case 'invoicingProducts':
+        return (
+          <div className="p-6 bg-white rounded-xl shadow-lg">
+            <h2 className="text-3xl font-bold mb-8 text-gray-800 border-b pb-4">Product Management</h2>
+            <p className="text-gray-600 text-center py-8">Content for Product Management coming soon!</p>
+          </div>
+        );
+      default:
         return <div>Select a module from the sidebar.</div>;
     }
   };
@@ -2731,7 +2788,7 @@ const App = () => {
                 <>
                   <li className="mb-2">
                     <button
-                      onClick={() => { setActiveTab('dashboard'); resetReservationForm(); resetTourForm(); resetFinancialTransactionForm(); resetFinancialReportsFilters(); }}
+                      onClick={() => { setActiveTab('dashboard'); }}
                       className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-lg
                         ${activeTab === 'dashboard' ? 'bg-orange-500 text-blue-900 shadow-md font-semibold' : 'hover:bg-blue-800 text-orange-500'}
                       `}
@@ -2960,4 +3017,5 @@ const App = () => {
 };
 
 export default App;
+
 
