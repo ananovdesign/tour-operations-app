@@ -36,6 +36,11 @@ const App = () => {
   const [customers, setCustomers] = useState([]);
   const [tours, setTours] = useState([]);
   const [financialTransactions, setFinancialTransactions] = useState([]);
+  // New: Invoicing data states
+  const [salesInvoices, setSalesInvoices] = useState([]);
+  const [expenseInvoices, setExpenseInvoices] = useState([]);
+  const [products, setProducts] = useState([]);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -139,6 +144,9 @@ const App = () => {
   const [confirmMessage, setConfirmMessage] = useState('');
   const [confirmAction, setConfirmAction] = useState(null);
 
+  // Currency Conversion Rate
+  const EUR_TO_BGN_RATE = 1.95583;
+
 
   // --- Notification System Functions ---
   const addNotification = useCallback((message, type = 'info', dismissible = true, autoDismiss = 5000) => {
@@ -235,6 +243,9 @@ const App = () => {
       setCustomers([]);
       setTours([]);
       setFinancialTransactions([]);
+      setSalesInvoices([]); // Clear invoicing data on logout
+      setExpenseInvoices([]); // Clear invoicing data on logout
+      setProducts([]); // Clear product data on logout
       setActiveTab('dashboard');
     } catch (err) {
       console.error("Logout error:", err);
@@ -330,6 +341,78 @@ const App = () => {
       });
     } else if (isAuthReady && !userId) {
       setFinancialTransactions([]);
+      setLoading(false);
+    }
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [isAuthReady, userId]);
+
+  // New: Firestore listener for Sales Invoices
+  useEffect(() => {
+    let unsubscribe;
+    if (isAuthReady && userId) {
+      setLoading(true);
+      const salesInvoicesCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/invoices_sales`);
+      unsubscribe = onSnapshot(salesInvoicesCollectionRef, (snapshot) => {
+        const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+        setSalesInvoices(data);
+        setLoading(false);
+      }, (err) => {
+        console.error("Error fetching sales invoices:", err);
+        setError("Failed to load sales invoices. Please try again.");
+        setLoading(false);
+      });
+    } else if (isAuthReady && !userId) {
+      setSalesInvoices([]);
+      setLoading(false);
+    }
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [isAuthReady, userId]);
+
+  // New: Firestore listener for Expense Invoices
+  useEffect(() => {
+    let unsubscribe;
+    if (isAuthReady && userId) {
+      setLoading(true);
+      const expenseInvoicesCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/invoices_expenses`);
+      unsubscribe = onSnapshot(expenseInvoicesCollectionRef, (snapshot) => {
+        const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+        setExpenseInvoices(data);
+        setLoading(false);
+      }, (err) => {
+        console.error("Error fetching expense invoices:", err);
+        setError("Failed to load expense invoices. Please try again.");
+        setLoading(false);
+      });
+    } else if (isAuthReady && !userId) {
+      setExpenseInvoices([]);
+      setLoading(false);
+    }
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [isAuthReady, userId]);
+
+  // New: Firestore listener for Products
+  useEffect(() => {
+    let unsubscribe;
+    if (isAuthReady && userId) {
+      setLoading(true);
+      const productsCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/products`);
+      unsubscribe = onSnapshot(productsCollectionRef, (snapshot) => {
+        const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+        setProducts(data);
+        setLoading(false);
+      }, (err) => {
+        console.error("Error fetching products:", err);
+        setError("Failed to load products. Please try again.");
+        setLoading(false);
+      });
+    } else if (isAuthReady && !userId) {
+      setProducts([]);
       setLoading(false);
     }
     return () => {
@@ -918,6 +1001,41 @@ const App = () => {
       totalBusPassengersBooked: totalBookedPassengersAcrossAllTours,
     };
   }, [reservations, financialTransactions, tours]);
+
+  // New: Invoicing Dashboard Calculations
+  const invoicingDashboardStats = useMemo(() => {
+    const totalSalesInvoices = salesInvoices.length;
+    const totalExpenseInvoices = expenseInvoices.length;
+
+    const totalSalesAmount = salesInvoices.reduce((sum, inv) => sum + (inv.totalAmount || 0), 0);
+    const totalSalesVAT = salesInvoices.reduce((sum, inv) => sum + (inv.totalVAT || 0), 0);
+
+    const totalExpenseAmount = expenseInvoices.reduce((sum, inv) => sum + (inv.totalAmount || 0), 0);
+    const totalExpenseVAT = expenseInvoices.reduce((sum, inv) => sum + (inv.totalVAT || 0), 0);
+
+    const netProfitInvoicing = totalSalesAmount - totalExpenseAmount;
+    const netVAT = totalSalesVAT - totalExpenseVAT;
+
+    // Convert BGN to EUR for display
+    const toEUR = (amount) => (amount / EUR_TO_BGN_RATE).toFixed(2);
+
+    return {
+      totalSalesInvoices,
+      totalExpenseInvoices,
+      totalSalesAmount: totalSalesAmount.toFixed(2),
+      totalSalesAmountEUR: toEUR(totalSalesAmount),
+      totalSalesVAT: totalSalesVAT.toFixed(2),
+      totalSalesVATEUR: toEUR(totalSalesVAT),
+      totalExpenseAmount: totalExpenseAmount.toFixed(2),
+      totalExpenseAmountEUR: toEUR(totalExpenseAmount),
+      totalExpenseVAT: totalExpenseVAT.toFixed(2),
+      totalExpenseVATEUR: toEUR(totalExpenseVAT),
+      netProfitInvoicing: netProfitInvoicing.toFixed(2),
+      netProfitInvoicingEUR: toEUR(netProfitInvoicing),
+      netVAT: netVAT.toFixed(2),
+      netVATEUR: toEUR(netVAT),
+    };
+  }, [salesInvoices, expenseInvoices]);
 
 
   // --- Financial Reports Logic (Uses Firestore user-specific data) ---
@@ -2842,5 +2960,4 @@ const App = () => {
 };
 
 export default App;
-
 
