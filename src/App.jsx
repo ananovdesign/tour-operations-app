@@ -1035,7 +1035,7 @@ const App = () => {
   }, [tours, filterTourHotel, filterTourTransportCompany, filterTourDepartureDate, filterTourArrivalDate]);
 
 
-  // --- Notification Generation Logic ---
+  // --- New: Notification Generation Logic ---
   useEffect(() => {
     if (!isAuthReady || !userId) return;
 
@@ -1991,7 +1991,7 @@ const App = () => {
                             >
                               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                <path fillRule="evenodd" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" clipRule="evenodd" />
                               </svg>
                             </button>
                             <button
@@ -2550,6 +2550,20 @@ const App = () => {
         );
 
       default:
+        // Placeholder for new Invoicing tabs
+        if (activeTab.startsWith('invoicing')) {
+          return (
+            <div className="p-6 bg-white rounded-xl shadow-lg">
+              <h2 className="text-3xl font-bold mb-8 text-gray-800 border-b pb-4">
+                {activeTab === 'invoicingDashboard' && 'Invoicing Dashboard'}
+                {activeTab === 'invoicingSales' && 'Sales Invoices'}
+                {activeTab === 'invoicingExpenses' && 'Expense Invoices'}
+                {activeTab === 'invoicingProducts' && 'Product Management'}
+              </h2>
+              <p className="text-gray-600 text-center py-8">Content for {activeTab} coming soon!</p>
+            </div>
+          );
+        }
         return <div>Select a module from the sidebar.</div>;
     }
   };
@@ -2715,6 +2729,62 @@ const App = () => {
                       Financial Reports
                     </button>
                   </li>
+                  <li className="mb-2 mt-6 border-t border-blue-800 pt-6"> {/* Separator for new section */}
+                    <h3 className="text-xl font-bold mb-3 text-orange-500">Invoicing</h3>
+                  </li>
+                  <li className="mb-2">
+                    <button
+                      onClick={() => setActiveTab('invoicingDashboard')}
+                      className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-lg
+                        ${activeTab === 'invoicingDashboard' ? 'bg-orange-500 text-blue-900 shadow-md font-semibold' : 'hover:bg-blue-800 text-orange-500'}
+                      `}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" />
+                      </svg>
+                      Invoicing Dashboard
+                    </button>
+                  </li>
+                  <li className="mb-2">
+                    <button
+                      onClick={() => setActiveTab('invoicingSales')}
+                      className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-lg
+                        ${activeTab === 'invoicingSales' ? 'bg-orange-500 text-blue-900 shadow-md font-semibold' : 'hover:bg-blue-800 text-orange-500'}
+                      `}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M7 11h10a1 1 0 011 1v5a1 1 0 01-1 1H7a1 1 0 01-1-1v-5a1 1 0 011-1zM12 5V4m0 20v-1m-4-11H3m18 0h-1" />
+                      </svg>
+                      Sales Invoices
+                    </button>
+                  </li>
+                  <li className="mb-2">
+                    <button
+                      onClick={() => setActiveTab('invoicingExpenses')}
+                      className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-lg
+                        ${activeTab === 'invoicingExpenses' ? 'bg-orange-500 text-blue-900 shadow-md font-semibold' : 'hover:bg-blue-800 text-orange-500'}
+                      `}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M7 11h10a1 1 0 011 1v5a1 1 0 01-1 1H7a1 1 0 01-1-1v-5a1 1 0 011-1zM12 5V4m0 20v-1m-4-11H3m18 0h-1" />
+                      </svg>
+                      Expense Invoices
+                    </button>
+                  </li>
+                  <li className="mb-2">
+                    <button
+                      onClick={() => setActiveTab('invoicingProducts')}
+                      className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-lg
+                        ${activeTab === 'invoicingProducts' ? 'bg-orange-500 text-blue-900 shadow-md font-semibold' : 'hover:bg-blue-800 text-orange-500'}
+                      `}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h.01M7 3h.01M7 11h.01M7 15h.01M7 19h.01M17 7h.01M17 3h.01M17 11h.01M17 15h.01M17 19h.01M3 7h.01M3 3h.01M3 11h.01M3 15h.01M3 19h.01M21 7h.01M21 3h.01M21 11h.01M21 15h.01M21 19h.01M12 7h.01M12 3h.01M12 11h.01M12 15h.01M12 19h.01" />
+                      </svg>
+                      Product Management
+                    </button>
+                  </li>
                   {isEmailPasswordUser && (
                     <li className="mb-2">
                       <button
@@ -2772,6 +2842,5 @@ const App = () => {
 };
 
 export default App;
-
 
 
