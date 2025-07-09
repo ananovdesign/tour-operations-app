@@ -30,7 +30,7 @@ const App = () => {
   const [selectedReservation, setSelectedReservation] = useState(null);
   const [selectedTour, setSelectedTour] = useState(null);
   const [selectedFinancialTransaction, setSelectedFinancialTransaction] = useState(null);
-  // New: State for currently selected expense invoice for editing
+  // State for currently selected expense invoice for editing
   const [selectedExpenseInvoice, setSelectedExpenseInvoice] = useState(null);
 
 
@@ -39,7 +39,7 @@ const App = () => {
   const [customers, setCustomers] = useState([]);
   const [tours, setTours] = useState([]);
   const [financialTransactions, setFinancialTransactions] = useState([]);
-  // New: Invoicing data states
+  // Invoicing data states
   const [salesInvoices, setSalesInvoices] = useState([]);
   const [expenseInvoices, setExpenseInvoices] = useState([]);
   const [products, setProducts] = useState([]);
@@ -484,6 +484,24 @@ const App = () => {
       }
     });
     return `DYT${String(highestNum + 1).padStart(3, '0')}`;
+  }, [userId]);
+
+  // New: Generate Invoice Number for Expenses
+  const generateExpenseInvoiceNumber = useCallback(async () => {
+    if (!userId) return null;
+    const q = query(collection(db, `artifacts/${appId}/users/${userId}/invoices_expenses`));
+    const querySnapshot = await getDocs(q);
+    let highestNum = 0;
+    querySnapshot.forEach((doc) => {
+      const inv = doc.data();
+      if (inv.invoiceNumber && inv.invoiceNumber.startsWith('DYT')) {
+        const numPart = parseInt(inv.invoiceNumber.substring(3), 10);
+        if (!isNaN(numPart) && numPart > highestNum) {
+          highestNum = numPart;
+        }
+      }
+    });
+    return `DYT${String(highestNum + 1).padStart(7, '0')}`; // DYT0000001
   }, [userId]);
 
 
@@ -1041,362 +1059,6 @@ const App = () => {
 
     const netProfitInvoicing = totalSalesAmount - totalExpenseAmount;
     const netVAT = totalSalesVAT - totalExpenseVAT;
-
-    // Convert BGN to EUR for display
-    const toEUR = (amount) => (amount / EUR_TO_BGN_RATE).toFixed(2);
-
-    return {
-      totalSalesInvoices,
-      totalExpenseInvoices,
-      totalSalesAmount: totalSalesAmount.toFixed(2),
-      totalSalesAmountEUR: toEUR(totalSalesAmount),
-      totalSalesVAT: totalSalesVAT.toFixed(2),
-      totalSalesVATEUR: toEUR(totalSalesVAT),
-      totalExpenseAmount: totalExpenseAmount.toFixed(2),
-      totalExpenseAmountEUR: toEUR(totalExpenseAmount),
-      totalExpenseVAT: totalExpenseVAT.toFixed(2),
-      totalExpenseVATEUR: toEUR(totalExpenseVAT),
-      netProfitInvoicing: netProfitInvoicing.toFixed(2),
-      netProfitInvoicingEUR: toEUR(netProfitInvoicing),
-      netVAT: netVAT.toFixed(2),
-      netVATEUR: toEUR(netVAT),
-    };
-  }, [salesInvoices, expenseInvoices]);
-
-
-  // --- Financial Reports Logic (Uses Firestore user-specific data) ---
-
-  const handleReportFilterChange = useCallback((e) => {
-    const { name, value } = e.target;
-    if (name === 'reportStartDate') setReportStartDate(value);
-    else if (name === 'reportEndDate') setReportEndDate(value);
-    else if (name === 'reportFilterType') setReportFilterType(value);
-    else if (name === 'reportFilterAssociation') setReportFilterAssociation(value);
-  }, []);
-
-  const filteredFinancialTransactions = useMemo(() => {
-    return financialTransactions.filter(ft => {
-      const transactionDate = new Date(ft.date);
-      const startDate = reportStartDate ? new Date(reportStartDate) : null;
-      const endDate = reportEndDate ? new Date(reportEndDate) : null;
-
-      if (startDate && transactionDate < startDate) return false;
-      if (endDate && transactionDate > endDate) {
-        const adjustedEndDate = new Date(endDate);
-        adjustedEndDate.setDate(adjustedEndDate.getDate() + 1);
-        if (transactionDate >= adjustedEndDate) return false;
-      }
-
-      if (reportFilterType !== 'all' && ft.type !== reportFilterType) return false;
-
-      if (reportFilterAssociation) {
-        const lowerCaseFilter = reportFilterAssociation.toLowerCase();
-        const matchesReservation = ft.associatedReservationId?.toLowerCase().includes(lowerCaseFilter);
-        const matchesTour = ft.associatedTourId?.toLowerCase().includes(lowerCaseFilter);
-        if (!matchesReservation && !matchesTour) return false;
-      }
-
-      return true;
-    }).sort((a, b) => new Date(b.date) - new Date(a.date));
-  }, [financialTransactions, reportStartDate, reportEndDate, reportFilterType, reportFilterAssociation]);
-
-  const reportTotals = useMemo(() => {
-    let totalIncome = 0;
-    let totalExpenses = 0;
-    filteredFinancialTransactions.forEach(ft => {
-      if (ft.type === 'income') {
-        totalIncome += (ft.amount || 0);
-      } else if (ft.type === 'expense') {
-        totalExpenses += (ft.amount || 0);
-      }
-    });
-    const netProfit = totalIncome - totalExpenses;
-    return { totalIncome, totalExpenses, netProfit };
-  }, [filteredFinancialTransactions]);
-
-  const resetFinancialReportsFilters = useCallback(() => {
-    setReportStartDate('');
-    setReportEndDate('');
-    setReportFilterType('all');
-    setReportFilterAssociation('');
-  }, []);
-
-
-  // --- Filtered Reservations Logic ---
-  const handleReservationFilterChange = useCallback((e) => {
-    const { name, value } = e.target;
-    if (name === 'filterReservationStatus') setFilterReservationStatus(value);
-    else if (name === 'filterReservationHotel') setFilterReservationHotel(value);
-    else if (name === 'filterReservationTourType') setFilterReservationTourType(value);
-    else if (name === 'filterReservationCheckInDate') setFilterReservationCheckInDate(value);
-    else if (name === 'filterReservationCheckOutDate') setFilterReservationCheckOutDate(value);
-  }, []);
-
-  const resetReservationFilters = useCallback(() => {
-    setFilterReservationStatus('All');
-    setFilterReservationHotel('');
-    setFilterReservationTourType('All');
-    setFilterReservationCheckInDate('');
-    setFilterReservationCheckOutDate('');
-  }, []);
-
-  const filteredReservations = useMemo(() => {
-    return reservations.filter(res => {
-      if (filterReservationStatus !== 'All' && res.status !== filterReservationStatus) return false;
-      if (filterReservationHotel && !res.hotel?.toLowerCase().includes(filterReservationHotel.toLowerCase())) return false;
-      if (filterReservationTourType !== 'All' && res.tourType !== filterReservationTourType) return false;
-      if (filterReservationCheckInDate && new Date(res.checkIn) < new Date(filterReservationCheckInDate)) return false;
-      if (filterReservationCheckOutDate && new Date(res.checkOut) > new Date(filterReservationCheckOutDate)) return false;
-      return true;
-    }).sort((a, b) => new Date(b.creationDate) - new Date(a.creationDate));
-  }, [reservations, filterReservationStatus, filterReservationHotel, filterReservationTourType, filterReservationCheckInDate, filterReservationCheckOutDate]);
-
-
-  // --- Filtered Tours Logic ---
-  const handleTourFilterChange = useCallback((e) => {
-    const { name, value } = e.target;
-    if (name === 'filterTourHotel') setFilterTourHotel(value);
-    else if (name === 'filterTourTransportCompany') setFilterTourTransportCompany(value);
-    else if (name === 'filterTourDepartureDate') setFilterTourDepartureDate(value);
-    else if (name === 'filterTourArrivalDate') setFilterTourArrivalDate(value);
-  }, []);
-
-  const resetTourFilters = useCallback(() => {
-    setFilterTourHotel('');
-    setFilterTourTransportCompany('');
-    setFilterTourDepartureDate('');
-    setFilterTourArrivalDate('');
-  }, []);
-
-  const filteredTours = useMemo(() => {
-    return tours.filter(tour => {
-      if (filterTourHotel && !tour.hotel?.toLowerCase().includes(filterTourHotel.toLowerCase())) return false;
-      if (filterTourTransportCompany && !tour.transportCompany?.toLowerCase().includes(filterTourTransportCompany.toLowerCase())) return false;
-      if (filterTourDepartureDate && new Date(tour.departureDate) < new Date(filterTourDepartureDate)) return false;
-      if (filterTourArrivalDate && new Date(tour.arrivalDate) > new Date(tour.arrivalDate)) return false;
-      return true;
-    }).sort((a, b) => new Date(b.departureDate) - new Date(a.departureDate));
-  }, [tours, filterTourHotel, filterTourTransportCompany, filterTourDepartureDate, filterTourArrivalDate]);
-
-
-  // --- New: Notification Generation Logic ---
-  useEffect(() => {
-    if (!isAuthReady || !userId) return;
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    setNotifications(prev => prev.filter(n => !(n.source === 'auto-res' || n.source === 'auto-tour')));
-
-    reservations.forEach(res => {
-      const checkInDate = new Date(res.checkIn);
-      checkInDate.setHours(0, 0, 0, 0);
-      const diffDays = Math.ceil((checkInDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-
-      if (diffDays >= 0 && diffDays <= 7) {
-        addNotification(
-          `Reservation ${res.reservationNumber} for ${res.hotel} checks in on ${res.checkIn} (in ${diffDays} days).`,
-          'warning',
-          true,
-          null
-        );
-      }
-    });
-
-    tours.forEach(tour => {
-      const departureDate = new Date(tour.departureDate);
-      departureDate.setHours(0, 0, 0, 0);
-      const diffDays = Math.ceil((departureDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-
-      if (diffDays >= 0 && diffDays <= 30) {
-        const linkedReservations = reservations.filter(res => res.linkedTourId === tour.tourId);
-        const bookedPassengers = linkedReservations.reduce((sum, res) => sum + (res.adults || 0) + (res.children || 0), 0);
-        const fulfillment = tour.maxPassengers > 0 ? (bookedPassengers / tour.maxPassengers) * 100 : 0;
-
-        if (fulfillment < 50 && bookedPassengers > 0) {
-          addNotification(
-            `Tour ${tour.tourId} to ${tour.hotel} has only ${fulfillment.toFixed(1)}% passengers booked (departing in ${diffDays} days).`,
-            'warning',
-            true,
-            null
-          );
-        } else if (fulfillment === 0 && diffDays <= 14) {
-           addNotification(
-            `Tour ${tour.tourId} to ${tour.hotel} has NO passengers booked (departing in ${diffDays} days).`,
-            'error',
-            true,
-            null
-          );
-        }
-      }
-    });
-
-  }, [reservations, tours, isAuthReady, userId, addNotification]);
-
-
-  // --- Expense Invoice Functions ---
-  const handleExpenseInvoiceFormChange = useCallback((e) => {
-    const { name, value, type } = e.target;
-    setExpenseInvoiceForm(prev => {
-      const newState = {
-        ...prev,
-        [name]: type === 'number' ? parseFloat(value) || 0 : value,
-      };
-      return newState;
-    });
-  }, []);
-
-  const handleSubmitExpenseInvoice = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-    addNotification('');
-
-    if (!userId) {
-      addNotification("User not authenticated. Please log in to save data.", 'error');
-      setLoading(false);
-      return;
-    }
-
-    try {
-      const invoiceData = {
-        ...expenseInvoiceForm,
-        totalAmount: parseFloat(expenseInvoiceForm.totalAmount) || 0,
-        totalVAT: parseFloat(expenseInvoiceForm.totalVAT) || 0,
-        // Ensure VAT is stored as a positive number, but dashboard treats it as negative
-        // if this is an expense invoice.
-      };
-
-      const expenseInvoicesCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/invoices_expenses`);
-
-      if (selectedExpenseInvoice) {
-        const invoiceDocRef = doc(expenseInvoicesCollectionRef, selectedExpenseInvoice.id);
-        await setDoc(invoiceDocRef, invoiceData, { merge: true });
-        addNotification('Expense Invoice updated successfully!', 'success');
-      } else {
-        await addDoc(expenseInvoicesCollectionRef, invoiceData);
-        addNotification('Expense Invoice added successfully!', 'success');
-      }
-
-      resetExpenseInvoiceForm();
-      setActiveTab('invoicingExpenses');
-    } catch (err) {
-      console.error("Error saving expense invoice:", err);
-      setError(`Failed to save expense invoice: ${err.message || err.toString()}`);
-      addNotification(`Failed to save expense invoice: ${err.message || err.toString()}`, 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const resetExpenseInvoiceForm = useCallback(() => {
-    setExpenseInvoiceForm({
-      companyName: '', companyID: '', vatID: '', invoiceNumber: '', invoiceDate: '',
-      productsServices: '', paymentMethod: 'Bank', dueDate: '', totalAmount: 0, totalVAT: 0, notes: ''
-    });
-    setSelectedExpenseInvoice(null);
-  }, []);
-
-  const handleEditExpenseInvoice = useCallback((invoice) => {
-    setExpenseInvoiceForm({
-      ...invoice,
-      totalAmount: parseFloat(invoice.totalAmount) || 0,
-      totalVAT: parseFloat(invoice.totalVAT) || 0,
-    });
-    setSelectedExpenseInvoice(invoice);
-    setActiveTab('addExpenseInvoice'); // Create a new tab for adding/editing expense invoices
-  }, []);
-
-  const handleDeleteExpenseInvoice = useCallback((invoiceId) => {
-    setConfirmMessage("Are you sure you want to delete this expense invoice?");
-    setConfirmAction(() => async () => {
-      setLoading(true);
-      setError(null);
-      addNotification('');
-      if (!userId) {
-        addNotification("User not authenticated. Please log in to delete data.", 'error');
-        setLoading(false);
-        return;
-      }
-      try {
-        const invoiceDocRef = doc(db, `artifacts/${appId}/users/${userId}/invoices_expenses`, invoiceId);
-        await deleteDoc(invoiceDocRef);
-        addNotification('Expense Invoice deleted successfully!', 'success');
-      } catch (err) {
-        console.error("Error deleting expense invoice:", err);
-        setError("Failed to delete expense invoice. Please try again.");
-        addNotification(`Failed to delete expense invoice: ${err.message || err.toString()}`, 'error');
-      } finally {
-        setLoading(false);
-      }
-    });
-    setShowConfirmModal(true);
-  }, [userId, addNotification]);
-
-
-  // --- Dashboard Calculations (Uses Firestore user-specific data) ---
-  const dashboardStats = useMemo(() => {
-    const totalReservations = reservations.length;
-    const totalProfit = reservations.reduce((sum, res) => sum + (res.profit || 0), 0);
-    const averageProfitPerReservation = totalReservations > 0 ? totalProfit / totalReservations : 0;
-    const totalNightsSum = reservations.reduce((sum, res) => sum + (res.totalNights || 0), 0);
-    const averageStayPerReservation = totalReservations > 0 ? totalNightsSum / totalReservations : 0;
-
-    const totalIncome = financialTransactions
-      .filter(ft => ft.type === 'income')
-      .reduce((sum, ft) => sum + (ft.amount || 0), 0);
-
-    const totalExpenses = financialTransactions
-      .filter(ft => ft.type === 'expense')
-      .reduce((sum, ft) => sum + (ft.amount || 0), 0);
-
-    let totalBookedPassengersAcrossAllTours = 0;
-    let totalMaxPassengersAcrossAllTours = 0;
-
-    tours.forEach(tour => {
-      const linkedReservations = reservations.filter(res => res.linkedTourId === tour.tourId);
-      const bookedPassengersForTour = linkedReservations.reduce((sum, res) => sum + (res.adults || 0) + (res.children || 0), 0);
-      totalBookedPassengersAcrossAllTours += bookedPassengersForTour;
-      totalMaxPassengersAcrossAllTours += (tour.maxPassengers || 0);
-    });
-
-    const overallBusTourFulfillment = totalMaxPassengersAcrossAllTours > 0
-      ? (totalBookedPassengersAcrossAllTours / totalMaxPassengersAcrossAllTours) * 100
-      : 0;
-
-    return {
-      totalReservations,
-      totalProfit,
-      averageProfitPerReservation,
-      averageStayPerReservation,
-      totalIncome,
-      totalExpenses,
-      overallBusTourFulfillment,
-      totalBusPassengersBooked: totalBookedPassengersAcrossAllTours,
-    };
-  }, [reservations, financialTransactions, tours]);
-
-  // Invoicing Dashboard Calculations
-  const invoicingDashboardStats = useMemo(() => {
-    const totalSalesInvoices = salesInvoices.length;
-    const totalExpenseInvoices = expenseInvoices.length;
-
-    let totalSalesAmount = 0;
-    let totalSalesVAT = 0;
-    salesInvoices.forEach(inv => {
-      totalSalesAmount += (parseFloat(inv.totalAmount) || 0);
-      totalSalesVAT += (parseFloat(inv.totalVAT) || 0);
-    });
-
-    let totalExpenseAmount = 0;
-    let totalExpenseVAT = 0;
-    expenseInvoices.forEach(inv => {
-      totalExpenseAmount += (parseFloat(inv.totalAmount) || 0);
-      totalExpenseVAT += (parseFloat(inv.totalVAT) || 0);
-    });
-
-    const netProfitInvoicing = totalSalesAmount - totalExpenseAmount;
-    const netVAT = totalSalesVAT - totalExpenseVAT; // Sales VAT - Expense VAT
 
     // Convert BGN to EUR for display
     const toEUR = (amount) => (amount / EUR_TO_BGN_RATE).toFixed(2);
@@ -2998,7 +2660,7 @@ const App = () => {
                 <h3 className="font-semibold text-xl text-red-800">Total Expenses</h3>
                 <p className="text-2xl font-bold text-red-900">BGN {reportTotals.totalExpenses.toFixed(2)}</p>
               </div>
-              <div className={`p-6 rounded-xl shadow-md text-center ${reportTotals.netProfit >= 0 ? 'bg-blue-50 border border-blue-200' : 'bg-red-50 border-red-200'}`}>
+              <div className={`p-6 rounded-xl shadow-md text-center ${reportTotals.netProfit >= 0 ? 'bg-blue-50 border-blue-200' : 'bg-red-50 border-red-200'}`}>
                 <h3 className="font-semibold text-xl text-gray-800">Net Profit/Loss</h3>
                 <p className={`text-2xl font-bold ${reportTotals.netProfit >= 0 ? 'text-blue-900' : 'text-red-900'}`}>BGN {reportTotals.netProfit.toFixed(2)}</p>
               </div>
@@ -3091,7 +2753,7 @@ const App = () => {
           </div>
         );
 
-      // New: Expense Invoices List and Form
+      // Expense Invoices List and Form
       case 'invoicingExpenses':
       case 'addExpenseInvoice': // Combined for add/edit
         return (
@@ -3615,4 +3277,3 @@ const App = () => {
 };
 
 export default App;
-
