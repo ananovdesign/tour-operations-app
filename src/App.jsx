@@ -22,16 +22,17 @@ const NotificationDisplay = ({ notifications, onDismiss }) => {
       {notifications.map(notification => (
         <div
           key={notification.id}
-          className={`p-4 rounded-lg shadow-lg flex items-center justify-between transition-all duration-300 ease-in-out transform
-            ${notification.type === 'success' ? 'bg-green-100 border border-green-400 text-green-800' :
-              notification.type === 'info' ? 'bg-blue-100 border border-blue-400 text-blue-800' :
-              notification.type === 'warning' ? 'bg-yellow-100 border border-yellow-400 text-yellow-800' :
-              notification.type === 'error' ? 'bg-red-100 border border-red-400 text-red-800' : ''
+          // Changed bg-*, border-*, text-* for a softer look consistent with the theme
+          className={`p-4 rounded-lg shadow-md flex items-center justify-between transition-all duration-300 ease-in-out transform
+            ${notification.type === 'success' ? 'bg-green-50 border border-green-200 text-green-800' :
+              notification.type === 'info' ? 'bg-blue-50 border border-blue-200 text-blue-800' :
+              notification.type === 'warning' ? 'bg-yellow-50 border border-yellow-200 text-yellow-800' :
+              notification.type === 'error' ? 'bg-red-50 border border-red-200 text-red-800' : 'bg-gray-50 border border-gray-200 text-gray-800'
             }`}
         >
           <span className="font-medium">{notification.message}</span>
           {notification.dismissible && (
-            <button onClick={() => onDismiss(notification.id)} className="ml-4 text-gray-600 hover:text-gray-900">
+            <button onClick={() => onDismiss(notification.id)} className="ml-4 text-gray-600 hover:text-gray-900 p-1 rounded-full hover:bg-gray-100 transition-colors duration-200">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
               </svg>
@@ -48,19 +49,20 @@ const ConfirmationModal = ({ show, message, onConfirm, onCancel }) => {
   if (!show) return null;
   return (
     <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm relative">
+      <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm relative"> {/* Rounded-xl and shadow-xl for consistency */}
         <h3 className="text-xl font-semibold mb-4 text-gray-800">Confirm Action</h3>
         <p className="text-gray-700 mb-6">{message}</p>
         <div className="flex justify-end space-x-3">
           <button
             onClick={onCancel}
-            className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition duration-200 shadow-sm"
+            className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition duration-200 shadow-sm" // Rounded-lg, hover:bg-gray-100
           >
             Cancel
           </button>
           <button
             onClick={onConfirm}
-            className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition duration-200 shadow-md"
+            // Adjusted color to match red in screenshot, rounded-lg, subtle shadow
+            className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition duration-200 shadow-md"
           >
             Confirm
           </button>
@@ -1827,7 +1829,7 @@ const App = () => {
     if (!isAuthReady || loading) {
       return (
         <div className="flex justify-center items-center h-full min-h-[calc(100vh-100px)]">
-          <div className="text-orange-500 text-lg animate-pulse">Loading application...</div>
+          <div className="text-gray-600 text-lg animate-pulse">Loading application...</div> {/* Changed text color */}
         </div>
       );
     }
@@ -1835,12 +1837,12 @@ const App = () => {
     if (!userId) {
       return (
         <div className="flex justify-center items-center h-full min-h-[calc(100vh-100px)]">
-          <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md">
+          <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md"> {/* Consistent rounded-xl and shadow-lg */}
             <h2 className="text-3xl font-bold mb-6 text-gray-800 text-center">
               {authMode === 'login' ? 'Login to Dynamex' : 'Register for Dynamex'}
             </h2>
             {authError && (
-              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md relative mb-4" role="alert">
+              <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-md relative mb-4" role="alert"> {/* Adjusted error colors */}
                 <span className="block sm:inline">{authError}</span>
               </div>
             )}
@@ -1852,7 +1854,7 @@ const App = () => {
                   id="email"
                   value={userEmail}
                   onChange={(e) => setUserEmail(e.target.value)}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 px-3 py-2" // Focus ring green
                   required
                 />
               </div>
@@ -1863,13 +1865,14 @@ const App = () => {
                   id="password"
                   value={userPassword}
                   onChange={(e) => setUserPassword(e.target.value)}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 px-3 py-2" // Focus ring green
                   required
                 />
               </div>
               <button
                 type="submit"
-                className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200 shadow-md font-semibold text-lg transform hover:scale-105"
+                // Primary button style matching screenshot's green
+                className="w-full px-6 py-3 bg-[#28A745] text-white rounded-lg hover:bg-[#218838] transition duration-200 shadow-md font-semibold text-lg"
                 disabled={loading}
               >
                 {loading ? 'Processing...' : (authMode === 'login' ? 'Login' : 'Register')}
@@ -1882,7 +1885,7 @@ const App = () => {
                   <button
                     type="button"
                     onClick={() => { setAuthMode('register'); setAuthError(null); }}
-                    className="text-blue-600 hover:text-blue-800 font-medium"
+                    className="text-[#28A745] hover:text-[#218838] font-medium" // Link color green
                   >
                     Register
                   </button>
@@ -1893,7 +1896,7 @@ const App = () => {
                   <button
                     type="button"
                     onClick={() => { setAuthMode('login'); setAuthError(null); }}
-                    className="text-blue-600 hover:text-blue-800 font-medium"
+                    className="text-[#28A745] hover:text-[#218838] font-medium" // Link color green
                   >
                     Login
                   </button>
@@ -1906,7 +1909,7 @@ const App = () => {
     }
     if (error) {
       return (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md relative mb-4" role="alert">
+        <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-md relative mb-4" role="alert"> {/* Adjusted error colors */}
           <strong className="font-bold">Error!</strong>
           <span className="block sm:inline ml-2">{error}</span>
         </div>
@@ -1916,31 +1919,31 @@ const App = () => {
     switch (activeTab) {
       case 'dashboard':
         return (
-          <div className="p-6 bg-white rounded-xl shadow-lg">
+          <div className="p-6 bg-white rounded-xl shadow-lg"> {/* Consistent card styling */}
             <h2 className="text-3xl font-bold mb-8 text-gray-800 border-b pb-4">Dashboard & Analytics</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {/* Reservation Stats */}
-              <div className="bg-blue-50 p-6 rounded-xl shadow-md border border-blue-200">
-                <h3 className="font-semibold text-xl text-blue-800 mb-3">Reservation Metrics</h3>
-                <p className="text-gray-700 text-lg">Total Reservations: <span className="font-bold text-blue-900">{dashboardStats.totalReservations}</span></p>
-                <p className="text-gray-700 text-lg">Total Profit: <span className="font-bold text-blue-900">BGN {dashboardStats.totalProfit.toFixed(2)}</span></p>
-                <p className="text-gray-700 text-lg">Avg. Profit/Res: <span className="font-bold text-blue-900">BGN {dashboardStats.averageProfitPerReservation.toFixed(2)}</span></p>
-                <p className="text-gray-700 text-lg">Avg. Stay/Res: <span className="font-bold text-blue-900">{dashboardStats.averageStayPerReservation.toFixed(1)} nights</span></p>
+              <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100"> {/* Soft white card, light border */}
+                <h3 className="font-semibold text-xl text-gray-700 mb-3">Reservation Metrics</h3> {/* Darker text color */}
+                <p className="text-gray-600 text-lg">Total Reservations: <span className="font-bold text-gray-800">{dashboardStats.totalReservations}</span></p>
+                <p className="text-gray-600 text-lg">Total Profit: <span className="font-bold text-[#28A745]">BGN {dashboardStats.totalProfit.toFixed(2)}</span></p> {/* Green for profit */}
+                <p className="text-gray-600 text-lg">Avg. Profit/Res: <span className="font-bold text-[#28A745]">BGN {dashboardStats.averageProfitPerReservation.toFixed(2)}</span></p>
+                <p className="text-gray-600 text-lg">Avg. Stay/Res: <span className="font-bold text-gray-800">{dashboardStats.averageStayPerReservation.toFixed(1)} nights</span></p>
               </div>
 
               {/* Financial Stats */}
-              <div className="bg-green-50 p-6 rounded-xl shadow-md border border-green-200">
-                <h3 className="font-semibold text-xl text-green-800 mb-3">Financial Overview</h3>
-                <p className="text-gray-700 text-lg">Total Income: <span className="font-bold text-green-900">BGN {dashboardStats.totalIncome.toFixed(2)}</span></p>
-                <p className="text-gray-700 text-lg">Total Expenses: <span className="font-bold text-red-900">BGN {dashboardStats.totalExpenses.toFixed(2)}</span></p>
-                <p className="text-gray-700 text-lg">Net Profit/Loss: <span className={`font-bold ${dashboardStats.totalIncome - dashboardStats.totalExpenses >= 0 ? 'text-green-900' : 'text-red-900'}`}>BGN {(dashboardStats.totalIncome - dashboardStats.totalExpenses).toFixed(2)}</span></p>
+              <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100"> {/* Soft white card, light border */}
+                <h3 className="font-semibold text-xl text-gray-700 mb-3">Financial Overview</h3>
+                <p className="text-gray-600 text-lg">Total Income: <span className="font-bold text-[#28A745]">BGN {dashboardStats.totalIncome.toFixed(2)}</span></p> {/* Green for income */}
+                <p className="text-gray-600 text-lg">Total Expenses: <span className="font-bold text-[#DC3545]">BGN {dashboardStats.totalExpenses.toFixed(2)}</span></p> {/* Red for expenses */}
+                <p className="text-gray-600 text-lg">Net Profit/Loss: <span className={`font-bold ${dashboardStats.totalIncome - dashboardStats.totalExpenses >= 0 ? 'text-[#28A745]' : 'text-[#DC3545]'}`}>BGN {(dashboardStats.totalIncome - dashboardStats.totalExpenses).toFixed(2)}</span></p>
               </div>
 
               {/* Bus Tour Stats */}
-              <div className="bg-purple-50 p-6 rounded-xl shadow-md border border-purple-200">
-                <h3 className="font-semibold text-xl text-purple-800 mb-3">Bus Tour Performance</h3>
-                <p className="text-gray-700 text-lg">Total Bus Passengers Booked: <span className="font-bold text-purple-900">{dashboardStats.totalBusPassengersBooked}</span></p>
-                <p className="text-gray-700 text-lg">Overall Fulfillment: <span className="font-bold text-purple-900">{dashboardStats.overallBusTourFulfillment.toFixed(1)}%</span></p>
+              <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100"> {/* Soft white card, light border */}
+                <h3 className="font-semibold text-xl text-gray-700 mb-3">Bus Tour Performance</h3>
+                <p className="text-gray-600 text-lg">Total Bus Passengers Booked: <span className="font-bold text-gray-800">{dashboardStats.totalBusPassengersBooked}</span></p>
+                <p className="text-gray-600 text-lg">Overall Fulfillment: <span className="font-bold text-gray-800">{dashboardStats.overallBusTourFulfillment.toFixed(1)}%</span></p>
               </div>
             </div>
           </div>
@@ -1951,7 +1954,7 @@ const App = () => {
             <h2 className="text-3xl font-bold mb-8 text-gray-800 border-b pb-4">Hotel Reservations</h2>
 
             {/* Filters for Reservations */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200 shadow-sm"> {/* Added shadow-sm */}
               <div>
                 <label htmlFor="filterReservationStatus" className="block text-sm font-medium text-gray-700">Status</label>
                 <select
@@ -1959,7 +1962,7 @@ const App = () => {
                   id="filterReservationStatus"
                   value={filterReservationStatus}
                   onChange={handleReservationFilterChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" // Focus ring green
                 >
                   <option value="All">All</option>
                   <option value="Pending">Pending</option>
@@ -1976,7 +1979,7 @@ const App = () => {
                   id="filterReservationHotel"
                   value={filterReservationHotel}
                   onChange={handleReservationFilterChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" // Focus ring green
                   placeholder="Filter by hotel name"
                 />
               </div>
@@ -1987,7 +1990,7 @@ const App = () => {
                   id="filterReservationTourType"
                   value={filterReservationTourType}
                   onChange={handleReservationFilterChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" // Focus ring green
                 >
                   <option value="All">All</option>
                   <option value="PARTNER">PARTNER</option>
@@ -2002,7 +2005,7 @@ const App = () => {
                   id="filterReservationCheckInDate"
                   value={filterReservationCheckInDate}
                   onChange={handleReservationFilterChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" // Focus ring green
                 />
               </div>
               <div>
@@ -2013,14 +2016,14 @@ const App = () => {
                   id="filterReservationCheckOutDate"
                   value={filterReservationCheckOutDate}
                   onChange={handleReservationFilterChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" // Focus ring green
                 />
               </div>
               <div className="md:col-span-full flex justify-end">
                 <button
                   type="button"
                   onClick={resetReservationFilters}
-                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition duration-200 shadow-sm"
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition duration-200 shadow-sm border border-gray-200" // Styled reset button
                 >
                   Reset Filters
                 </button>
@@ -2031,34 +2034,34 @@ const App = () => {
             {filteredReservations.length === 0 ? (
               <p className="text-gray-600 text-center py-8">No reservations found matching your criteria. Add a new reservation to get started!</p>
             ) : (
-              <div className="overflow-x-auto rounded-lg shadow-md border border-gray-200">
+              <div className="overflow-x-auto rounded-xl shadow-md border border-gray-200"> {/* More rounded, subtle shadow */}
                 <table className="min-w-full bg-white">
-                  <thead className="bg-blue-900 text-white">
+                  <thead className="bg-gray-50 text-gray-700 border-b border-gray-200"> {/* Light header, dark text */}
                     <tr>
-                      <th className="py-3 px-4 text-left">Reservation Number</th>
-                      <th className="py-3 px-4 text-left">Hotel</th>
-                      <th className="py-3 px-4 text-left">Lead Guest</th>
-                      <th className="py-3 px-4 text-left">Tour ID</th>
-                      <th className="py-3 px-4 text-left">Deposit Paid</th>
-                      <th className="py-3 px-4 text-left">Dates</th>
-                      <th className="py-3 px-4 text-left">Status</th>
-                      <th className="py-3 px-4 text-left">Profit</th>
-                      <th className="py-3 px-4 text-center">Actions</th>
+                      <th className="py-3 px-4 text-left font-medium">Reservation Number</th>
+                      <th className="py-3 px-4 text-left font-medium">Hotel</th>
+                      <th className="py-3 px-4 text-left font-medium">Lead Guest</th>
+                      <th className="py-3 px-4 text-left font-medium">Tour ID</th>
+                      <th className="py-3 px-4 text-left font-medium">Deposit Paid</th>
+                      <th className="py-3 px-4 text-left font-medium">Dates</th>
+                      <th className="py-3 px-4 text-left font-medium">Status</th>
+                      <th className="py-3 px-4 text-left font-medium">Profit</th>
+                      <th className="py-3 px-4 text-center font-medium">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="text-gray-700">
                     {filteredReservations.map(res => (
-                      <tr key={res.id} className="border-b border-gray-200 hover:bg-gray-50 transition-colors duration-150">
+                      <tr key={res.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors duration-150"> {/* Lighter border, subtle hover */}
                         <td className="py-3 px-4">{res.reservationNumber}</td>
                         <td className="py-3 px-4">{res.hotel}</td>
                         <td className="py-3 px-4">{res.tourists && res.tourists.length > 0 ? `${res.tourists[0].firstName} ${res.tourists[0].familyName}` : 'N/A'}</td>
-                        <td className="py-3 px-4">{res.linkedTourId || 'N/A'}</td>
+                        <td className="py-3 px-4 text-gray-500">{res.linkedTourId || 'N/A'}</td> {/* Muted tour ID */}
                         <td className="py-3 px-4">{res.depositPaid ? 'Yes' : 'No'}</td>
-                        <td className="py-3 px-4">
+                        <td className="py-3 px-4 text-gray-600">
                           {res.checkIn} - {res.checkOut}
                         </td>
                         <td className="py-3 px-4">
-                          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${ // More padding for pill shape
                             res.status === 'Confirmed' ? 'bg-green-100 text-green-800' :
                             res.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
                             res.status === 'Cancelled' ? 'bg-red-100 text-red-800' :
@@ -2067,11 +2070,12 @@ const App = () => {
                             {res.status}
                           </span>
                         </td>
-                        <td className="py-3 px-4 text-right">BGN {res.profit.toFixed(2)}</td>
+                        <td className="py-3 px-4 font-semibold text-right text-gray-800">BGN {res.profit.toFixed(2)}</td> {/* Darker profit text */}
                         <td className="py-3 px-4 flex justify-center space-x-2">
                           <button
                             onClick={() => handleEditReservation(res)}
-                            className="bg-orange-500 hover:bg-orange-600 text-white p-2 rounded-full shadow-md transition duration-200 transform hover:scale-105"
+                            // Styled to be like the green accent action buttons
+                            className="bg-[#28A745] hover:bg-[#218838] text-white p-2 rounded-full shadow-md transition duration-200"
                             title="Edit"
                           >
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -2081,7 +2085,7 @@ const App = () => {
                           </button>
                           <button
                             onClick={() => handleDeleteReservation(res.id)}
-                            className="bg-red-500 hover:bg-red-600 text-white p-2 rounded-full shadow-md transition duration-200 transform hover:scale-105"
+                            className="bg-[#DC3545] hover:bg-[#C82333] text-white p-2 rounded-full shadow-md transition duration-200" // Styled to match red accent
                             title="Delete"
                           >
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -2115,7 +2119,7 @@ const App = () => {
                   id="creationDate"
                   value={reservationForm.creationDate}
                   onChange={handleReservationFormChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                   required
                 />
               </div>
@@ -2127,7 +2131,7 @@ const App = () => {
                   id="reservationNumber"
                   value={reservationForm.reservationNumber}
                   onChange={handleReservationFormChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2 bg-gray-100"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2 bg-gray-100"
                   placeholder="Auto-generated or editable"
                   disabled={!!selectedReservation}
                 />
@@ -2139,7 +2143,7 @@ const App = () => {
                   id="tourType"
                   value={reservationForm.tourType}
                   onChange={handleReservationFormChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                 >
                   <option value="PARTNER">PARTNER</option>
                   <option value="HOTEL ONLY">HOTEL ONLY</option>
@@ -2153,7 +2157,7 @@ const App = () => {
                   id="hotel"
                   value={reservationForm.hotel}
                   onChange={handleReservationFormChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                   required
                 />
               </div>
@@ -2165,7 +2169,7 @@ const App = () => {
                   id="food"
                   value={reservationForm.food}
                   onChange={handleReservationFormChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                 />
               </div>
               <div>
@@ -2176,7 +2180,7 @@ const App = () => {
                   id="place"
                   value={reservationForm.place}
                   onChange={handleReservationFormChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                 />
               </div>
               <div>
@@ -2187,7 +2191,7 @@ const App = () => {
                   id="checkIn"
                   value={reservationForm.checkIn}
                   onChange={handleReservationFormChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                   required
                 />
               </div>
@@ -2199,7 +2203,7 @@ const App = () => {
                   id="checkOut"
                   value={reservationForm.checkOut}
                   onChange={handleReservationFormChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                   required
                 />
               </div>
@@ -2223,7 +2227,7 @@ const App = () => {
                   value={reservationForm.adults}
                   onChange={handleReservationFormChange}
                   min="0"
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                 />
               </div>
               <div>
@@ -2235,7 +2239,7 @@ const App = () => {
                   value={reservationForm.children}
                   onChange={handleReservationFormChange}
                   min="0"
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                 />
               </div>
 
@@ -2248,7 +2252,7 @@ const App = () => {
                   id="linkedTourId"
                   value={reservationForm.linkedTourId}
                   onChange={handleReservationFormChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                 >
                   <option value="">-- None --</option>
                   {tours.map(tour => (
@@ -2268,7 +2272,7 @@ const App = () => {
                   onChange={handleReservationFormChange}
                   min="0"
                   step="0.01"
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                 />
               </div>
 
@@ -2282,7 +2286,7 @@ const App = () => {
                       <button
                         type="button"
                         onClick={() => removeTourist(index)}
-                        className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white p-1 rounded-full text-xs transition duration-200 transform hover:scale-110"
+                        className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white p-1 rounded-full text-xs transition duration-200" // Red accent button
                         title="Remove Tourist"
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -2292,46 +2296,47 @@ const App = () => {
                     )}
                     <div>
                       <label htmlFor={`firstName-${index}`} className="block text-sm font-medium text-gray-700">First Name</label>
-                      <input type="text" name="firstName" id={`firstName-${index}`} value={tourist.firstName} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2" required />
+                      <input type="text" name="firstName" id={`firstName-${index}`} value={tourist.firstName} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" required />
                     </div>
                     <div>
                       <label htmlFor={`fatherName-${index}`} className="block text-sm font-medium text-gray-700">Father's Name</label>
-                      <input type="text" name="fatherName" id={`fatherName-${index}`} value={tourist.fatherName} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2" />
+                      <input type="text" name="fatherName" id={`fatherName-${index}`} value={tourist.fatherName} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
                     </div>
                     <div>
                       <label htmlFor={`familyName-${index}`} className="block text-sm font-medium text-gray-700">Family Name</label>
-                      <input type="text" name="familyName" id={`familyName-${index}`} value={tourist.familyName} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2" required />
+                      <input type="text" name="familyName" id={`familyName-${index}`} value={tourist.familyName} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" required />
                     </div>
                     <div>
                       <label htmlFor={`id-${index}`} className="block text-sm font-medium text-gray-700">ID</label>
-                      <input type="text" name="id" id={`id-${index}`} value={tourist.id} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2" placeholder="e.g., Passport/National ID" required />
+                      <input type="text" name="id" id={`id-${index}`} value={tourist.id} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" placeholder="e.g., Passport/National ID" required />
                     </div>
                     <div>
                       <label htmlFor={`address-${index}`} className="block text-sm font-medium text-gray-700">Address</label>
-                      <input type="text" name="address" id={`address-${index}`} value={tourist.address} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2" />
+                      <input type="text" name="address" id={`address-${index}`} value={tourist.address} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
                     </div>
                     <div>
                       <label htmlFor={`city-${index}`} className="block text-sm font-medium text-gray-700">City</label>
-                      <input type="text" name="city" id={`city-${index}`} value={tourist.city} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2" />
+                      <input type="text" name="city" id={`city-${index}`} value={tourist.city} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
                     </div>
                     <div>
                       <label htmlFor={`postCode-${index}`} className="block text-sm font-medium text-gray-700">Post Code</label>
-                      <input type="text" name="postCode" id={`postCode-${index}`} value={tourist.postCode} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2" />
+                      <input type="text" name="postCode" id={`postCode-${index}`} value={tourist.postCode} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
                     </div>
                     <div>
                       <label htmlFor={`email-${index}`} className="block text-sm font-medium text-gray-700">Email</label>
-                      <input type="email" name="email" id={`email-${index}`} value={tourist.email} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2" />
+                      <input type="email" name="email" id={`email-${index}`} value={tourist.email} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
                     </div>
                     <div>
                       <label htmlFor={`phone-${index}`} className="block text-sm font-medium text-gray-700">Phone</label>
-                      <input type="tel" name="phone" id={`phone-${index}`} value={tourist.phone} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2" />
+                      <input type="tel" name="phone" id={`phone-${index}`} value={tourist.phone} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
                     </div>
                   </div>
                 ))}
                 <button
                   type="button"
                   onClick={addTourist}
-                  className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200 shadow-md transform hover:scale-105"
+                  // Primary button style
+                  className="mt-4 px-6 py-2 bg-[#28A745] text-white rounded-lg hover:bg-[#218838] transition duration-200 shadow-md"
                 >
                   Add Another Tourist
                 </button>
@@ -2348,7 +2353,7 @@ const App = () => {
                       id="depositPaid"
                       checked={reservationForm.depositPaid}
                       onChange={handleReservationFormChange}
-                      className="h-5 w-5 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
+                      className="h-5 w-5 text-[#28A745] focus:ring-[#28A745] border-gray-300 rounded" // Checkbox accent green
                     />
                     <label htmlFor="depositPaid" className="ml-2 block text-sm font-medium text-gray-700">Deposit Paid</label>
                   </div>
@@ -2362,7 +2367,7 @@ const App = () => {
                       onChange={handleReservationFormChange}
                       min="0"
                       step="0.01"
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                     />
                   </div>
                   <div>
@@ -2375,7 +2380,7 @@ const App = () => {
                       onChange={handleReservationFormChange}
                       min="0"
                       step="0.01"
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                       required
                     />
                   </div>
@@ -2389,7 +2394,7 @@ const App = () => {
                       onChange={handleReservationFormChange}
                       min="0"
                       step="0.01"
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                       required
                     />
                   </div>
@@ -2401,7 +2406,7 @@ const App = () => {
                       id="profit"
                       value={reservationForm.profit.toFixed(2)}
                       readOnly
-                      className="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm px-3 py-2"
+                      className="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm px-3 py-2 font-semibold text-gray-800"
                     />
                   </div>
                   <div>
@@ -2412,7 +2417,7 @@ const App = () => {
                       id="tourOperator"
                       value={reservationForm.tourOperator}
                       onChange={handleReservationFormChange}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                     />
                   </div>
                   <div>
@@ -2422,7 +2427,7 @@ const App = () => {
                       id="status"
                       value={reservationForm.status}
                       onChange={handleReservationFormChange}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                     >
                       <option value="Pending">Pending</option>
                       <option value="Confirmed">Confirmed</option>
@@ -2440,13 +2445,13 @@ const App = () => {
                     resetReservationForm();
                     setActiveTab('reservations');
                   }}
-                  className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition duration-200 shadow-sm"
+                  className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition duration-200 shadow-sm"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition duration-200 shadow-md transform hover:scale-105"
+                  className="px-6 py-2 bg-[#28A745] text-white rounded-lg hover:bg-[#218838] transition duration-200 shadow-md"
                   disabled={loading}
                 >
                   {loading ? 'Saving...' : selectedReservation ? 'Update Reservation' : 'Add Reservation'}
@@ -2463,28 +2468,28 @@ const App = () => {
             {customers.length === 0 ? (
               <p className="text-gray-600 text-center py-8">No customers found. Customers are automatically added when you create a reservation.</p>
             ) : (
-              <div className="overflow-x-auto rounded-lg shadow-md border border-gray-200">
+              <div className="overflow-x-auto rounded-xl shadow-md border border-gray-200">
                 <table className="min-w-full bg-white">
-                  <thead className="bg-blue-900 text-white">
+                  <thead className="bg-gray-50 text-gray-700 border-b border-gray-200">
                     <tr>
-                      <th className="py-3 px-4 text-left">Name</th>
-                      <th className="py-3 px-4 text-left">ID</th>
-                      <th className="py-3 px-4 text-left">Email</th>
-                      <th className="py-3 px-4 text-left">Phone</th>
-                      <th className="py-3 px-4 text-center">Actions</th>
+                      <th className="py-3 px-4 text-left font-medium">Name</th>
+                      <th className="py-3 px-4 text-left font-medium">ID</th>
+                      <th className="py-3 px-4 text-left font-medium">Email</th>
+                      <th className="py-3 px-4 text-left font-medium">Phone</th>
+                      <th className="py-3 px-4 text-center font-medium">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="text-gray-700">
                     {customers.map(cust => (
-                      <tr key={cust.id} className="border-b border-gray-200 hover:bg-gray-50 transition-colors duration-150">
+                      <tr key={cust.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors duration-150">
                         <td className="py-3 px-4">{cust.firstName} {cust.fatherName ? cust.fatherName + ' ' : ''}{cust.familyName}</td>
-                        <td className="py-3 px-4">{cust.id}</td>
+                        <td className="py-3 px-4 text-gray-500">{cust.id}</td>
                         <td className="py-3 px-4">{cust.email}</td>
                         <td className="py-3 px-4">{cust.phone}</td>
                         <td className="py-3 px-4 flex justify-center">
                           <button
                             onClick={() => handleEditCustomer(cust)}
-                            className="bg-orange-500 hover:bg-orange-600 text-white p-2 rounded-full shadow-md transition duration-200 transform hover:scale-105"
+                            className="bg-[#28A745] hover:bg-[#218838] text-white p-2 rounded-full shadow-md transition duration-200"
                             title="Edit Customer"
                           >
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -2501,21 +2506,21 @@ const App = () => {
             )}
             {/* Customer Edit Modal */}
             {showCustomerEditModal && (
-              <div className="fixed inset-0 bg-gray-600 bg-opacity50 flex items-center justify-center p-4 z-50">
+              <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 z-50">
                 <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md relative">
                   <h3 className="text-2xl font-semibold mb-4 text-gray-800">Edit Customer Details</h3>
                   <form onSubmit={handleUpdateCustomer} className="grid grid-cols-1 gap-4">
                     <div>
                       <label htmlFor="edit-firstName" className="block text-sm font-medium text-gray-700">First Name</label>
-                      <input type="text" name="firstName" id="edit-firstName" value={customerEditForm.firstName} onChange={handleCustomerEditFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2" required />
+                      <input type="text" name="firstName" id="edit-firstName" value={customerEditForm.firstName} onChange={handleCustomerEditFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" required />
                     </div>
                     <div>
                       <label htmlFor="edit-fatherName" className="block text-sm font-medium text-gray-700">Father's Name</label>
-                      <input type="text" name="fatherName" id="edit-fatherName" value={customerEditForm.fatherName} onChange={handleCustomerEditFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2" />
+                      <input type="text" name="fatherName" id="edit-fatherName" value={customerEditForm.fatherName} onChange={handleCustomerEditFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
                     </div>
                     <div>
                       <label htmlFor="edit-familyName" className="block text-sm font-medium text-gray-700">Family Name</label>
-                      <input type="text" name="familyName" id="edit-familyName" value={customerEditForm.familyName} onChange={handleCustomerEditFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2" required />
+                      <input type="text" name="familyName" id="edit-familyName" value={customerEditForm.familyName} onChange={handleCustomerEditFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" required />
                     </div>
                     <div>
                       <label htmlFor="edit-id" className="block text-sm font-medium text-gray-700">ID</label>
@@ -2523,35 +2528,35 @@ const App = () => {
                     </div>
                     <div>
                       <label htmlFor="edit-address" className="block text-sm font-medium text-gray-700">Address</label>
-                      <input type="text" name="address" id="edit-address" value={customerEditForm.address} onChange={handleCustomerEditFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2" />
+                      <input type="text" name="address" id="edit-address" value={customerEditForm.address} onChange={handleCustomerEditFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
                     </div>
                     <div>
                       <label htmlFor="edit-city" className="block text-sm font-medium text-gray-700">City</label>
-                      <input type="text" name="city" id="edit-city" value={customerEditForm.city} onChange={handleCustomerEditFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2" />
+                      <input type="text" name="city" id="edit-city" value={customerEditForm.city} onChange={handleCustomerEditFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
                     </div>
                     <div>
                       <label htmlFor="edit-postCode" className="block text-sm font-medium text-gray-700">Post Code</label>
-                      <input type="text" name="postCode" id="edit-postCode" value={customerEditForm.postCode} onChange={handleCustomerEditFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2" />
+                      <input type="text" name="postCode" id="edit-postCode" value={customerEditForm.postCode} onChange={handleCustomerEditFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
                     </div>
                     <div>
                       <label htmlFor="edit-email" className="block text-sm font-medium text-gray-700">Email</label>
-                      <input type="email" name="email" id="edit-email" value={customerEditForm.email} onChange={handleCustomerEditFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2" />
+                      <input type="email" name="email" id="edit-email" value={customerEditForm.email} onChange={handleCustomerEditFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
                     </div>
                     <div>
                       <label htmlFor="edit-phone" className="block text-sm font-medium text-gray-700">Phone</label>
-                      <input type="tel" name="phone" id="edit-phone" value={customerEditForm.phone} onChange={handleCustomerEditFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2" />
+                      <input type="tel" name="phone" id="edit-phone" value={customerEditForm.phone} onChange={handleCustomerEditFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
                     </div>
                     <div className="flex justify-end space-x-3 mt-4 col-span-full">
                       <button
                         type="button"
                         onClick={() => setShowCustomerEditModal(false)}
-                        className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition duration-200 shadow-sm"
+                        className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition duration-200 shadow-sm"
                       >
                         Cancel
                       </button>
                       <button
                         type="submit"
-                        className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition duration-200 shadow-md transform hover:scale-105"
+                        className="px-4 py-2 bg-[#28A745] text-white rounded-lg hover:bg-[#218838] transition duration-200 shadow-md"
                         disabled={loading}
                       >
                         {loading ? 'Updating...' : 'Update Customer'}
@@ -2570,7 +2575,7 @@ const App = () => {
             <h2 className="text-3xl font-bold mb-8 text-gray-800 border-b pb-4">Bus Tours</h2>
 
             {/* Filters for Tours */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200 shadow-sm">
               <div>
                 <label htmlFor="filterTourHotel" className="block text-sm font-medium text-gray-700">Hotel</label>
                 <input
@@ -2579,7 +2584,7 @@ const App = () => {
                   id="filterTourHotel"
                   value={filterTourHotel}
                   onChange={handleTourFilterChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                   placeholder="Filter by hotel name"
                 />
               </div>
@@ -2591,7 +2596,7 @@ const App = () => {
                   id="filterTourTransportCompany"
                   value={filterTourTransportCompany}
                   onChange={handleTourFilterChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                   placeholder="Filter by company"
                 />
               </div>
@@ -2603,7 +2608,7 @@ const App = () => {
                   id="filterTourDepartureDate"
                   value={filterTourDepartureDate}
                   onChange={handleTourFilterChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                 />
               </div>
               <div>
@@ -2614,14 +2619,14 @@ const App = () => {
                   id="filterTourArrivalDate"
                   value={filterTourArrivalDate}
                   onChange={handleTourFilterChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                 />
               </div>
               <div className="md:col-span-full flex justify-end">
                 <button
                   type="button"
                   onClick={resetTourFilters}
-                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition duration-200 shadow-sm"
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition duration-200 shadow-sm border border-gray-200"
                 >
                   Reset Filters
                 </button>
@@ -2631,18 +2636,18 @@ const App = () => {
             {filteredTours.length === 0 ? (
               <p className="text-gray-600 text-center py-8">No bus tours found matching your criteria. Add a new tour to get started!</p>
             ) : (
-              <div className="overflow-x-auto rounded-lg shadow-md border border-gray-200">
+              <div className="overflow-x-auto rounded-xl shadow-md border border-gray-200">
                 <table className="min-w-full bg-white">
-                  <thead className="bg-blue-900 text-white">
+                  <thead className="bg-gray-50 text-gray-700 border-b border-gray-200">
                     <tr>
-                      <th className="py-3 px-4 text-left">Tour ID</th>
-                      <th className="py-3 px-4 text-left">Hotel</th>
-                      <th className="py-3 px-4 text-left">Departure Date</th>
-                      <th className="py-3 px-4 text-left">Arrival Date</th>
-                      <th className="py-3 px-4 text-right">Max Passengers</th>
-                      <th className="py-3 px-4 text-right">Booked Passengers</th>
-                      <th className="py-3 px-4 text-right">Fulfillment %</th>
-                      <th className="py-3 px-4 text-center">Actions</th>
+                      <th className="py-3 px-4 text-left font-medium">Tour ID</th>
+                      <th className="py-3 px-4 text-left font-medium">Hotel</th>
+                      <th className="py-3 px-4 text-left font-medium">Departure Date</th>
+                      <th className="py-3 px-4 text-left font-medium">Arrival Date</th>
+                      <th className="py-3 px-4 text-right font-medium">Max Passengers</th>
+                      <th className="py-3 px-4 text-right font-medium">Booked Passengers</th>
+                      <th className="py-3 px-4 text-right font-medium">Fulfillment %</th>
+                      <th className="py-3 px-4 text-center font-medium">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="text-gray-700">
@@ -2651,18 +2656,18 @@ const App = () => {
                       const bookedPassengers = linkedReservations.reduce((sum, res) => sum + (res.adults || 0) + (res.children || 0), 0);
                       const fulfillment = tour.maxPassengers > 0 ? (bookedPassengers / tour.maxPassengers) * 100 : 0;
                       return (
-                        <tr key={tour.id} className="border-b border-gray-200 hover:bg-gray-50 transition-colors duration-150">
-                          <td className="py-3 px-4">{tour.tourId}</td>
+                        <tr key={tour.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors duration-150">
+                          <td className="py-3 px-4 font-mono text-sm text-gray-600">{tour.tourId}</td> {/* Styled tour ID */}
                           <td className="py-3 px-4">{tour.hotel}</td>
-                          <td className="py-3 px-4">{tour.departureDate}</td>
-                          <td className="py-3 px-4">{tour.arrivalDate}</td>
+                          <td className="py-3 px-4 text-gray-600">{tour.departureDate}</td>
+                          <td className="py-3 px-4 text-gray-600">{tour.arrivalDate}</td>
                           <td className="py-3 px-4 text-right">{tour.maxPassengers}</td>
                           <td className="py-3 px-4 text-right">{bookedPassengers}</td>
                           <td className="py-3 px-4 text-right">{fulfillment.toFixed(1)}%</td>
                           <td className="py-3 px-4 flex justify-center space-x-2">
                             <button
                               onClick={() => setSelectedTour(tour)}
-                              className="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-full shadow-md transition duration-200 transform hover:scale-105"
+                              className="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-full shadow-md transition duration-200" // Blue button for view
                               title="View Tour Details"
                             >
                               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -2672,7 +2677,7 @@ const App = () => {
                             </button>
                             <button
                               onClick={() => handleEditTour(tour)}
-                              className="bg-orange-500 hover:bg-orange-600 text-white p-2 rounded-full shadow-md transition duration-200 transform hover:scale-105"
+                              className="bg-[#28A745] hover:bg-[#218838] text-white p-2 rounded-full shadow-md transition duration-200"
                               title="Edit Tour"
                             >
                               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -2682,17 +2687,17 @@ const App = () => {
                             </button>
                             <button
                               onClick={() => handleDeleteTour(tour.tourId)}
-                              className="bg-red-500 hover:bg-red-600 text-white p-2 rounded-full shadow-md transition duration-200 transform hover:scale-105"
+                              className="bg-[#DC3545] hover:bg-[#C82333] text-white p-2 rounded-full shadow-md transition duration-200"
                               title="Delete"
                             >
                               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                                 <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1zm-1 3a1 1 0 011-1h4a1 1 0 110 2H7a1 1 0 01-1-1zm-1 3a1 1 0 011-1h4a1 1 0 110 2H7a1 1 0 01-1-1z" clipRule="evenodd" />
-                            </svg>
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                    })}
+                              </svg>
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                      })}
                   </tbody>
                 </table>
               </div>
@@ -2701,38 +2706,38 @@ const App = () => {
             {selectedTour && (
               <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 z-50">
                 <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-2xl relative">
-                  <h3 className="text-2xl font-semibold mb-4 text-gray-800">Tour Details: {selectedTour.tourId}</h3>
+                  <h3 className="text-2xl font-semibold mb-4 text-gray-800">Tour Details: <span className="text-blue-600">{selectedTour.tourId}</span></h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-700 mb-6">
-                    <div><strong>Departure:</strong> {selectedTour.departureDate}</div>
-                    <div><strong>Arrival:</strong> {selectedTour.arrivalDate}</div>
-                    <div><strong>Nights:</strong> {selectedTour.nights}</div>
-                    <div><strong>Days (incl. Travel):</strong> {selectedTour.daysInclTravel}</div>
-                    <div><strong>Transport Company:</strong> {selectedTour.transportCompany || 'N/A'}</div>
-                    <div><strong>Hotel:</strong> {selectedTour.hotel || 'N/A'}</div>
-                    <div><strong>Max Passengers:</strong> {selectedTour.maxPassengers}</div>
-                    <div><strong>Booked Passengers:</strong> {getLinkedReservations(selectedTour.tourId).reduce((sum, res) => sum + (res.adults || 0) + (res.children || 0), 0)}</div>
-                    <div><strong>Fulfillment %:</strong> {((getLinkedReservations(selectedTour.tourId).reduce((sum, res) => sum + (res.adults || 0) + (res.children || 0), 0) / selectedTour.maxPassengers) * 100 || 0).toFixed(1)}%</div>
+                    <div><strong>Departure:</strong> <span className="text-gray-600">{selectedTour.departureDate}</span></div>
+                    <div><strong>Arrival:</strong> <span className="text-gray-600">{selectedTour.arrivalDate}</span></div>
+                    <div><strong>Nights:</strong> <span className="font-semibold">{selectedTour.nights}</span></div>
+                    <div><strong>Days (incl. Travel):</strong> <span className="font-semibold">{selectedTour.daysInclTravel}</span></div>
+                    <div><strong>Transport Company:</strong> <span className="text-gray-600">{selectedTour.transportCompany || 'N/A'}</span></div>
+                    <div><strong>Hotel:</strong> <span className="font-semibold">{selectedTour.hotel || 'N/A'}</span></div>
+                    <div><strong>Max Passengers:</strong> <span className="font-semibold">{selectedTour.maxPassengers}</span></div>
+                    <div><strong>Booked Passengers:</strong> <span className="font-semibold">{getLinkedReservations(selectedTour.tourId).reduce((sum, res) => sum + (res.adults || 0) + (res.children || 0), 0)}</span></div>
+                    <div><strong>Fulfillment %:</strong> <span className="font-semibold text-[#28A745]">{((getLinkedReservations(selectedTour.tourId).reduce((sum, res) => sum + (res.adults || 0) + (res.children || 0), 0) / selectedTour.maxPassengers) * 100 || 0).toFixed(1)}%</span></div>
                   </div>
                   <h4 className="text-xl font-semibold mb-3 text-gray-800">Linked Reservations</h4>
                   {getLinkedReservations(selectedTour.tourId).length === 0 ? (
                     <p className="text-gray-600">No reservations linked to this tour.</p>
                   ) : (
-                    <div className="overflow-x-auto max-h-60 rounded-lg border border-gray-100">
+                    <div className="overflow-x-auto max-h-60 rounded-lg border border-gray-100 shadow-sm">
                       <table className="min-w-full bg-white">
-                        <thead className="bg-gray-100 text-gray-700">
+                        <thead className="bg-gray-100 text-gray-700 border-b border-gray-200">
                           <tr>
-                            <th className="py-2 px-3 text-left text-sm">Res. No.</th>
-                            <th className="py-2 px-3 text-left text-sm">Lead Guest</th>
-                            <th className="py-2 px-3 text-left text-sm">Dates</th>
-                            <th className="py-2 px-3 text-right text-sm">Adults/Children</th>
+                            <th className="py-2 px-3 text-left text-sm font-medium">Res. No.</th>
+                            <th className="py-2 px-3 text-left text-sm font-medium">Lead Guest</th>
+                            <th className="py-2 px-3 text-left text-sm font-medium">Dates</th>
+                            <th className="py-2 px-3 text-right text-sm font-medium">Adults/Children</th>
                           </tr>
                         </thead>
                         <tbody>
                           {getLinkedReservations(selectedTour.tourId).map(res => (
                             <tr key={res.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors duration-150">
-                              <td className="py-2 px-3 text-sm">{res.reservationNumber}</td>
+                              <td className="py-2 px-3 text-sm text-gray-600">{res.reservationNumber}</td>
                               <td className="py-2 px-3 text-sm">{res.tourists && res.tourists.length > 0 ? `${res.tourists[0].firstName} ${res.tourists[0].familyName}` : 'N/A'}</td>
-                              <td className="py-2 px-3 text-sm">{res.checkIn} - {res.checkOut}</td>
+                              <td className="py-2 px-3 text-sm text-gray-600">{res.checkIn} - {res.checkOut}</td>
                               <td className="py-2 px-3 text-right text-sm">{res.adults}/{res.children}</td>
                             </tr>
                           ))}
@@ -2743,7 +2748,7 @@ const App = () => {
                   <div className="flex justify-end mt-6">
                     <button
                       onClick={() => setSelectedTour(null)}
-                      className="px-6 py-2 bg-blue-900 text-white rounded-lg hover:bg-blue-800 transition duration-200 shadow-md transform hover:scale-105"
+                      className="px-6 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition duration-200 shadow-md" // Dark button
                     >
                       Close
                     </button>
@@ -2769,7 +2774,7 @@ const App = () => {
                   id="tourId"
                   value={tourForm.tourId}
                   onChange={handleTourFormChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2 bg-gray-100"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2 bg-gray-100"
                   placeholder="Auto-generated or editable"
                   disabled={!!selectedTour}
                 />
@@ -2782,7 +2787,7 @@ const App = () => {
                   id="departureDate"
                   value={tourForm.departureDate}
                   onChange={handleTourFormChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                   required
                 />
               </div>
@@ -2794,7 +2799,7 @@ const App = () => {
                   id="arrivalDate"
                   value={tourForm.arrivalDate}
                   onChange={handleTourFormChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                   required
                 />
               </div>
@@ -2807,7 +2812,7 @@ const App = () => {
                   value={tourForm.nights}
                   onChange={handleTourFormChange}
                   min="0"
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                 />
               </div>
               <div>
@@ -2829,7 +2834,7 @@ const App = () => {
                   id="transportCompany"
                   value={tourForm.transportCompany}
                   onChange={handleTourFormChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                 />
               </div>
               <div>
@@ -2840,7 +2845,7 @@ const App = () => {
                   id="hotelTour"
                   value={tourForm.hotel}
                   onChange={handleTourFormChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                 />
               </div>
               <div>
@@ -2852,7 +2857,7 @@ const App = () => {
                   value={tourForm.maxPassengers}
                   onChange={handleTourFormChange}
                   min="0"
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                   required
                 />
               </div>
@@ -2864,13 +2869,13 @@ const App = () => {
                     resetTourForm();
                     setActiveTab('tours');
                   }}
-                  className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition duration-200 shadow-sm"
+                  className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition duration-200 shadow-sm"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition duration-200 shadow-md transform hover:scale-105"
+                  className="px-6 py-2 bg-[#28A745] text-white rounded-lg hover:bg-[#218838] transition duration-200 shadow-md"
                   disabled={loading}
                 >
                   {loading ? 'Saving...' : selectedTour ? 'Update Tour' : 'Create Tour'}
@@ -2887,43 +2892,43 @@ const App = () => {
             {financialTransactions.length === 0 ? (
               <p className="text-gray-600 text-center py-8">No financial transactions found. Add income or expenses to get started!</p>
             ) : (
-              <div className="overflow-x-auto rounded-lg shadow-md border border-gray-200">
+              <div className="overflow-x-auto rounded-xl shadow-md border border-gray-200">
                 <table className="min-w-full bg-white">
-                  <thead className="bg-blue-900 text-white">
+                  <thead className="bg-gray-50 text-gray-700 border-b border-gray-200">
                     <tr>
-                      <th className="py-3 px-4 text-left">Date</th>
-                      <th className="py-3 px-4 text-left">Type</th>
-                      <th className="py-3 px-4 text-left">Method</th>
-                      <th className="py-3 px-4 text-left">Amount</th>
-                      <th className="py-3 px-4 text-left">VAT</th>
-                      <th className="py-3 px-4 text-left">Description</th>
-                      <th className="py-3 px-4 text-left">Linked To</th>
-                      <th className="py-3 px-4 text-center">Actions</th>
+                      <th className="py-3 px-4 text-left font-medium">Date</th>
+                      <th className="py-3 px-4 text-left font-medium">Type</th>
+                      <th className="py-3 px-4 text-left font-medium">Method</th>
+                      <th className="py-3 px-4 text-left font-medium">Amount</th>
+                      <th className="py-3 px-4 text-left font-medium">VAT</th>
+                      <th className="py-3 px-4 text-left font-medium">Description</th>
+                      <th className="py-3 px-4 text-left font-medium">Linked To</th>
+                      <th className="py-3 px-4 text-center font-medium">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="text-gray-700">
                     {filteredFinancialTransactions.map(ft => (
-                      <tr key={ft.id} className="border-b border-gray-200 hover:bg-gray-50 transition-colors duration-150">
-                        <td className="py-3 px-4">{ft.date}</td>
+                      <tr key={ft.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors duration-150">
+                        <td className="py-3 px-4 text-gray-600">{ft.date}</td>
                         <td className="py-3 px-4">
-                          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
                             ft.type === 'income' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                           }`}>
                             {ft.type.charAt(0).toUpperCase() + ft.type.slice(1)}
                           </span>
                         </td>
                         <td className="py-3 px-4">{ft.method}</td>
-                        <td className="py-3 px-4 text-right">BGN {(ft.amount || 0).toFixed(2)}</td>
-                        <td className="py-3 px-4 text-right">BGN {(ft.vat || 0).toFixed(2)}</td>
-                        <td className="py-3 px-4">{ft.reasonDescription}</td>
-                        <td className="py-3 px-4">
+                        <td className="py-3 px-4 text-right font-semibold">BGN {(ft.amount || 0).toFixed(2)}</td>
+                        <td className="py-3 px-4 text-right text-gray-600">BGN {(ft.vat || 0).toFixed(2)}</td>
+                        <td className="py-3 px-4 text-gray-600">{ft.reasonDescription}</td>
+                        <td className="py-3 px-4 text-gray-500">
                           {ft.associatedReservationId ? `Res: ${ft.associatedReservationId}` :
                             ft.associatedTourId ? `Tour: ${ft.associatedTourId}` : 'N/A'}
                         </td>
                         <td className="py-3 px-4 flex justify-center space-x-2">
                           <button
                             onClick={() => handleEditFinancialTransaction(ft)}
-                            className="bg-orange-500 hover:bg-orange-600 text-white p-2 rounded-full shadow-md transition duration-200 transform hover:scale-105"
+                            className="bg-[#28A745] hover:bg-[#218838] text-white p-2 rounded-full shadow-md transition duration-200"
                             title="Edit"
                           >
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -2933,7 +2938,7 @@ const App = () => {
                           </button>
                           <button
                             onClick={() => handleDeleteFinancialTransaction(ft.id)}
-                            className="bg-red-500 hover:bg-red-600 text-white p-2 rounded-full shadow-md transition duration-200 transform hover:scale-105"
+                            className="bg-[#DC3545] hover:bg-[#C82333] text-white p-2 rounded-full shadow-md transition duration-200"
                             title="Delete"
                           >
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -2965,7 +2970,7 @@ const App = () => {
                   id="transactionDate"
                   value={financialTransactionForm.date}
                   onChange={handleFinancialTransactionFormChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                   required
                 />
               </div>
@@ -2976,7 +2981,7 @@ const App = () => {
                   id="transactionType"
                   value={financialTransactionForm.type}
                   onChange={handleFinancialTransactionFormChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                 >
                   <option value="income">Income</option>
                   <option value="expense">Expense</option>
@@ -2989,7 +2994,7 @@ const App = () => {
                   id="method"
                   value={financialTransactionForm.method}
                   onChange={handleFinancialTransactionFormChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                 >
                   <option value="Bank">Bank</option>
                   <option value="Cash">Cash</option>
@@ -3006,7 +3011,7 @@ const App = () => {
                   onChange={handleFinancialTransactionFormChange}
                   min="0"
                   step="0.01"
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                   required
                 />
               </div>
@@ -3020,7 +3025,7 @@ const App = () => {
                   onChange={handleFinancialTransactionFormChange}
                   min="0"
                   step="0.01"
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                 />
               </div>
               <div className="md:col-span-2">
@@ -3031,7 +3036,7 @@ const App = () => {
                   value={financialTransactionForm.reasonDescription}
                   onChange={handleFinancialTransactionFormChange}
                   rows="3"
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                 ></textarea>
               </div>
 
@@ -3043,7 +3048,7 @@ const App = () => {
                   id="associatedReservationId"
                   value={financialTransactionForm.associatedReservationId}
                   onChange={handleFinancialTransactionFormChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                   disabled={financialTransactionForm.associatedTourId !== ''}
                 >
                   <option value="">-- None --</option>
@@ -3061,7 +3066,7 @@ const App = () => {
                   id="associatedTourId"
                   value={financialTransactionForm.associatedTourId}
                   onChange={handleFinancialTransactionFormChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                   disabled={financialTransactionForm.associatedReservationId !== ''}
                 >
                   <option value="">-- None --</option>
@@ -3080,13 +3085,13 @@ const App = () => {
                     resetFinancialTransactionForm();
                     setActiveTab('payments');
                   }}
-                  className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition duration-200 shadow-sm"
+                  className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition duration-200 shadow-sm"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition duration-200 shadow-md transform hover:scale-105"
+                  className="px-6 py-2 bg-[#28A745] text-white rounded-lg hover:bg-[#218838] transition duration-200 shadow-md"
                   disabled={loading}
                 >
                   {loading ? 'Saving...' : selectedFinancialTransaction ? 'Update Transaction' : 'Add Transaction'}
@@ -3102,7 +3107,7 @@ const App = () => {
             <h2 className="text-3xl font-bold mb-8 text-gray-800 border-b pb-4">Financial Reports</h2>
 
             {/* Filter Controls */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200 shadow-sm">
               <div>
                 <label htmlFor="reportStartDate" className="block text-sm font-medium text-gray-700">Start Date</label>
                 <input
@@ -3111,7 +3116,7 @@ const App = () => {
                   id="reportStartDate"
                   value={reportStartDate}
                   onChange={handleReportFilterChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                 />
               </div>
               <div>
@@ -3122,7 +3127,7 @@ const App = () => {
                   id="reportEndDate"
                   value={reportEndDate}
                   onChange={handleReportFilterChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                 />
               </div>
               <div>
@@ -3132,7 +3137,7 @@ const App = () => {
                   id="reportFilterType"
                   value={reportFilterType}
                   onChange={handleReportFilterChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                 >
                   <option value="all">All</option>
                   <option value="income">Income</option>
@@ -3148,14 +3153,14 @@ const App = () => {
                   value={reportFilterAssociation}
                   onChange={handleReportFilterChange}
                   placeholder="Res/Tour ID"
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                 />
               </div>
               <div className="md:col-span-full flex justify-end">
                 <button
                   type="button"
                   onClick={resetFinancialReportsFilters}
-                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition duration-200 shadow-sm"
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition duration-200 shadow-sm border border-gray-200"
                 >
                   Reset Filters
                 </button>
@@ -3166,17 +3171,17 @@ const App = () => {
 
             {/* Totals Summary */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-              <div className="bg-green-50 p-6 rounded-xl shadow-md border border-green-200 text-center">
-                <h3 className="font-semibold text-xl text-green-800">Total Income</h3>
-                <p className="text-2xl font-bold text-green-900">BGN {reportTotals.totalIncome.toFixed(2)}</p>
+              <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100 text-center"> {/* Consistent card styling */}
+                <h3 className="font-semibold text-xl text-gray-700">Total Income</h3>
+                <p className="text-2xl font-bold text-[#28A745]">BGN {reportTotals.totalIncome.toFixed(2)}</p>
               </div>
-              <div className="bg-red-50 p-6 rounded-xl shadow-md border border-red-200 text-center">
-                <h3 className="font-semibold text-xl text-red-800">Total Expenses</h3>
-                <p className="text-2xl font-bold text-red-900">BGN {reportTotals.totalExpenses.toFixed(2)}</p>
+              <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100 text-center">
+                <h3 className="font-semibold text-xl text-gray-700">Total Expenses</h3>
+                <p className="text-2xl font-bold text-[#DC3545]">BGN {reportTotals.totalExpenses.toFixed(2)}</p>
               </div>
-              <div className={`p-6 rounded-xl shadow-md text-center ${reportTotals.netProfit >= 0 ? 'bg-blue-50 border-blue-200' : 'bg-red-50 border-red-200'}`}>
-                <h3 className="font-semibold text-xl text-gray-800">Net Profit/Loss</h3>
-                <p className={`text-2xl font-bold ${reportTotals.netProfit >= 0 ? 'text-blue-900' : 'text-red-900'}`}>BGN {reportTotals.netProfit.toFixed(2)}</p>
+              <div className={`p-6 rounded-xl shadow-md border ${reportTotals.netProfit >= 0 ? 'bg-white border-gray-100' : 'bg-red-50 border-red-200'} text-center`}>
+                <h3 className="font-semibold text-xl text-gray-700">Net Profit/Loss</h3>
+                <p className={`text-2xl font-bold ${reportTotals.netProfit >= 0 ? 'text-[#28A745]' : 'text-[#DC3545]'}`}>BGN {reportTotals.netProfit.toFixed(2)}</p>
               </div>
             </div>
 
@@ -3184,35 +3189,35 @@ const App = () => {
             {filteredFinancialTransactions.length === 0 ? (
               <p className="text-gray-600 text-center py-8">No transactions match the selected filters.</p>
             ) : (
-              <div className="overflow-x-auto rounded-lg shadow-md border border-gray-200">
+              <div className="overflow-x-auto rounded-xl shadow-md border border-gray-200">
                 <table className="min-w-full bg-white">
-                  <thead className="bg-blue-900 text-white">
+                  <thead className="bg-gray-50 text-gray-700 border-b border-gray-200">
                     <tr>
-                      <th className="py-3 px-4 text-left">Date</th>
-                      <th className="py-3 px-4 text-left">Type</th>
-                      <th className="py-3 px-4 text-left">Method</th>
-                      <th className="py-3 px-4 text-left">Amount</th>
-                      <th className="py-3 px-4 text-left">VAT</th>
-                      <th className="py-3 px-4 text-left">Description</th>
-                      <th className="py-3 px-4 text-left">Linked To</th>
+                      <th className="py-3 px-4 text-left font-medium">Date</th>
+                      <th className="py-3 px-4 text-left font-medium">Type</th>
+                      <th className="py-3 px-4 text-left font-medium">Method</th>
+                      <th className="py-3 px-4 text-left font-medium">Amount</th>
+                      <th className="py-3 px-4 text-left font-medium">VAT</th>
+                      <th className="py-3 px-4 text-left font-medium">Description</th>
+                      <th className="py-3 px-4 text-left font-medium">Linked To</th>
                     </tr>
                   </thead>
                   <tbody className="text-gray-700">
                     {filteredFinancialTransactions.map(ft => (
-                      <tr key={ft.id} className="border-b border-gray-200 hover:bg-gray-50 transition-colors duration-150">
-                        <td className="py-3 px-4">{ft.date}</td>
+                      <tr key={ft.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors duration-150">
+                        <td className="py-3 px-4 text-gray-600">{ft.date}</td>
                         <td className="py-3 px-4">
-                          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
                             ft.type === 'income' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                           }`}>
                             {ft.type.charAt(0).toUpperCase() + ft.type.slice(1)}
                           </span>
                         </td>
                         <td className="py-3 px-4">{ft.method}</td>
-                        <td className="py-3 px-4 text-right">BGN {(ft.amount || 0).toFixed(2)}</td>
-                        <td className="py-3 px-4 text-right">BGN {(ft.vat || 0).toFixed(2)}</td>
-                        <td className="py-3 px-4">{ft.reasonDescription}</td>
-                        <td className="py-3 px-4">
+                        <td className="py-3 px-4 text-right font-semibold">BGN {(ft.amount || 0).toFixed(2)}</td>
+                        <td className="py-3 px-4 text-right text-gray-600">BGN {(ft.vat || 0).toFixed(2)}</td>
+                        <td className="py-3 px-4 text-gray-600">{ft.reasonDescription}</td>
+                        <td className="py-3 px-4 text-gray-500">
                           {ft.associatedReservationId ? `Res: ${ft.associatedReservationId}` :
                             ft.associatedTourId ? `Tour: ${ft.associatedTourId}` : 'N/A'}
                         </td>
@@ -3231,36 +3236,36 @@ const App = () => {
             <h2 className="text-3xl font-bold mb-8 text-gray-800 border-b pb-4">Invoicing Dashboard</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {/* Total Invoices */}
-              <div className="bg-blue-50 p-6 rounded-xl shadow-md border border-blue-200">
-                <h3 className="font-semibold text-xl text-blue-800 mb-3">Total Invoices</h3>
-                <p className="text-gray-700 text-lg">Sales Invoices: <span className="font-bold text-blue-900">{invoicingDashboardStats.totalSalesInvoices}</span></p>
-                <p className="text-gray-700 text-lg">Expense Invoices: <span className="font-bold text-blue-900">{invoicingDashboardStats.totalExpenseInvoices}</span></p>
+              <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
+                <h3 className="font-semibold text-xl text-gray-700 mb-3">Total Invoices</h3>
+                <p className="text-gray-600 text-lg">Sales Invoices: <span className="font-bold text-gray-800">{invoicingDashboardStats.totalSalesInvoices}</span></p>
+                <p className="text-gray-600 text-lg">Expense Invoices: <span className="font-bold text-gray-800">{invoicingDashboardStats.totalExpenseInvoices}</span></p>
               </div>
 
               {/* Total Sales */}
-              <div className="bg-green-50 p-6 rounded-xl shadow-md border border-green-200">
-                <h3 className="font-semibold text-xl text-green-800 mb-3">Total Sales (Income)</h3>
-                <p className="text-gray-700 text-lg">Amount: <span className="font-bold text-green-900">BGN {invoicingDashboardStats.totalSalesAmount} (EUR {invoicingDashboardStats.totalSalesAmountEUR})</span></p>
-                <p className="text-gray-700 text-lg">VAT: <span className="font-bold text-green-900">BGN {invoicingDashboardStats.totalSalesVAT} (EUR {invoicingDashboardStats.totalSalesVATEUR})</span></p>
+              <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
+                <h3 className="font-semibold text-xl text-gray-700 mb-3">Total Sales (Income)</h3>
+                <p className="text-gray-600 text-lg">Amount: <span className="font-bold text-[#28A745]">BGN {invoicingDashboardStats.totalSalesAmount} (EUR {invoicingDashboardStats.totalSalesAmountEUR})</span></p>
+                <p className="text-gray-600 text-lg">VAT: <span className="font-bold text-[#28A745]">BGN {invoicingDashboardStats.totalSalesVAT} (EUR {invoicingDashboardStats.totalSalesVATEUR})</span></p>
               </div>
 
               {/* Total Expenses */}
-              <div className="bg-red-50 p-6 rounded-xl shadow-md border border-red-200">
-                <h3 className="font-semibold text-xl text-red-800 mb-3">Total Expenses</h3>
-                <p className="text-gray-700 text-lg">Amount: <span className="font-bold text-red-900">BGN {invoicingDashboardStats.totalExpenseAmount} (EUR {invoicingDashboardStats.totalExpenseAmountEUR})</span></p>
-                <p className="text-gray-700 text-lg">VAT: <span className="font-bold text-red-900">BGN {invoicingDashboardStats.totalExpenseVAT} (EUR {invoicingDashboardStats.totalExpenseVATEUR})</span></p>
+              <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
+                <h3 className="font-semibold text-xl text-gray-700 mb-3">Total Expenses</h3>
+                <p className="text-gray-600 text-lg">Amount: <span className="font-bold text-[#DC3545]">BGN {invoicingDashboardStats.totalExpenseAmount} (EUR {invoicingDashboardStats.totalExpenseAmountEUR})</span></p>
+                <p className="text-gray-600 text-lg">VAT: <span className="font-bold text-[#DC3545]">BGN {invoicingDashboardStats.totalExpenseVAT} (EUR {invoicingDashboardStats.totalExpenseVATEUR})</span></p>
               </div>
 
               {/* Net Profit/Loss */}
-              <div className={`p-6 rounded-xl shadow-md border ${invoicingDashboardStats.netProfitInvoicing >= 0 ? 'bg-blue-50 border-blue-200' : 'bg-red-50 border-red-200'}`}>
-                <h3 className="font-semibold text-xl text-gray-800 mb-3">Net Profit/Loss</h3>
-                <p className={`text-2xl font-bold ${invoicingDashboardStats.netProfitInvoicing >= 0 ? 'text-blue-900' : 'text-red-900'}`}>BGN {invoicingDashboardStats.netProfitInvoicing} (EUR {invoicingDashboardStats.netProfitInvoicingEUR})</p>
+              <div className={`p-6 rounded-xl shadow-md border ${invoicingDashboardStats.netProfitInvoicing >= 0 ? 'bg-white border-gray-100' : 'bg-red-50 border-red-200'}`}>
+                <h3 className="font-semibold text-xl text-gray-700 mb-3">Net Profit/Loss</h3>
+                <p className={`text-2xl font-bold ${invoicingDashboardStats.netProfitInvoicing >= 0 ? 'text-[#28A745]' : 'text-[#DC3545]'}`}>BGN {invoicingDashboardStats.netProfitInvoicing} (EUR {invoicingDashboardStats.netProfitInvoicingEUR})</p>
               </div>
 
               {/* Net VAT */}
-              <div className={`p-6 rounded-xl shadow-md border ${invoicingDashboardStats.netVAT >= 0 ? 'bg-blue-50 border-blue-200' : 'bg-red-50 border-red-200'}`}>
-                <h3 className="font-semibold text-xl text-gray-800 mb-3">Net VAT</h3>
-                <p className={`text-2xl font-bold ${invoicingDashboardStats.netVAT >= 0 ? 'text-blue-900' : 'text-red-900'}`}>BGN {invoicingDashboardStats.netVAT} (EUR {invoicingDashboardStats.netVATEUR})</p>
+              <div className={`p-6 rounded-xl shadow-md border ${invoicingDashboardStats.netVAT >= 0 ? 'bg-white border-gray-100' : 'bg-red-50 border-red-200'}`}>
+                <h3 className="font-semibold text-xl text-gray-700 mb-3">Net VAT</h3>
+                <p className={`text-2xl font-bold ${invoicingDashboardStats.netVAT >= 0 ? 'text-[#28A745]' : 'text-[#DC3545]'}`}>BGN {invoicingDashboardStats.netVAT} (EUR {invoicingDashboardStats.netVATEUR})</p>
               </div>
             </div>
           </div>
@@ -3287,7 +3292,7 @@ const App = () => {
                     id="companyName"
                     value={expenseInvoiceForm.companyName}
                     onChange={handleExpenseInvoiceFormChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                     required
                   />
                 </div>
@@ -3299,7 +3304,7 @@ const App = () => {
                     id="companyID"
                     value={expenseInvoiceForm.companyID}
                     onChange={handleExpenseInvoiceFormChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                   />
                 </div>
                 <div>
@@ -3310,7 +3315,7 @@ const App = () => {
                     id="vatID"
                     value={expenseInvoiceForm.vatID}
                     onChange={handleExpenseInvoiceFormChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                   />
                 </div>
                 <div>
@@ -3321,7 +3326,7 @@ const App = () => {
                     id="invoiceNumber"
                     value={expenseInvoiceForm.invoiceNumber}
                     onChange={handleExpenseInvoiceFormChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                     required
                   />
                 </div>
@@ -3333,7 +3338,7 @@ const App = () => {
                     id="invoiceDate"
                     value={expenseInvoiceForm.invoiceDate}
                     onChange={handleExpenseInvoiceFormChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                     required
                   />
                 </div>
@@ -3345,7 +3350,7 @@ const App = () => {
                     id="dueDate"
                     value={expenseInvoiceForm.dueDate}
                     onChange={handleExpenseInvoiceFormChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                   />
                 </div>
                 <div className="col-span-full">
@@ -3356,7 +3361,7 @@ const App = () => {
                     value={expenseInvoiceForm.productsServices}
                     onChange={handleExpenseInvoiceFormChange}
                     rows="3"
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                   ></textarea>
                 </div>
                 <div>
@@ -3366,7 +3371,7 @@ const App = () => {
                     id="paymentMethod"
                     value={expenseInvoiceForm.paymentMethod}
                     onChange={handleExpenseInvoiceFormChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                   >
                     <option value="Bank">Bank</option>
                     <option value="Cash">Cash</option>
@@ -3383,7 +3388,7 @@ const App = () => {
                     onChange={handleExpenseInvoiceFormChange}
                     min="0"
                     step="0.01"
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                     required
                   />
                 </div>
@@ -3397,7 +3402,7 @@ const App = () => {
                     onChange={handleExpenseInvoiceFormChange}
                     min="0"
                     step="0.01"
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                   />
                 </div>
                 <div className="col-span-full">
@@ -3408,7 +3413,7 @@ const App = () => {
                     value={expenseInvoiceForm.notes}
                     onChange={handleExpenseInvoiceFormChange}
                     rows="2"
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                   ></textarea>
                 </div>
 
@@ -3416,13 +3421,13 @@ const App = () => {
                   <button
                     type="button"
                     onClick={() => { resetExpenseInvoiceForm(); setActiveTab('invoicingExpenses'); }}
-                    className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition duration-200 shadow-sm"
+                    className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition duration-200 shadow-sm"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="px-6 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition duration-200 shadow-md transform hover:scale-105"
+                    className="px-6 py-2 bg-[#28A745] text-white rounded-lg hover:bg-[#218838] transition duration-200 shadow-md"
                     disabled={loading}
                   >
                     {loading ? 'Saving...' : selectedExpenseInvoice ? 'Update Expense Invoice' : 'Add Expense Invoice'}
@@ -3435,7 +3440,7 @@ const App = () => {
                 <div className="flex justify-end mb-4">
                   <button
                     onClick={() => { resetExpenseInvoiceForm(); setActiveTab('addExpenseInvoice'); }}
-                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200 shadow-md transform hover:scale-105"
+                    className="px-6 py-2 bg-[#28A745] text-white rounded-lg hover:bg-[#218838] transition duration-200 shadow-md"
                   >
                     Add New Expense Invoice
                   </button>
@@ -3443,32 +3448,32 @@ const App = () => {
                 {expenseInvoices.length === 0 ? (
                   <p className="text-gray-600 text-center py-8">No expense invoices found. Add a new one to get started!</p>
                 ) : (
-                  <div className="overflow-x-auto rounded-lg shadow-md border border-gray-200">
+                  <div className="overflow-x-auto rounded-xl shadow-md border border-gray-200">
                     <table className="min-w-full bg-white">
-                      <thead className="bg-blue-900 text-white">
+                      <thead className="bg-gray-50 text-gray-700 border-b border-gray-200">
                         <tr>
-                          <th className="py-3 px-4 text-left">Invoice No.</th>
-                          <th className="py-3 px-4 text-left">Company Name</th>
-                          <th className="py-3 px-4 text-left">Date</th>
-                          <th className="py-3 px-4 text-right">Amount (BGN)</th>
-                          <th className="py-3 px-4 text-right">VAT (BGN)</th>
-                          <th className="py-3 px-4 text-left">Payment Method</th>
-                          <th className="py-3 px-4 text-center">Actions</th>
+                          <th className="py-3 px-4 text-left font-medium">Invoice No.</th>
+                          <th className="py-3 px-4 text-left font-medium">Company Name</th>
+                          <th className="py-3 px-4 text-left font-medium">Date</th>
+                          <th className="py-3 px-4 text-right font-medium">Amount (BGN)</th>
+                          <th className="py-3 px-4 text-right font-medium">VAT (BGN)</th>
+                          <th className="py-3 px-4 text-left font-medium">Payment Method</th>
+                          <th className="py-3 px-4 text-center font-medium">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="text-gray-700">
                         {expenseInvoices.map(inv => (
-                          <tr key={inv.id} className="border-b border-gray-200 hover:bg-gray-50 transition-colors duration-150">
-                            <td className="py-3 px-4">{inv.invoiceNumber}</td>
+                          <tr key={inv.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors duration-150">
+                            <td className="py-3 px-4 text-gray-600 font-mono text-sm">{inv.invoiceNumber}</td>
                             <td className="py-3 px-4">{inv.companyName}</td>
-                            <td className="py-3 px-4">{inv.invoiceDate}</td>
-                            <td className="py-3 px-4 text-right">BGN {parseFloat(inv.totalAmount).toFixed(2)}</td>
-                            <td className="py-3 px-4 text-right">BGN {parseFloat(inv.totalVAT).toFixed(2)}</td>
-                            <td className="py-3 px-4">{inv.paymentMethod}</td>
+                            <td className="py-3 px-4 text-gray-600">{inv.invoiceDate}</td>
+                            <td className="py-3 px-4 text-right font-semibold text-[#DC3545]">BGN {parseFloat(inv.totalAmount).toFixed(2)}</td> {/* Expenses in red */}
+                            <td className="py-3 px-4 text-right text-gray-600">BGN {parseFloat(inv.totalVAT).toFixed(2)}</td>
+                            <td className="py-3 px-4 text-gray-600">{inv.paymentMethod}</td>
                             <td className="py-3 px-4 flex justify-center space-x-2">
                               <button
                                 onClick={() => handleEditExpenseInvoice(inv)}
-                                className="bg-orange-500 hover:bg-orange-600 text-white p-2 rounded-full shadow-md transition duration-200 transform hover:scale-105"
+                                className="bg-[#28A745] hover:bg-[#218838] text-white p-2 rounded-full shadow-md transition duration-200"
                                 title="Edit"
                               >
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -3478,7 +3483,7 @@ const App = () => {
                               </button>
                               <button
                                 onClick={() => handleDeleteExpenseInvoice(inv.id)}
-                                className="bg-red-500 hover:bg-red-600 text-white p-2 rounded-full shadow-md transition duration-200 transform hover:scale-105"
+                                className="bg-[#DC3545] hover:bg-[#C82333] text-white p-2 rounded-full shadow-md transition duration-200"
                                 title="Delete"
                               >
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -3517,7 +3522,7 @@ const App = () => {
                     id="invoiceNumber"
                     value={salesInvoiceForm.invoiceNumber}
                     onChange={handleSalesInvoiceFormChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2 bg-gray-100"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2 bg-gray-100"
                     placeholder="Auto-generated or editable"
                     disabled={!!selectedSalesInvoice}
                     required
@@ -3531,7 +3536,7 @@ const App = () => {
                     id="invoiceDate"
                     value={salesInvoiceForm.invoiceDate}
                     onChange={handleSalesInvoiceFormChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                     required
                   />
                 </div>
@@ -3543,7 +3548,7 @@ const App = () => {
                     id="clientName"
                     value={salesInvoiceForm.clientName}
                     onChange={handleSalesInvoiceFormChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                     required
                   />
                 </div>
@@ -3555,7 +3560,7 @@ const App = () => {
                     id="clientID"
                     value={salesInvoiceForm.clientID}
                     onChange={handleSalesInvoiceFormChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                   />
                 </div>
                 <div>
@@ -3566,7 +3571,7 @@ const App = () => {
                     id="clientVATID"
                     value={salesInvoiceForm.clientVATID}
                     onChange={handleSalesInvoiceFormChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                   />
                 </div>
                 <div>
@@ -3577,7 +3582,7 @@ const App = () => {
                     id="clientAddress"
                     value={salesInvoiceForm.clientAddress}
                     onChange={handleSalesInvoiceFormChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                   />
                 </div>
                 <div>
@@ -3588,7 +3593,7 @@ const App = () => {
                     id="clientCity"
                     value={salesInvoiceForm.clientCity}
                     onChange={handleSalesInvoiceFormChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                   />
                 </div>
                 <div>
@@ -3599,7 +3604,7 @@ const App = () => {
                     id="clientPostCode"
                     value={salesInvoiceForm.clientPostCode}
                     onChange={handleSalesInvoiceFormChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                   />
                 </div>
 
@@ -3615,7 +3620,7 @@ const App = () => {
                       <button
                         type="button"
                         onClick={() => removeSalesInvoiceProduct(index)}
-                        className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white p-1 rounded-full text-xs transition duration-200 transform hover:scale-110"
+                        className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white p-1 rounded-full text-xs transition duration-200"
                         title="Remove Product"
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -3630,7 +3635,7 @@ const App = () => {
                           id={`productCode-${index}`}
                           value={product.productCode}
                           onChange={(e) => handleSalesInvoiceProductChange(index, e)}
-                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                           required
                         >
                           <option value="">Select Product</option>
@@ -3645,15 +3650,15 @@ const App = () => {
                       </div>
                       <div>
                         <label htmlFor={`quantity-${index}`} className="block text-sm font-medium text-gray-700">Quantity</label>
-                        <input type="number" name="quantity" id={`quantity-${index}`} value={product.quantity} onChange={(e) => handleSalesInvoiceProductChange(index, e)} min="1" step="1" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2" required />
+                        <input type="number" name="quantity" id={`quantity-${index}`} value={product.quantity} onChange={(e) => handleSalesInvoiceProductChange(index, e)} min="1" step="1" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" required />
                       </div>
                       <div>
                         <label htmlFor={`price-${index}`} className="block text-sm font-medium text-gray-700">Price (per unit)</label>
-                        <input type="number" name="price" id={`price-${index}`} value={product.price} onChange={(e) => handleSalesInvoiceProductChange(index, e)} min="0" step="0.01" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2" required />
+                        <input type="number" name="price" id={`price-${index}`} value={product.price} onChange={(e) => handleSalesInvoiceProductChange(index, e)} min="0" step="0.01" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" required />
                       </div>
                       <div>
                         <label htmlFor={`vatRate-${index}`} className="block text-sm font-medium text-gray-700">VAT Rate (%)</label>
-                        <input type="number" name="vatRate" id={`vatRate-${index}`} value={product.vatRate} onChange={(e) => handleSalesInvoiceProductChange(index, e)} min="0" step="0.01" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2" required />
+                        <input type="number" name="vatRate" id={`vatRate-${index}`} value={product.vatRate} onChange={(e) => handleSalesInvoiceProductChange(index, e)} min="0" step="0.01" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" required />
                       </div>
                       <div>
                         <label htmlFor={`lineTotal-${index}`} className="block text-sm font-medium text-gray-700">Line Total (BGN)</label>
@@ -3672,7 +3677,7 @@ const App = () => {
                   <button
                     type="button"
                     onClick={addSalesInvoiceProduct}
-                    className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200 shadow-md transform hover:scale-105"
+                    className="mt-4 px-6 py-2 bg-[#28A745] text-white rounded-lg hover:bg-[#218838] transition duration-200 shadow-md"
                   >
                     Add Product
                   </button>
@@ -3689,7 +3694,7 @@ const App = () => {
                         id="paymentMethodSales"
                         value={salesInvoiceForm.paymentMethod}
                         onChange={handleSalesInvoiceFormChange}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                       >
                         <option value="Cash">Cash</option>
                         <option value="Bank">Bank</option>
@@ -3726,7 +3731,7 @@ const App = () => {
                         id="dueDateSales"
                         value={salesInvoiceForm.dueDate}
                         onChange={handleSalesInvoiceFormChange}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                       />
                     </div>
                     <div className="flex items-center">
@@ -3736,7 +3741,7 @@ const App = () => {
                         id="isCopy"
                         checked={salesInvoiceForm.isCopy}
                         onChange={handleSalesInvoiceFormChange}
-                        className="h-5 w-5 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
+                        className="h-5 w-5 text-[#28A745] focus:ring-[#28A745] border-gray-300 rounded"
                       />
                       <label htmlFor="isCopy" className="ml-2 block text-sm font-medium text-gray-700">Is Copy</label>
                     </div>
@@ -3750,7 +3755,7 @@ const App = () => {
                     </div>
                     <div>
                       <label htmlFor="grandTotalDisplay" className="block text-sm font-medium text-gray-700">Grand Total (incl. VAT)</label>
-                      <input type="text" id="grandTotalDisplay" value={`BGN ${salesInvoiceForm.grandTotal.toFixed(2)}`} readOnly className="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm px-3 py-2 font-bold text-lg text-blue-800" />
+                      <input type="text" id="grandTotalDisplay" value={`BGN ${salesInvoiceForm.grandTotal.toFixed(2)}`} readOnly className="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm px-3 py-2 font-bold text-lg text-[#28A745]" /> {/* Green for grand total */}
                     </div>
                   </div>
                 </div>
@@ -3762,7 +3767,7 @@ const App = () => {
                     value={salesInvoiceForm.notes}
                     onChange={handleSalesInvoiceFormChange}
                     rows="2"
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                   ></textarea>
                 </div>
 
@@ -3770,13 +3775,13 @@ const App = () => {
                   <button
                     type="button"
                     onClick={() => { resetSalesInvoiceForm(); setActiveTab('invoicingSales'); }}
-                    className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition duration-200 shadow-sm"
+                    className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition duration-200 shadow-sm"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="px-6 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition duration-200 shadow-md transform hover:scale-105"
+                    className="px-6 py-2 bg-[#28A745] text-white rounded-lg hover:bg-[#218838] transition duration-200 shadow-md"
                     disabled={loading}
                   >
                     {loading ? 'Saving...' : selectedSalesInvoice ? 'Update Sales Invoice' : 'Add Sales Invoice'}
@@ -3789,7 +3794,7 @@ const App = () => {
                 <div className="flex justify-end mb-4">
                   <button
                     onClick={() => { resetSalesInvoiceForm(); setActiveTab('addSalesInvoice'); }}
-                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200 shadow-md transform hover:scale-105"
+                    className="px-6 py-2 bg-[#28A745] text-white rounded-lg hover:bg-[#218838] transition duration-200 shadow-md"
                   >
                     Add New Sales Invoice
                   </button>
@@ -3797,34 +3802,34 @@ const App = () => {
                 {salesInvoices.length === 0 ? (
                   <p className="text-gray-600 text-center py-8">No sales invoices found. Add a new one to get started!</p>
                 ) : (
-                  <div className="overflow-x-auto rounded-lg shadow-md border border-gray-200">
+                  <div className="overflow-x-auto rounded-xl shadow-md border border-gray-200">
                     <table className="min-w-full bg-white">
-                      <thead className="bg-blue-900 text-white">
+                      <thead className="bg-gray-50 text-gray-700 border-b border-gray-200">
                         <tr>
-                          <th className="py-3 px-4 text-left">Invoice No.</th>
-                          <th className="py-3 px-4 text-left">Date</th>
-                          <th className="py-3 px-4 text-left">Client Name</th>
-                          <th className="py-3 px-4 text-right">Total Amount</th>
-                          <th className="py-3 px-4 text-right">Total VAT</th>
-                          <th className="py-3 px-4 text-right">Grand Total</th>
-                          <th className="py-3 px-4 text-left">Payment Method</th>
-                          <th className="py-3 px-4 text-center">Actions</th>
+                          <th className="py-3 px-4 text-left font-medium">Invoice No.</th>
+                          <th className="py-3 px-4 text-left font-medium">Date</th>
+                          <th className="py-3 px-4 text-left font-medium">Client Name</th>
+                          <th className="py-3 px-4 text-right font-medium">Total Amount</th>
+                          <th className="py-3 px-4 text-right font-medium">Total VAT</th>
+                          <th className="py-3 px-4 text-right font-medium">Grand Total</th>
+                          <th className="py-3 px-4 text-left font-medium">Payment Method</th>
+                          <th className="py-3 px-4 text-center font-medium">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="text-gray-700">
                         {salesInvoices.map(inv => (
-                          <tr key={inv.id} className="border-b border-gray-200 hover:bg-gray-50 transition-colors duration-150">
-                            <td className="py-3 px-4">{inv.invoiceNumber}</td>
-                            <td className="py-3 px-4">{inv.invoiceDate}</td>
+                          <tr key={inv.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors duration-150">
+                            <td className="py-3 px-4 text-gray-600 font-mono text-sm">{inv.invoiceNumber}</td>
+                            <td className="py-3 px-4 text-gray-600">{inv.invoiceDate}</td>
                             <td className="py-3 px-4">{inv.clientName}</td>
-                            <td className="py-3 px-4 text-right">BGN {parseFloat(inv.totalAmount).toFixed(2)}</td>
-                            <td className="py-3 px-4 text-right">BGN {parseFloat(inv.totalVAT).toFixed(2)}</td>
-                            <td className="py-3 px-4 text-right">BGN {parseFloat(inv.grandTotal).toFixed(2)}</td>
-                            <td className="py-3 px-4">{inv.paymentMethod}</td>
+                            <td className="py-3 px-4 text-right text-gray-800 font-semibold">BGN {parseFloat(inv.totalAmount).toFixed(2)}</td>
+                            <td className="py-3 px-4 text-right text-gray-600">BGN {parseFloat(inv.totalVAT).toFixed(2)}</td>
+                            <td className="py-3 px-4 text-right text-[#28A745] font-bold">BGN {parseFloat(inv.grandTotal).toFixed(2)}</td> {/* Grand total in green */}
+                            <td className="py-3 px-4 text-gray-600">{inv.paymentMethod}</td>
                             <td className="py-3 px-4 flex justify-center space-x-2">
                               <button
                                 onClick={() => handleEditSalesInvoice(inv)}
-                                className="bg-orange-500 hover:bg-orange-600 text-white p-2 rounded-full shadow-md transition duration-200 transform hover:scale-105"
+                                className="bg-[#28A745] hover:bg-[#218838] text-white p-2 rounded-full shadow-md transition duration-200"
                                 title="Edit"
                               >
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -3834,7 +3839,7 @@ const App = () => {
                               </button>
                               <button
                                 onClick={() => handleDeleteSalesInvoice(inv.id)}
-                                className="bg-red-500 hover:bg-red-600 text-white p-2 rounded-full shadow-md transition duration-200 transform hover:scale-105"
+                                className="bg-[#DC3545] hover:bg-[#C82333] text-white p-2 rounded-full shadow-md transition duration-200"
                                 title="Delete"
                               >
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -3872,7 +3877,7 @@ const App = () => {
                     id="productCode"
                     value={productForm.productCode}
                     onChange={handleProductFormChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2 bg-gray-100"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2 bg-gray-100"
                     placeholder="Auto-generated or editable"
                     disabled={!!selectedProduct}
                     required
@@ -3886,7 +3891,7 @@ const App = () => {
                     id="productName"
                     value={productForm.productName}
                     onChange={handleProductFormChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                     required
                   />
                 </div>
@@ -3900,7 +3905,7 @@ const App = () => {
                     onChange={handleProductFormChange}
                     min="0"
                     step="0.01"
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                     required
                   />
                 </div>
@@ -3914,7 +3919,7 @@ const App = () => {
                     onChange={handleProductFormChange}
                     min="0"
                     step="0.01"
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                     required
                   />
                 </div>
@@ -3923,13 +3928,13 @@ const App = () => {
                   <button
                     type="button"
                     onClick={() => { resetProductForm(); setActiveTab('invoicingProducts'); }}
-                    className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition duration-200 shadow-sm"
+                    className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition duration-200 shadow-sm"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="px-6 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition duration-200 shadow-md transform hover:scale-105"
+                    className="px-6 py-2 bg-[#28A745] text-white rounded-lg hover:bg-[#218838] transition duration-200 shadow-md"
                     disabled={loading}
                   >
                     {loading ? 'Saving...' : selectedProduct ? 'Update Product' : 'Add Product'}
@@ -3942,7 +3947,7 @@ const App = () => {
                 <div className="flex justify-end mb-4">
                   <button
                     onClick={() => { resetProductForm(); setActiveTab('addProduct'); }}
-                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200 shadow-md transform hover:scale-105"
+                    className="px-6 py-2 bg-[#28A745] text-white rounded-lg hover:bg-[#218838] transition duration-200 shadow-md"
                   >
                     Add New Product
                   </button>
@@ -3950,28 +3955,28 @@ const App = () => {
                 {products.length === 0 ? (
                   <p className="text-gray-600 text-center py-8">No products found. Add a new product to get started!</p>
                 ) : (
-                  <div className="overflow-x-auto rounded-lg shadow-md border border-gray-200">
+                  <div className="overflow-x-auto rounded-xl shadow-md border border-gray-200">
                     <table className="min-w-full bg-white">
-                      <thead className="bg-blue-900 text-white">
+                      <thead className="bg-gray-50 text-gray-700 border-b border-gray-200">
                         <tr>
-                          <th className="py-3 px-4 text-left">Code</th>
-                          <th className="py-3 px-4 text-left">Name</th>
-                          <th className="py-3 px-4 text-right">Price (BGN)</th>
-                          <th className="py-3 px-4 text-right">VAT Rate (%)</th>
-                          <th className="py-3 px-4 text-center">Actions</th>
+                          <th className="py-3 px-4 text-left font-medium">Code</th>
+                          <th className="py-3 px-4 text-left font-medium">Name</th>
+                          <th className="py-3 px-4 text-right font-medium">Price (BGN)</th>
+                          <th className="py-3 px-4 text-right font-medium">VAT Rate (%)</th>
+                          <th className="py-3 px-4 text-center font-medium">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="text-gray-700">
                         {products.map(prod => (
-                          <tr key={prod.id} className="border-b border-gray-200 hover:bg-gray-50 transition-colors duration-150">
-                            <td className="py-3 px-4">{prod.productCode}</td>
+                          <tr key={prod.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors duration-150">
+                            <td className="py-3 px-4 text-gray-600 font-mono text-sm">{prod.productCode}</td>
                             <td className="py-3 px-4">{prod.productName}</td>
-                            <td className="py-3 px-4 text-right">BGN {parseFloat(prod.price).toFixed(2)}</td>
-                            <td className="py-3 px-4 text-right">{parseFloat(prod.vatRate).toFixed(2)}%</td>
+                            <td className="py-3 px-4 text-right font-semibold">BGN {parseFloat(prod.price).toFixed(2)}</td>
+                            <td className="py-3 px-4 text-right text-gray-600">{parseFloat(prod.vatRate).toFixed(2)}%</td>
                             <td className="py-3 px-4 flex justify-center space-x-2">
                               <button
                                 onClick={() => handleEditProduct(prod)}
-                                className="bg-orange-500 hover:bg-orange-600 text-white p-2 rounded-full shadow-md transition duration-200 transform hover:scale-105"
+                                className="bg-[#28A745] hover:bg-[#218838] text-white p-2 rounded-full shadow-md transition duration-200"
                                 title="Edit"
                               >
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -3981,7 +3986,7 @@ const App = () => {
                               </button>
                               <button
                                 onClick={() => handleDeleteProduct(prod.id)}
-                                className="bg-red-500 hover:bg-red-600 text-white p-2 rounded-full shadow-md transition duration-200 transform hover:scale-105"
+                                className="bg-[#DC3545] hover:bg-[#C82333] text-white p-2 rounded-full shadow-md transition duration-200"
                                 title="Delete"
                               >
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -4037,10 +4042,12 @@ const App = () => {
 
       <div className="flex flex-col md:flex-row min-h-screen">
         {/* Sidebar Navigation */}
-        <aside className="w-full md:w-64 bg-blue-900 text-white p-4 rounded-b-xl md:rounded-r-xl md:rounded-b-none shadow-lg">
+        {/* Adjusted sidebar background, text colors, and spacing */}
+        <aside className="w-full md:w-64 bg-white text-gray-800 p-4 rounded-b-xl md:rounded-r-xl md:rounded-b-none shadow-lg border-r border-gray-100">
           <div className="flex items-center justify-center md:justify-start mb-6">
             {/* Replace the text logo with your image logo */}
-            <img src={Logo} alt="Dynamex Logo" className="h-12 w-auto mr-3" /> {/* Adjust height/width as needed */}
+            <img src={Logo} alt="Dynamex Logo" className="h-10 w-auto mr-3" /> {/* Adjust height/width as needed, slight reduction for a tighter feel */}
+            <span className="font-semibold text-xl text-gray-900">Dynamex</span> {/* Added text name next to logo */}
           </div>
           <nav>
             <ul>
@@ -4050,8 +4057,9 @@ const App = () => {
                   <li className="mb-2">
                     <button
                       onClick={() => { setActiveTab('dashboard'); }}
-                      className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-lg
-                        ${activeTab === 'dashboard' ? 'bg-orange-500 text-blue-900 shadow-md font-semibold' : 'hover:bg-blue-800 text-orange-500'}
+                      // Adjusted button styles for active/hover states to match new theme
+                      className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base
+                        ${activeTab === 'dashboard' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}
                       `}
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -4064,8 +4072,8 @@ const App = () => {
                   <li className="mb-2">
                     <button
                       onClick={() => { setActiveTab('reservations'); resetReservationForm(); }}
-                      className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-lg
-                        ${activeTab === 'reservations' ? 'bg-orange-500 text-blue-900 shadow-md font-semibold' : 'hover:bg-blue-800 text-orange-500'}
+                      className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base
+                        ${activeTab === 'reservations' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}
                       `}
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -4077,8 +4085,8 @@ const App = () => {
                   <li className="mb-2">
                     <button
                       onClick={() => { setActiveTab('addReservation'); resetReservationForm(); }}
-                      className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-lg
-                        ${activeTab === 'addReservation' ? 'bg-orange-500 text-blue-900 shadow-md font-semibold' : 'hover:bg-blue-800 text-orange-500'}
+                      className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base
+                        ${activeTab === 'addReservation' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}
                       `}
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -4090,8 +4098,8 @@ const App = () => {
                   <li className="mb-2">
                     <button
                       onClick={() => { setActiveTab('customers'); resetReservationForm(); }}
-                      className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-lg
-                        ${activeTab === 'customers' ? 'bg-orange-500 text-blue-900 shadow-md font-semibold' : 'hover:bg-blue-800 text-orange-500'}
+                      className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base
+                        ${activeTab === 'customers' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}
                       `}
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -4103,8 +4111,8 @@ const App = () => {
                   <li className="mb-2">
                     <button
                       onClick={() => setActiveTab('tours')}
-                      className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-lg
-                        ${activeTab === 'tours' ? 'bg-orange-500 text-blue-900 shadow-md font-semibold' : 'hover:bg-blue-800 text-orange-500'}
+                      className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base
+                        ${activeTab === 'tours' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}
                       `}
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -4116,8 +4124,8 @@ const App = () => {
                   <li className="mb-2">
                     <button
                       onClick={() => { setActiveTab('addTour'); resetTourForm(); }}
-                      className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-lg
-                        ${activeTab === 'addTour' ? 'bg-orange-500 text-blue-900 shadow-md font-semibold' : 'hover:bg-blue-800 text-orange-500'}
+                      className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base
+                        ${activeTab === 'addTour' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}
                       `}
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -4129,8 +4137,8 @@ const App = () => {
                   <li className="mb-2">
                     <button
                       onClick={() => setActiveTab('payments')}
-                      className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-lg
-                        ${activeTab === 'payments' ? 'bg-orange-500 text-blue-900 shadow-md font-semibold' : 'hover:bg-blue-800 text-orange-500'}
+                      className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base
+                        ${activeTab === 'payments' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}
                       `}
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -4142,8 +4150,8 @@ const App = () => {
                   <li className="mb-2">
                     <button
                       onClick={() => { setActiveTab('addFinancialTransaction'); resetFinancialTransactionForm(); }}
-                      className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-lg
-                        ${activeTab === 'addFinancialTransaction' ? 'bg-orange-500 text-blue-900 shadow-md font-semibold' : 'hover:bg-blue-800 text-orange-500'}
+                      className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base
+                        ${activeTab === 'addFinancialTransaction' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}
                       `}
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -4155,8 +4163,8 @@ const App = () => {
                   <li className="mb-2">
                     <button
                       onClick={() => { setActiveTab('financialReports'); resetFinancialReportsFilters(); }}
-                      className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-lg
-                        ${activeTab === 'financialReports' ? 'bg-orange-500 text-blue-900 shadow-md font-semibold' : 'hover:bg-blue-800 text-orange-500'}
+                      className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base
+                        ${activeTab === 'financialReports' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}
                       `}
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -4165,14 +4173,14 @@ const App = () => {
                       Financial Reports
                     </button>
                   </li>
-                  <li className="mb-2 mt-6 border-t border-blue-800 pt-6"> {/* Separator for new section */}
-                    <h3 className="text-xl font-bold mb-3 text-orange-500">Invoicing</h3>
+                  <li className="mb-2 mt-6 border-t border-gray-200 pt-6"> {/* Separator for new section */}
+                    <h3 className="text-sm font-bold mb-3 text-gray-500 uppercase tracking-wider">Invoicing</h3> {/* Smaller, muted heading */}
                   </li>
                   <li className="mb-2">
                     <button
                       onClick={() => setActiveTab('invoicingDashboard')}
-                      className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-lg
-                        ${activeTab === 'invoicingDashboard' ? 'bg-orange-500 text-blue-900 shadow-md font-semibold' : 'hover:bg-blue-800 text-orange-500'}
+                      className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base
+                        ${activeTab === 'invoicingDashboard' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}
                       `}
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -4185,8 +4193,8 @@ const App = () => {
                   <li className="mb-2">
                     <button
                       onClick={() => setActiveTab('invoicingSales')}
-                      className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-lg
-                        ${activeTab === 'invoicingSales' || activeTab === 'addSalesInvoice' ? 'bg-orange-500 text-blue-900 shadow-md font-semibold' : 'hover:bg-blue-800 text-orange-500'}
+                      className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base
+                        ${activeTab === 'invoicingSales' || activeTab === 'addSalesInvoice' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}
                       `}
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -4198,8 +4206,8 @@ const App = () => {
                   <li className="mb-2">
                     <button
                       onClick={() => setActiveTab('invoicingExpenses')}
-                      className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-lg
-                        ${activeTab === 'invoicingExpenses' || activeTab === 'addExpenseInvoice' ? 'bg-orange-500 text-blue-900 shadow-md font-semibold' : 'hover:bg-blue-800 text-orange-500'}
+                      className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base
+                        ${activeTab === 'invoicingExpenses' || activeTab === 'addExpenseInvoice' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}
                       `}
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -4211,8 +4219,8 @@ const App = () => {
                   <li className="mb-2">
                     <button
                       onClick={() => setActiveTab('invoicingProducts')}
-                      className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-lg
-                        ${activeTab === 'invoicingProducts' || activeTab === 'addProduct' ? 'bg-orange-500 text-blue-900 shadow-md font-semibold' : 'hover:bg-blue-800 text-orange-500'}
+                      className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base
+                        ${activeTab === 'invoicingProducts' || activeTab === 'addProduct' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}
                       `}
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -4222,10 +4230,10 @@ const App = () => {
                     </button>
                   </li>
                   {isEmailPasswordUser && (
-                    <li className="mb-2">
+                    <li className="mb-2 mt-auto pt-6 border-t border-gray-200"> {/* Pushed to bottom, consistent separator */}
                       <button
                         onClick={handleLogout}
-                        className="flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-lg hover:bg-red-700 text-white"
+                        className="flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base hover:bg-red-50 text-[#DC3545]" // Logout in red
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -4239,7 +4247,7 @@ const App = () => {
             </ul>
           </nav>
           {userId && (
-            <div className="mt-8 pt-4 border-t border-blue-800 text-sm text-gray-400">
+            <div className="mt-8 pt-4 border-t border-gray-200 text-sm text-gray-500">
               <p>Logged in as:</p>
               <p className="break-all font-mono text-xs">{auth.currentUser?.email || 'Anonymous'}</p>
             </div>
@@ -4247,7 +4255,7 @@ const App = () => {
         </aside>
 
         {/* Main Content Area */}
-        <main className="flex-1 p-6 md:p-8 overflow-y-auto">
+        <main className="flex-1 p-6 md:p-8 overflow-y-auto bg-gray-100"> {/* Light background */}
           {/* Notifications will appear here */}
           <NotificationDisplay notifications={notifications} onDismiss={removeNotification} />
 
