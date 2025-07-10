@@ -744,8 +744,8 @@ const App = () => {
       }
 
       const finalProfit = (parseFloat(reservationForm.finalAmount) || 0) -
-                          (parseFloat(reservationForm.owedToHotel) || 0) -
-                          (parseFloat(reservationForm.approxTransportCost) || 0);
+                           (parseFloat(reservationForm.owedToHotel) || 0) -
+                           (parseFloat(reservationForm.approxTransportCost) || 0);
 
 
       const reservationData = {
@@ -1365,7 +1365,7 @@ const App = () => {
             null
           );
         } else if (fulfillment === 0 && diffDays <= 14) {
-           addNotification(
+            addNotification(
             `Tour ${tour.tourId} to ${tour.hotel} has NO passengers booked (departing in ${diffDays} days).`,
             'error',
             true,
@@ -1595,18 +1595,8 @@ const App = () => {
         [name]: type === 'checkbox' ? checked : value,
       };
 
-      // Recalculate totals if products change
-      if (name === 'products') {
-        let newTotalAmount = 0;
-        let newTotalVAT = 0;
-        newState.products.forEach(item => {
-          newTotalAmount += item.lineTotal || 0;
-          newTotalVAT += item.lineVAT || 0;
-        });
-        newState.totalAmount = newTotalAmount;
-        newState.totalVAT = newTotalVAT;
-        newState.grandTotal = newTotalAmount + newTotalVAT;
-      }
+      // Recalculate totals if products change (this part is handled by handleSalesInvoiceProductChange)
+      // This listener is more for top-level fields
       return newState;
     });
   }, []);
@@ -1615,16 +1605,24 @@ const App = () => {
     const { name, value } = e.target;
     setSalesInvoiceForm(prev => {
       const newProducts = [...prev.products];
-      const product = newProducts[index];
-      const selectedProductData = products.find(p => p.productCode === value);
+      const product = { ...newProducts[index] }; // Create a copy to avoid direct mutation
 
-      if (name === 'productCode' && selectedProductData) {
-        product.productCode = selectedProductData.productCode;
-        product.productName = selectedProductData.productName;
-        product.price = selectedProductData.price;
-        product.vatRate = selectedProductData.vatRate;
+      if (name === 'productCode') {
+        const selectedProductData = products.find(p => p.productCode === value);
+        if (selectedProductData) {
+          product.productCode = selectedProductData.productCode;
+          product.productName = selectedProductData.productName;
+          product.price = selectedProductData.price;
+          product.vatRate = selectedProductData.vatRate;
+        } else {
+          // If product code is cleared or not found, clear other fields
+          product.productCode = value;
+          product.productName = '';
+          product.price = 0;
+          product.vatRate = 0;
+        }
       } else {
-        product[name] = value;
+        product[name] = type === 'number' ? parseFloat(value) || 0 : value;
       }
 
       // Recalculate line total and VAT for the current product
@@ -1635,6 +1633,8 @@ const App = () => {
       product.lineTotal = (quantity * price);
       product.lineVAT = (product.lineTotal * (vatRate / 100));
       product.lineGrandTotal = product.lineTotal + product.lineVAT;
+
+      newProducts[index] = product; // Update the product in the array
 
       // Recalculate overall totals for the invoice
       let newTotalAmount = 0;
@@ -1652,7 +1652,7 @@ const App = () => {
         grandTotal: newTotalAmount + newTotalVAT,
       };
     });
-  }, [products]);
+  }, [products]); // Depend on products to ensure correct lookup
 
   const addSalesInvoiceProduct = useCallback(() => {
     setSalesInvoiceForm(prev => ({
@@ -2679,7 +2679,7 @@ const App = () => {
                             >
                               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                                 <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1zm-1 3a1 1 0 011-1h4a1 1 0 110 2H7a1 1 0 01-1-1zm-1 3a1 1 0 011-1h4a1 1 0 110 2H7a1 1 0 01-1-1z" clipRule="evenodd" />
-                            </svg>
+                              </svg>
                             </button>
                           </td>
                         </tr>
@@ -3490,82 +3490,278 @@ const App = () => {
         );
 
       case 'invoicingSales':
-        return (
-          <div className="p-6 bg-white rounded-xl shadow-lg">
-            <h2 className="text-3xl font-bold mb-8 text-gray-800 border-b pb-4">Sales Invoices</h2>
-            <p className="text-gray-600 text-center py-8">Content for Sales Invoices coming soon!</p>
-          </div>
-        );
-      case 'invoicingProducts':
-      case 'addProduct': // Combined for add/edit
+      case 'addSalesInvoice': // Handle both list and add/edit form in one case
         return (
           <div className="p-6 bg-white rounded-xl shadow-lg">
             <h2 className="text-3xl font-bold mb-8 text-gray-800 border-b pb-4">
-              {activeTab === 'addProduct' ? (selectedProduct ? 'Edit Product' : 'Add New Product') : 'Product Management'}
+              {activeTab === 'addSalesInvoice' ? (selectedSalesInvoice ? 'Edit Sales Invoice' : 'Add New Sales Invoice') : 'Sales Invoices'}
             </h2>
 
-            {activeTab === 'addProduct' ? (
-              // Product Add/Edit Form
-              <form onSubmit={handleSubmitProduct} className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+            {activeTab === 'addSalesInvoice' ? (
+              // Sales Invoice Add/Edit Form
+              <form onSubmit={handleSubmitSalesInvoice} className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                <div className="col-span-full text-lg font-semibold text-gray-800">Client Details</div>
                 <div>
-                  <label htmlFor="productCode" className="block text-sm font-medium text-gray-700">Product Code</label>
+                  <label htmlFor="invoiceNumber" className="block text-sm font-medium text-gray-700">Invoice Number</label>
                   <input
                     type="text"
-                    name="productCode"
-                    id="productCode"
-                    value={productForm.productCode}
-                    onChange={handleProductFormChange}
+                    name="invoiceNumber"
+                    id="invoiceNumber"
+                    value={salesInvoiceForm.invoiceNumber}
+                    onChange={handleSalesInvoiceFormChange}
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2 bg-gray-100"
                     placeholder="Auto-generated or editable"
-                    disabled={!!selectedProduct}
+                    disabled={!!selectedSalesInvoice}
                     required
                   />
                 </div>
                 <div>
-                  <label htmlFor="productName" className="block text-sm font-medium text-gray-700">Product Name</label>
+                  <label htmlFor="invoiceDate" className="block text-sm font-medium text-gray-700">Invoice Date</label>
+                  <input
+                    type="date"
+                    name="invoiceDate"
+                    id="invoiceDate"
+                    value={salesInvoiceForm.invoiceDate}
+                    onChange={handleSalesInvoiceFormChange}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                    required
+                  />
+                </div>
+                <div>
+                  <label htmlFor="clientName" className="block text-sm font-medium text-gray-700">Client Name</label>
                   <input
                     type="text"
-                    name="productName"
-                    id="productName"
-                    value={productForm.productName}
-                    onChange={handleProductFormChange}
+                    name="clientName"
+                    id="clientName"
+                    value={salesInvoiceForm.clientName}
+                    onChange={handleSalesInvoiceFormChange}
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
                     required
                   />
                 </div>
                 <div>
-                  <label htmlFor="price" className="block text-sm font-medium text-gray-700">Price (BGN)</label>
+                  <label htmlFor="clientID" className="block text-sm font-medium text-gray-700">Client ID</label>
                   <input
-                    type="number"
-                    name="price"
-                    id="price"
-                    value={productForm.price}
-                    onChange={handleProductFormChange}
-                    min="0"
-                    step="0.01"
+                    type="text"
+                    name="clientID"
+                    id="clientID"
+                    value={salesInvoiceForm.clientID}
+                    onChange={handleSalesInvoiceFormChange}
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
-                    required
                   />
                 </div>
                 <div>
-                  <label htmlFor="vatRate" className="block text-sm font-medium text-gray-700">VAT Rate (%)</label>
+                  <label htmlFor="clientVATID" className="block text-sm font-medium text-gray-700">Client VAT ID</label>
                   <input
-                    type="number"
-                    name="vatRate"
-                    id="vatRate"
-                    value={productForm.vatRate}
-                    onChange={handleProductFormChange}
-                    min="0"
-                    step="0.01"
+                    type="text"
+                    name="clientVATID"
+                    id="clientVATID"
+                    value={salesInvoiceForm.clientVATID}
+                    onChange={handleSalesInvoiceFormChange}
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
-                    required
                   />
+                </div>
+                <div>
+                  <label htmlFor="clientAddress" className="block text-sm font-medium text-gray-700">Client Address</label>
+                  <input
+                    type="text"
+                    name="clientAddress"
+                    id="clientAddress"
+                    value={salesInvoiceForm.clientAddress}
+                    onChange={handleSalesInvoiceFormChange}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="clientCity" className="block text-sm font-medium text-gray-700">Client City</label>
+                  <input
+                    type="text"
+                    name="clientCity"
+                    id="clientCity"
+                    value={salesInvoiceForm.clientCity}
+                    onChange={handleSalesInvoiceFormChange}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="clientPostCode" className="block text-sm font-medium text-gray-700">Client Post Code</label>
+                  <input
+                    type="text"
+                    name="clientPostCode"
+                    id="clientPostCode"
+                    value={salesInvoiceForm.clientPostCode}
+                    onChange={handleSalesInvoiceFormChange}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  />
+                </div>
+
+                {/* Products Section */}
+                <div className="md:col-span-2 border-t border-gray-200 pt-4 mt-4">
+                  <h3 className="text-lg font-semibold mb-4 text-gray-800">Products/Services</h3>
+                  {salesInvoiceForm.products.length === 0 && (
+                    <p className="text-gray-600 mb-4">No products added to this invoice. Click "Add Product" to start.</p>
+                  )}
+                  {salesInvoiceForm.products.map((product, index) => (
+                    <div key={index} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 border border-gray-200 rounded-lg p-4 mb-4 relative shadow-sm">
+                      <h4 className="col-span-full text-md font-medium text-gray-700 mb-2">Item {index + 1}</h4>
+                      <button
+                        type="button"
+                        onClick={() => removeSalesInvoiceProduct(index)}
+                        className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white p-1 rounded-full text-xs transition duration-200 transform hover:scale-110"
+                        title="Remove Product"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+
+                      <div>
+                        <label htmlFor={`productCode-${index}`} className="block text-sm font-medium text-gray-700">Product Code</label>
+                        <select
+                          name="productCode"
+                          id={`productCode-${index}`}
+                          value={product.productCode}
+                          onChange={(e) => handleSalesInvoiceProductChange(index, e)}
+                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                          required
+                        >
+                          <option value="">Select Product</option>
+                          {products.map(p => (
+                            <option key={p.id} value={p.productCode}>{p.productName} ({p.productCode})</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label htmlFor={`productName-${index}`} className="block text-sm font-medium text-gray-700">Product Name</label>
+                        <input type="text" name="productName" id={`productName-${index}`} value={product.productName} onChange={(e) => handleSalesInvoiceProductChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm px-3 py-2" readOnly />
+                      </div>
+                      <div>
+                        <label htmlFor={`quantity-${index}`} className="block text-sm font-medium text-gray-700">Quantity</label>
+                        <input type="number" name="quantity" id={`quantity-${index}`} value={product.quantity} onChange={(e) => handleSalesInvoiceProductChange(index, e)} min="1" step="1" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2" required />
+                      </div>
+                      <div>
+                        <label htmlFor={`price-${index}`} className="block text-sm font-medium text-gray-700">Price (per unit)</label>
+                        <input type="number" name="price" id={`price-${index}`} value={product.price} onChange={(e) => handleSalesInvoiceProductChange(index, e)} min="0" step="0.01" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2" required />
+                      </div>
+                      <div>
+                        <label htmlFor={`vatRate-${index}`} className="block text-sm font-medium text-gray-700">VAT Rate (%)</label>
+                        <input type="number" name="vatRate" id={`vatRate-${index}`} value={product.vatRate} onChange={(e) => handleSalesInvoiceProductChange(index, e)} min="0" step="0.01" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2" required />
+                      </div>
+                      <div>
+                        <label htmlFor={`lineTotal-${index}`} className="block text-sm font-medium text-gray-700">Line Total (BGN)</label>
+                        <input type="number" name="lineTotal" id={`lineTotal-${index}`} value={product.lineTotal.toFixed(2)} readOnly className="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm px-3 py-2" />
+                      </div>
+                      <div>
+                        <label htmlFor={`lineVAT-${index}`} className="block text-sm font-medium text-gray-700">Line VAT (BGN)</label>
+                        <input type="number" name="lineVAT" id={`lineVAT-${index}`} value={product.lineVAT.toFixed(2)} readOnly className="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm px-3 py-2" />
+                      </div>
+                      <div>
+                        <label htmlFor={`lineGrandTotal-${index}`} className="block text-sm font-medium text-gray-700">Line Grand Total (BGN)</label>
+                        <input type="number" name="lineGrandTotal" id={`lineGrandTotal-${index}`} value={product.lineGrandTotal.toFixed(2)} readOnly className="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm px-3 py-2" />
+                      </div>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={addSalesInvoiceProduct}
+                    className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200 shadow-md transform hover:scale-105"
+                  >
+                    Add Product
+                  </button>
+                </div>
+
+                {/* Totals & Other Details */}
+                <div className="md:col-span-2 border-t border-gray-200 pt-4 mt-4">
+                  <h3 className="text-lg font-semibold mb-4 text-gray-800">Payment & Totals</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label htmlFor="paymentMethodSales" className="block text-sm font-medium text-gray-700">Payment Method</label>
+                      <select
+                        name="paymentMethod"
+                        id="paymentMethodSales"
+                        value={salesInvoiceForm.paymentMethod}
+                        onChange={handleSalesInvoiceFormChange}
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                      >
+                        <option value="Cash">Cash</option>
+                        <option value="Bank">Bank</option>
+                        <option value="Cash 2">Cash 2</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label htmlFor="bankDetailsIban" className="block text-sm font-medium text-gray-700">Bank IBAN</label>
+                      <input
+                        type="text"
+                        name="bankDetails.iban" // Note: This will need custom handling if you want to edit nested objects
+                        id="bankDetailsIban"
+                        value={salesInvoiceForm.bankDetails.iban}
+                        readOnly
+                        className="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm px-3 py-2"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="bankDetailsName" className="block text-sm font-medium text-gray-700">Bank Name</label>
+                      <input
+                        type="text"
+                        name="bankDetails.bankName" // Note: This will need custom handling if you want to edit nested objects
+                        id="bankDetailsName"
+                        value={salesInvoiceForm.bankDetails.bankName}
+                        readOnly
+                        className="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm px-3 py-2"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="dueDateSales" className="block text-sm font-medium text-gray-700">Due Date</label>
+                      <input
+                        type="date"
+                        name="dueDate"
+                        id="dueDateSales"
+                        value={salesInvoiceForm.dueDate}
+                        onChange={handleSalesInvoiceFormChange}
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                      />
+                    </div>
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        name="isCopy"
+                        id="isCopy"
+                        checked={salesInvoiceForm.isCopy}
+                        onChange={handleSalesInvoiceFormChange}
+                        className="h-5 w-5 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
+                      />
+                      <label htmlFor="isCopy" className="ml-2 block text-sm font-medium text-gray-700">Is Copy</label>
+                    </div>
+                    <div>
+                      <label htmlFor="totalAmountDisplay" className="block text-sm font-medium text-gray-700">Total Amount (excl. VAT)</label>
+                      <input type="text" id="totalAmountDisplay" value={`BGN ${salesInvoiceForm.totalAmount.toFixed(2)}`} readOnly className="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm px-3 py-2 font-semibold" />
+                    </div>
+                    <div>
+                      <label htmlFor="totalVATDisplay" className="block text-sm font-medium text-gray-700">Total VAT</label>
+                      <input type="text" id="totalVATDisplay" value={`BGN ${salesInvoiceForm.totalVAT.toFixed(2)}`} readOnly className="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm px-3 py-2 font-semibold" />
+                    </div>
+                    <div>
+                      <label htmlFor="grandTotalDisplay" className="block text-sm font-medium text-gray-700">Grand Total (incl. VAT)</label>
+                      <input type="text" id="grandTotalDisplay" value={`BGN ${salesInvoiceForm.grandTotal.toFixed(2)}`} readOnly className="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm px-3 py-2 font-bold text-lg text-blue-800" />
+                    </div>
+                  </div>
+                </div>
+                <div className="col-span-full">
+                  <label htmlFor="notesSales" className="block text-sm font-medium text-gray-700">Notes</label>
+                  <textarea
+                    name="notes"
+                    id="notesSales"
+                    value={salesInvoiceForm.notes}
+                    onChange={handleSalesInvoiceFormChange}
+                    rows="2"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  ></textarea>
                 </div>
 
                 <div className="md:col-span-2 flex justify-end space-x-3 mt-8">
                   <button
                     type="button"
-                    onClick={() => { resetProductForm(); setActiveTab('invoicingProducts'); }}
+                    onClick={() => { resetSalesInvoiceForm(); setActiveTab('invoicingSales'); }}
                     className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition duration-200 shadow-sm"
                   >
                     Cancel
@@ -3575,45 +3771,51 @@ const App = () => {
                     className="px-6 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition duration-200 shadow-md transform hover:scale-105"
                     disabled={loading}
                   >
-                    {loading ? 'Saving...' : selectedProduct ? 'Update Product' : 'Add Product'}
+                    {loading ? 'Saving...' : selectedSalesInvoice ? 'Update Sales Invoice' : 'Add Sales Invoice'}
                   </button>
                 </div>
               </form>
             ) : (
-              // Product List
+              // Sales Invoices List
               <>
                 <div className="flex justify-end mb-4">
                   <button
-                    onClick={() => { resetProductForm(); setActiveTab('addProduct'); }}
+                    onClick={() => { resetSalesInvoiceForm(); setActiveTab('addSalesInvoice'); }}
                     className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200 shadow-md transform hover:scale-105"
                   >
-                    Add New Product
+                    Add New Sales Invoice
                   </button>
                 </div>
-                {products.length === 0 ? (
-                  <p className="text-gray-600 text-center py-8">No products found. Add a new product to get started!</p>
+                {salesInvoices.length === 0 ? (
+                  <p className="text-gray-600 text-center py-8">No sales invoices found. Add a new one to get started!</p>
                 ) : (
                   <div className="overflow-x-auto rounded-lg shadow-md border border-gray-200">
                     <table className="min-w-full bg-white">
                       <thead className="bg-blue-900 text-white">
                         <tr>
-                          <th className="py-3 px-4 text-left">Code</th>
-                          <th className="py-3 px-4 text-left">Name</th>
-                          <th className="py-3 px-4 text-right">Price (BGN)</th>
-                          <th className="py-3 px-4 text-right">VAT Rate (%)</th>
+                          <th className="py-3 px-4 text-left">Invoice No.</th>
+                          <th className="py-3 px-4 text-left">Date</th>
+                          <th className="py-3 px-4 text-left">Client Name</th>
+                          <th className="py-3 px-4 text-right">Total Amount</th>
+                          <th className="py-3 px-4 text-right">Total VAT</th>
+                          <th className="py-3 px-4 text-right">Grand Total</th>
+                          <th className="py-3 px-4 text-left">Payment Method</th>
                           <th className="py-3 px-4 text-center">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="text-gray-700">
-                        {products.map(prod => (
-                          <tr key={prod.id} className="border-b border-gray-200 hover:bg-gray-50 transition-colors duration-150">
-                            <td className="py-3 px-4">{prod.productCode}</td>
-                            <td className="py-3 px-4">{prod.productName}</td>
-                            <td className="py-3 px-4 text-right">BGN {parseFloat(prod.price).toFixed(2)}</td>
-                            <td className="py-3 px-4 text-right">{parseFloat(prod.vatRate).toFixed(2)}%</td>
+                        {salesInvoices.map(inv => (
+                          <tr key={inv.id} className="border-b border-gray-200 hover:bg-gray-50 transition-colors duration-150">
+                            <td className="py-3 px-4">{inv.invoiceNumber}</td>
+                            <td className="py-3 px-4">{inv.invoiceDate}</td>
+                            <td className="py-3 px-4">{inv.clientName}</td>
+                            <td className="py-3 px-4 text-right">BGN {parseFloat(inv.totalAmount).toFixed(2)}</td>
+                            <td className="py-3 px-4 text-right">BGN {parseFloat(inv.totalVAT).toFixed(2)}</td>
+                            <td className="py-3 px-4 text-right">BGN {parseFloat(inv.grandTotal).toFixed(2)}</td>
+                            <td className="py-3 px-4">{inv.paymentMethod}</td>
                             <td className="py-3 px-4 flex justify-center space-x-2">
                               <button
-                                onClick={() => handleEditProduct(prod)}
+                                onClick={() => handleEditSalesInvoice(inv)}
                                 className="bg-orange-500 hover:bg-orange-600 text-white p-2 rounded-full shadow-md transition duration-200 transform hover:scale-105"
                                 title="Edit"
                               >
@@ -3623,7 +3825,7 @@ const App = () => {
                                 </svg>
                               </button>
                               <button
-                                onClick={() => handleDeleteProduct(prod.id)}
+                                onClick={() => handleDeleteSalesInvoice(inv.id)}
                                 className="bg-red-500 hover:bg-red-600 text-white p-2 rounded-full shadow-md transition duration-200 transform hover:scale-105"
                                 title="Delete"
                               >
@@ -3804,7 +4006,7 @@ const App = () => {
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17v-4m0 0h3m-3 0H7m-1 0v4m-2-4h2a2 2 0 012 2v2a2 2 0 01-2 2H4a2 2 0 01-2-2V7a2 2 0 012-2h4m2 10h.01M17 17v-4m0 0h3m-3 0H17m-1 0v4m-2-4h2a2 2 0 012 2v2a2 2 0 01-2 2H14a2 2 0 01-2-2V7a2 2 0 012-2h4m2 10h.01M7 11a1 1 0 01-1 1H4a1 1 0 01-1-1V9a1 1 0 011-1h2a1 1 0 011 1v2z" />
-                    </svg>
+                      </svg>
                       Financial Reports
                     </button>
                   </li>
@@ -3829,7 +4031,7 @@ const App = () => {
                     <button
                       onClick={() => setActiveTab('invoicingSales')}
                       className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-lg
-                        ${activeTab === 'invoicingSales' ? 'bg-orange-500 text-blue-900 shadow-md font-semibold' : 'hover:bg-blue-800 text-orange-500'}
+                        ${activeTab === 'invoicingSales' || activeTab === 'addSalesInvoice' ? 'bg-orange-500 text-blue-900 shadow-md font-semibold' : 'hover:bg-blue-800 text-orange-500'}
                       `}
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -3842,7 +4044,7 @@ const App = () => {
                     <button
                       onClick={() => setActiveTab('invoicingExpenses')}
                       className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-lg
-                        ${activeTab === 'invoicingExpenses' ? 'bg-orange-500 text-blue-900 shadow-md font-semibold' : 'hover:bg-blue-800 text-orange-500'}
+                        ${activeTab === 'invoicingExpenses' || activeTab === 'addExpenseInvoice' ? 'bg-orange-500 text-blue-900 shadow-md font-semibold' : 'hover:bg-blue-800 text-orange-500'}
                       `}
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -3855,7 +4057,7 @@ const App = () => {
                     <button
                       onClick={() => setActiveTab('invoicingProducts')}
                       className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-lg
-                        ${activeTab === 'invoicingProducts' ? 'bg-orange-500 text-blue-900 shadow-md font-semibold' : 'hover:bg-blue-800 text-orange-500'}
+                        ${activeTab === 'invoicingProducts' || activeTab === 'addProduct' ? 'bg-orange-500 text-blue-900 shadow-md font-semibold' : 'hover:bg-blue-800 text-orange-500'}
                       `}
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
