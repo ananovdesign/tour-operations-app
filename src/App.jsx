@@ -707,6 +707,7 @@ const App = () => {
       const reservationData = {
         ...reservationForm,
         reservationNumber: currentReservationNumber,
+        depositPaid: reservationForm.depositPaid, // Ensure boolean is passed correctly
         depositAmount: parseFloat(reservationForm.depositAmount) || 0,
         finalAmount: parseFloat(reservationForm.finalAmount) || 0,
         owedToHotel: parseFloat(reservationForm.owedToHotel) || 0,
@@ -718,7 +719,7 @@ const App = () => {
         checkIn: reservationForm.checkIn,
         checkOut: reservationForm.checkOut,
         totalNights: calculateDaysBetweenDates(reservationForm.checkIn, reservationForm.checkOut),
-        tourists: reservationForm.tourists.map(t => ({ ...t }))
+        tourists: reservationForm.tourists ? reservationForm.tourists.map(t => ({ ...t })) : [], // Ensure tourists is an array
       };
 
       await manageCustomerRecords(reservationForm.tourists);
@@ -770,10 +771,7 @@ const App = () => {
       owedToHotel: parseFloat(reservation.owedToHotel) || 0,
       profit: parseFloat(reservation.profit) || 0,
       approxTransportCost: parseFloat(reservation.approxTransportCost) || 0,
-      tourists: reservation.tourists ? reservation.tourists.map(t => ({ ...t })) : [{
-        firstName: '', fatherName: '', familyName: '', id: '', address: '',
-        city: '', postCode: '', email: '', phone: ''
-      }],
+      tourists: reservation.tourists ? reservation.tourists.map(t => ({ ...t })) : [],
     });
     setSelectedReservation(reservation);
     setActiveTab('addReservation');
@@ -858,7 +856,7 @@ const App = () => {
         [name]: type === 'number' ? parseFloat(value) || 0 : value,
       };
       if (name === 'departureDate' || name === 'arrivalDate') {
-        newState.daysInclTravel = calculateDaysBetweenDates(newState.departureDate, newState.arrivalDate) + 1;
+        newState.daysInclTravel = calculateDaysBetweenDates(newState.departureDate, newState.newState.arrivalDate) + 1;
       }
       return newState;
     });
@@ -2405,7 +2403,7 @@ const App = () => {
                             <button
                               onClick={() => handleDeleteTour(tour.tourId)}
                               className="bg-red-500 hover:bg-red-600 text-white p-2 rounded-full shadow-md transition duration-200 transform hover:scale-105"
-                              title="Delete Tour"
+                              title="Delete"
                             >
                               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                                 <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1zm-1 3a1 1 0 011-1h4a1 1 0 110 2H7a1 1 0 01-1-1zm-1 3a1 1 0 011-1h4a1 1 0 110 2H7a1 1 0 01-1-1z" clipRule="evenodd" />
@@ -3227,9 +3225,13 @@ const App = () => {
           </div>
         );
       case 'invoicingProducts':
+      case 'addProduct': // Combined for add/edit
         return (
           <div className="p-6 bg-white rounded-xl shadow-lg">
-            <h2 className="text-3xl font-bold mb-8 text-gray-800 border-b pb-4">Product Management</h2>
+            <h2 className="text-3xl font-bold mb-8 text-gray-800 border-b pb-4">
+              {activeTab === 'addProduct' ? (selectedProduct ? 'Edit Product' : 'Add New Product') : 'Product Management'}
+            </h2>
+
             {activeTab === 'addProduct' ? (
               // Product Add/Edit Form
               <form onSubmit={handleSubmitProduct} className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
@@ -3647,5 +3649,4 @@ const App = () => {
 };
 
 export default App;
-
 
