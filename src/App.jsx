@@ -43,7 +43,7 @@ const NotificationDisplay = ({ notifications, onDismiss }) => {
   );
 };
 
-// --- Confirmation Modal Component (Moved inside App.jsx for direct access) ---
+// --- Confirmation Modal Component ---
 const ConfirmationModal = ({ show, message, onConfirm, onCancel }) => {
   if (!show) return null;
   return (
@@ -88,7 +88,7 @@ const App = () => {
   const [selectedFinancialTransaction, setSelectedFinancialTransaction] = useState(null);
   // State for currently selected expense invoice for editing
   const [selectedExpenseInvoice, setSelectedExpenseInvoice] = useState(null);
-  // New: State for currently selected product for editing
+  // State for currently selected product for editing
   const [selectedProduct, setSelectedProduct] = useState(null);
 
 
@@ -2947,7 +2947,6 @@ const App = () => {
           </div>
         );
 
-      // Invoicing Dashboard UI
       case 'invoicingDashboard':
         return (
           <div className="p-6 bg-white rounded-xl shadow-lg">
@@ -3231,7 +3230,142 @@ const App = () => {
         return (
           <div className="p-6 bg-white rounded-xl shadow-lg">
             <h2 className="text-3xl font-bold mb-8 text-gray-800 border-b pb-4">Product Management</h2>
-            <p className="text-gray-600 text-center py-8">Content for Product Management coming soon!</p>
+            {activeTab === 'addProduct' ? (
+              // Product Add/Edit Form
+              <form onSubmit={handleSubmitProduct} className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                <div>
+                  <label htmlFor="productCode" className="block text-sm font-medium text-gray-700">Product Code</label>
+                  <input
+                    type="text"
+                    name="productCode"
+                    id="productCode"
+                    value={productForm.productCode}
+                    onChange={handleProductFormChange}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2 bg-gray-100"
+                    placeholder="Auto-generated or editable"
+                    disabled={!!selectedProduct}
+                    required
+                  />
+                </div>
+                <div>
+                  <label htmlFor="productName" className="block text-sm font-medium text-gray-700">Product Name</label>
+                  <input
+                    type="text"
+                    name="productName"
+                    id="productName"
+                    value={productForm.productName}
+                    onChange={handleProductFormChange}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                    required
+                  />
+                </div>
+                <div>
+                  <label htmlFor="price" className="block text-sm font-medium text-gray-700">Price (BGN)</label>
+                  <input
+                    type="number"
+                    name="price"
+                    id="price"
+                    value={productForm.price}
+                    onChange={handleProductFormChange}
+                    min="0"
+                    step="0.01"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                    required
+                  />
+                </div>
+                <div>
+                  <label htmlFor="vatRate" className="block text-sm font-medium text-gray-700">VAT Rate (%)</label>
+                  <input
+                    type="number"
+                    name="vatRate"
+                    id="vatRate"
+                    value={productForm.vatRate}
+                    onChange={handleProductFormChange}
+                    min="0"
+                    step="0.01"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                    required
+                  />
+                </div>
+
+                <div className="md:col-span-2 flex justify-end space-x-3 mt-8">
+                  <button
+                    type="button"
+                    onClick={() => { resetProductForm(); setActiveTab('invoicingProducts'); }}
+                    className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition duration-200 shadow-sm"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-6 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition duration-200 shadow-md transform hover:scale-105"
+                    disabled={loading}
+                  >
+                    {loading ? 'Saving...' : selectedProduct ? 'Update Product' : 'Add Product'}
+                  </button>
+                </div>
+              </form>
+            ) : (
+              // Product List
+              <>
+                <div className="flex justify-end mb-4">
+                  <button
+                    onClick={() => { resetProductForm(); setActiveTab('addProduct'); }}
+                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200 shadow-md transform hover:scale-105"
+                  >
+                    Add New Product
+                  </button>
+                </div>
+                {products.length === 0 ? (
+                  <p className="text-gray-600 text-center py-8">No products found. Add a new product to get started!</p>
+                ) : (
+                  <div className="overflow-x-auto rounded-lg shadow-md border border-gray-200">
+                    <table className="min-w-full bg-white">
+                      <thead className="bg-blue-900 text-white">
+                        <tr>
+                          <th className="py-3 px-4 text-left">Code</th>
+                          <th className="py-3 px-4 text-left">Name</th>
+                          <th className="py-3 px-4 text-right">Price (BGN)</th>
+                          <th className="py-3 px-4 text-right">VAT Rate (%)</th>
+                          <th className="py-3 px-4 text-center">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="text-gray-700">
+                        {products.map(prod => (
+                          <tr key={prod.id} className="border-b border-gray-200 hover:bg-gray-50 transition-colors duration-150">
+                            <td className="py-3 px-4">{prod.productCode}</td>
+                            <td className="py-3 px-4">{prod.productName}</td>
+                            <td className="py-3 px-4 text-right">BGN {parseFloat(prod.price).toFixed(2)}</td>
+                            <td className="py-3 px-4 text-right">{parseFloat(prod.vatRate).toFixed(2)}%</td>
+                            <td className="py-3 px-4 flex justify-center space-x-2">
+                              <button
+                                onClick={() => handleEditProduct(prod)}
+                                className="bg-orange-500 hover:bg-orange-600 text-white p-2 rounded-full shadow-md transition duration-200 transform hover:scale-105"
+                                title="Edit"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                  <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zm-5.69 5.69L11.586 7.586 14.414 10.414 11.586 13.242 8.758 10.414l2.828-2.828z" />
+                                  <path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm-4 8a1 1 0 011-1h1a1 1 0 110 2H7a1 1 0 01-1-1zm10 0a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1zM4 14a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm10 0a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1zM3 18a1 1 0 011-1h1a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
+                                </svg>
+                              </button>
+                              <button
+                                onClick={() => handleDeleteProduct(prod.id)}
+                                className="bg-red-500 hover:bg-red-600 text-white p-2 rounded-full shadow-md transition duration-200 transform hover:scale-105"
+                                title="Delete"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                  <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1zm-1 3a1 1 0 011-1h4a1 1 0 110 2H7a1 1 0 01-1-1zm-1 3a1 1 0 011-1h4a1 1 0 110 2H7a1 1 0 01-1-1z" clipRule="evenodd" />
+                                </svg>
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         );
       default:
@@ -3513,4 +3647,5 @@ const App = () => {
 };
 
 export default App;
+
 
