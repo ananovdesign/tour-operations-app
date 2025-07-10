@@ -1588,7 +1588,7 @@ const App = () => {
 
   // --- Sales Invoice Functions ---
 const handleSalesInvoiceProductChange = useCallback((index, e) => {
-    const { name, value, type } = e.target; // ADDED 'type' HERE
+    const { name, value, type } = e.target;
     setSalesInvoiceForm(prev => {
       const newProducts = [...prev.products];
       const product = { ...newProducts[index] }; // Create a copy to avoid direct mutation
@@ -1608,7 +1608,6 @@ const handleSalesInvoiceProductChange = useCallback((index, e) => {
           product.vatRate = 0;
         }
       } else {
-        // Now 'type' is correctly defined
         product[name] = type === 'number' ? parseFloat(value) || 0 : value;
       }
 
@@ -1637,11 +1636,10 @@ const handleSalesInvoiceProductChange = useCallback((index, e) => {
         totalAmount: newTotalAmount,
         totalVAT: newTotalVAT,
         grandTotal: newTotalAmount + newTotalVAT,
-      };
-    });
-  }, [products]);
-    });
-  }, []);
+ };
+    }); // This closes the setSalesInvoiceForm function call
+  }, [products]); // This closes the useCallback hook
+
 
   const handleSalesInvoiceProductChange = useCallback((index, e) => {
     const { name, value } = e.target;
