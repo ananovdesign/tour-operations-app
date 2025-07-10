@@ -1252,6 +1252,111 @@ const App = () => {
   }, [reservations, tours, isAuthReady, userId, addNotification]);
 
 
+  // --- Expense Invoice Functions ---
+  const handleExpenseInvoiceFormChange = useCallback((e) => {
+    const { name, value, type } = e.target;
+    setExpenseInvoiceForm(prev => {
+      const newState = {
+        ...prev,
+        [name]: type === 'number' ? parseFloat(value) || 0 : value,
+      };
+      return newState;
+    });
+  }, []);
+
+  const resetExpenseInvoiceForm = useCallback(() => {
+    setExpenseInvoiceForm({
+      companyName: '', companyID: '', vatID: '', invoiceNumber: '', invoiceDate: '',
+      productsServices: '', paymentMethod: 'Bank', dueDate: '', totalAmount: 0, totalVAT: 0, notes: ''
+    });
+    setSelectedExpenseInvoice(null);
+  }, []);
+
+  const handleSubmitExpenseInvoice = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    addNotification('');
+
+    if (!userId) {
+      addNotification("User not authenticated. Please log in to save data.", 'error');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      // Generate invoice number only if adding a new invoice
+      let currentInvoiceNumber = expenseInvoiceForm.invoiceNumber;
+      if (!selectedExpenseInvoice && !currentInvoiceNumber) {
+        currentInvoiceNumber = await generateExpenseInvoiceNumber();
+      }
+
+      const invoiceData = {
+        ...expenseInvoiceForm,
+        invoiceNumber: currentInvoiceNumber,
+        totalAmount: parseFloat(expenseInvoiceForm.totalAmount) || 0,
+        totalVAT: parseFloat(expenseInvoiceForm.totalVAT) || 0,
+      };
+
+      const expenseInvoicesCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/invoices_expenses`);
+
+      if (selectedExpenseInvoice) {
+        const invoiceDocRef = doc(expenseInvoicesCollectionRef, selectedExpenseInvoice.id);
+        await setDoc(invoiceDocRef, invoiceData, { merge: true });
+        addNotification('Expense Invoice updated successfully!', 'success');
+      } else {
+        await addDoc(expenseInvoicesCollectionRef, invoiceData);
+        addNotification('Expense Invoice added successfully!', 'success');
+      }
+
+      resetExpenseInvoiceForm();
+      setActiveTab('invoicingExpenses');
+    } catch (err) {
+      console.error("Error saving expense invoice:", err);
+      setError(`Failed to save expense invoice: ${err.message || err.toString()}`);
+      addNotification(`Failed to save expense invoice: ${err.message || err.toString()}`, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEditExpenseInvoice = useCallback((invoice) => {
+    setExpenseInvoiceForm({
+      ...invoice,
+      totalAmount: parseFloat(invoice.totalAmount) || 0,
+      totalVAT: parseFloat(invoice.totalVAT) || 0,
+    });
+    setSelectedExpenseInvoice(invoice);
+    setActiveTab('addExpenseInvoice'); // Switch to the form view
+  }, []);
+
+  const handleDeleteExpenseInvoice = useCallback((invoiceId) => {
+    setConfirmMessage("Are you sure you want to delete this expense invoice?");
+    setConfirmAction(() => async () => {
+      setLoading(true);
+      setError(null);
+      addNotification('');
+      if (!userId) {
+        addNotification("User not authenticated. Please log in to delete data.", 'error');
+        setLoading(false);
+        return;
+      }
+      try {
+        const invoiceDocRef = doc(db, `artifacts/${appId}/users/${userId}/invoices_expenses`, invoiceId);
+        await deleteDoc(invoiceDocRef);
+        addNotification('Expense Invoice deleted successfully!', 'success');
+      } catch (err) {
+        console.error("Error deleting expense invoice:", err);
+        setError("Failed to delete expense invoice. Please try again.");
+        addNotification(`Failed to delete expense invoice: ${err.message || err.toString()}`, 'error');
+      } finally {
+        setLoading(false);
+      }
+    });
+    setShowConfirmModal(true);
+  }, [userId, addNotification]);
+
+
   // --- Confirmation Modal Component ---
   const ConfirmationModal = ({ show, message, onConfirm, onCancel }) => {
     if (!show) return null;
@@ -2479,7 +2584,7 @@ const App = () => {
                 >
                   <option value="Bank">Bank</option>
                   <option value="Cash">Cash</option>
-                  <option value="Cash 2">Cash 2</option> {/* New: Cash 2 option */}
+                  <option value="Cash 2">Cash 2</option>
                 </select>
               </div>
               <div>
