@@ -32,6 +32,8 @@ const App = () => {
   const [selectedFinancialTransaction, setSelectedFinancialTransaction] = useState(null);
   // State for currently selected expense invoice for editing
   const [selectedExpenseInvoice, setSelectedExpenseInvoice] = useState(null);
+  // New: State for currently selected product for editing
+  const [selectedProduct, setSelectedProduct] = useState(null);
 
 
   // Data states - populated from Firestore (user-specific)
@@ -163,6 +165,14 @@ const App = () => {
     totalAmount: 0,
     totalVAT: 0, // This VAT will be negative in dashboard calculations
     notes: ''
+  });
+
+  // New: State for Product Form
+  const [productForm, setProductForm] = useState({
+    productCode: '',
+    productName: '',
+    price: 0,
+    vatRate: 20 // Default VAT rate, can be adjusted
   });
 
 
@@ -502,6 +512,24 @@ const App = () => {
       }
     });
     return `DYT${String(highestNum + 1).padStart(7, '0')}`; // DYT0000001
+  }, [userId]);
+
+  // New: Generate Product Code
+  const generateProductCode = useCallback(async () => {
+    if (!userId) return null;
+    const q = query(collection(db, `artifacts/${appId}/users/${userId}/products`));
+    const querySnapshot = await getDocs(q);
+    let highestNum = 0;
+    querySnapshot.forEach((doc) => {
+      const prod = doc.data();
+      if (prod.productCode && prod.productCode.startsWith('PROD')) {
+        const numPart = parseInt(prod.productCode.substring(4), 10);
+        if (!isNaN(numPart) && numPart > highestNum) {
+          highestNum = numPart;
+        }
+      }
+    });
+    return `PROD${String(highestNum + 1).padStart(4, '0')}`; // PROD0001
   }, [userId]);
 
 
@@ -1357,60 +1385,107 @@ const App = () => {
   }, [userId, addNotification]);
 
 
-  // --- Confirmation Modal Component ---
-  const ConfirmationModal = ({ show, message, onConfirm, onCancel }) => {
-    if (!show) return null;
-    return (
-      <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 z-50">
-        <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm relative">
-          <h3 className="text-xl font-semibold mb-4 text-gray-800">Confirm Action</h3>
-          <p className="text-gray-700 mb-6">{message}</p>
-          <div className="flex justify-end space-x-3">
-            <button
-              onClick={onCancel}
-              className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition duration-200 shadow-sm"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={onConfirm}
-              className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition duration-200 shadow-md"
-            >
-              Confirm
-            </button>
-          </div>
-        </div>
-      </div>
-    );
+  // --- Product Management Functions ---
+  const handleProductFormChange = useCallback((e) => {
+    const { name, value, type } = e.target;
+    setProductForm(prev => ({
+      ...prev,
+      [name]: type === 'number' ? parseFloat(value) || 0 : value,
+    }));
+  }, []);
+
+  const resetProductForm = useCallback(() => {
+    setProductForm({
+      productCode: '',
+      productName: '',
+      price: 0,
+      vatRate: 20
+    });
+    setSelectedProduct(null);
+  }, []);
+
+  const handleSubmitProduct = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    addNotification('');
+
+    if (!userId) {
+      addNotification("User not authenticated. Please log in to save data.", 'error');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      let currentProductCode = productForm.productCode;
+      if (!selectedProduct && !currentProductCode) {
+        currentProductCode = await generateProductCode();
+      }
+
+      const productData = {
+        ...productForm,
+        productCode: currentProductCode,
+        price: parseFloat(productForm.price) || 0,
+        vatRate: parseFloat(productForm.vatRate) || 0,
+      };
+
+      const productsCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/products`);
+
+      if (selectedProduct) {
+        const productDocRef = doc(productsCollectionRef, selectedProduct.id);
+        await setDoc(productDocRef, productData, { merge: true });
+        addNotification('Product updated successfully!', 'success');
+      } else {
+        await addDoc(productsCollectionRef, productData);
+        addNotification('Product added successfully!', 'success');
+      }
+
+      resetProductForm();
+      setActiveTab('invoicingProducts');
+    } catch (err) {
+      console.error("Error saving product:", err);
+      setError(`Failed to save product: ${err.message || err.toString()}`);
+      addNotification(`Failed to save product: ${err.message || err.toString()}`, 'error');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // --- Notification Display Component ---
-  const NotificationDisplay = ({ notifications, onDismiss }) => {
-    return (
-      <div className="fixed top-4 right-4 z-50 space-y-3 w-full max-w-sm">
-        {notifications.map(notification => (
-          <div
-            key={notification.id}
-            className={`p-4 rounded-lg shadow-lg flex items-center justify-between transition-all duration-300 ease-in-out transform
-              ${notification.type === 'success' ? 'bg-green-100 border border-green-400 text-green-800' :
-                notification.type === 'info' ? 'bg-blue-100 border border-blue-400 text-blue-800' :
-                notification.type === 'warning' ? 'bg-yellow-100 border border-yellow-400 text-yellow-800' :
-                notification.type === 'error' ? 'bg-red-100 border border-red-400 text-red-800' : ''
-              }`}
-          >
-            <span className="font-medium">{notification.message}</span>
-            {notification.dismissible && (
-              <button onClick={() => onDismiss(notification.id)} className="ml-4 text-gray-600 hover:text-gray-900">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                </svg>
-              </button>
-            )}
-          </div>
-        ))}
-      </div>
-    );
-  };
+  const handleEditProduct = useCallback((product) => {
+    setProductForm({
+      ...product,
+      price: parseFloat(product.price) || 0,
+      vatRate: parseFloat(product.vatRate) || 0,
+    });
+    setSelectedProduct(product);
+    setActiveTab('addProduct'); // New tab for adding/editing products
+  }, []);
+
+  const handleDeleteProduct = useCallback((productId) => {
+    setConfirmMessage("Are you sure you want to delete this product?");
+    setConfirmAction(() => async () => {
+      setLoading(true);
+      setError(null);
+      addNotification('');
+      if (!userId) {
+        addNotification("User not authenticated. Please log in to delete data.", 'error');
+        setLoading(false);
+        return;
+      }
+      try {
+        const productDocRef = doc(db, `artifacts/${appId}/users/${userId}/products`, productId);
+        await deleteDoc(productDocRef);
+        addNotification('Product deleted successfully!', 'success');
+      } catch (err) {
+        console.error("Error deleting product:", err);
+        setError("Failed to delete product. Please try again.");
+        addNotification(`Failed to delete product: ${err.message || err.toString()}`, 'error');
+      } finally {
+        setLoading(false);
+      }
+    });
+    setShowConfirmModal(true);
+  }, [userId, addNotification]);
 
 
   // --- Render UI based on activeTab ---
@@ -2574,7 +2649,7 @@ const App = () => {
                 </select>
               </div>
               <div>
-                <label htmlFor="method" className="block text-sm font-medium text-gray-700">Method</label>
+                <label htmlFor="method" className="block text-sm font-medium text-gray-700">Payment Method</label>
                 <select
                   name="method"
                   id="method"
