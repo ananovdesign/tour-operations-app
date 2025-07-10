@@ -1587,17 +1587,59 @@ const App = () => {
 
 
   // --- Sales Invoice Functions ---
-  const handleSalesInvoiceFormChange = useCallback((e) => {
-    const { name, value, type, checked } = e.target;
+const handleSalesInvoiceProductChange = useCallback((index, e) => {
+    const { name, value, type } = e.target; // ADDED 'type' HERE
     setSalesInvoiceForm(prev => {
-      const newState = {
-        ...prev,
-        [name]: type === 'checkbox' ? checked : value,
-      };
+      const newProducts = [...prev.products];
+      const product = { ...newProducts[index] }; // Create a copy to avoid direct mutation
 
-      // Recalculate totals if products change (this part is handled by handleSalesInvoiceProductChange)
-      // This listener is more for top-level fields
-      return newState;
+      if (name === 'productCode') {
+        const selectedProductData = products.find(p => p.productCode === value);
+        if (selectedProductData) {
+          product.productCode = selectedProductData.productCode;
+          product.productName = selectedProductData.productName;
+          product.price = selectedProductData.price;
+          product.vatRate = selectedProductData.vatRate;
+        } else {
+          // If product code is cleared or not found, clear other fields
+          product.productCode = value;
+          product.productName = '';
+          product.price = 0;
+          product.vatRate = 0;
+        }
+      } else {
+        // Now 'type' is correctly defined
+        product[name] = type === 'number' ? parseFloat(value) || 0 : value;
+      }
+
+      // Recalculate line total and VAT for the current product
+      const quantity = parseFloat(product.quantity) || 0;
+      const price = parseFloat(product.price) || 0;
+      const vatRate = parseFloat(product.vatRate) || 0;
+
+      product.lineTotal = (quantity * price);
+      product.lineVAT = (product.lineTotal * (vatRate / 100));
+      product.lineGrandTotal = product.lineTotal + product.lineVAT;
+
+      newProducts[index] = product; // Update the product in the array
+
+      // Recalculate overall totals for the invoice
+      let newTotalAmount = 0;
+      let newTotalVAT = 0;
+      newProducts.forEach(item => {
+        newTotalAmount += item.lineTotal || 0;
+        newTotalVAT += item.lineVAT || 0;
+      });
+
+      return {
+        ...prev,
+        products: newProducts,
+        totalAmount: newTotalAmount,
+        totalVAT: newTotalVAT,
+        grandTotal: newTotalAmount + newTotalVAT,
+      };
+    });
+  }, [products]);
     });
   }, []);
 
