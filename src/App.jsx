@@ -1473,7 +1473,7 @@ const App = () => {
                   id="filterReservationTourType"
                   value={filterReservationTourType}
                   onChange={handleReservationFilterChange}
-                  className="Hmt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 px-3 py-2"
                 >
                   <option value="All">All</option>
                   <option value="PARTNER">PARTNER</option>
@@ -3277,5 +3277,4 @@ const App = () => {
 };
 
 export default App;
-
 
