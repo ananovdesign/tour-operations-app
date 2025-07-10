@@ -90,6 +90,8 @@ const App = () => {
   const [selectedExpenseInvoice, setSelectedExpenseInvoice] = useState(null);
   // State for currently selected product for editing
   const [selectedProduct, setSelectedProduct] = useState(null);
+  // New: State for currently selected sales invoice for editing
+  const [selectedSalesInvoice, setSelectedSalesInvoice] = useState(null);
 
 
   // Data states - populated from Firestore (user-specific)
@@ -229,6 +231,30 @@ const App = () => {
     productName: '',
     price: 0,
     vatRate: 20 // Default VAT rate, can be adjusted
+  });
+
+  // New: State for Sales Invoice Form
+  const [salesInvoiceForm, setSalesInvoiceForm] = useState({
+    invoiceNumber: '',
+    invoiceDate: '',
+    clientName: '',
+    clientID: '',
+    clientVATID: '',
+    clientAddress: '',
+    clientCity: '',
+    clientPostCode: '',
+    products: [], // Array of { productCode, productName, quantity, price, vatRate, lineTotal, lineVAT }
+    paymentMethod: 'Cash', // Default to Cash
+    bankDetails: {
+      iban: 'BG87BPBI79301036586601',
+      bankName: 'Пощенска банка'
+    },
+    dueDate: '',
+    isCopy: false,
+    totalAmount: 0,
+    totalVAT: 0,
+    grandTotal: 0,
+    notes: ''
   });
 
 
@@ -588,6 +614,24 @@ const App = () => {
     return `PROD${String(highestNum + 1).padStart(4, '0')}`; // PROD0001
   }, [userId]);
 
+  // New: Generate Sales Invoice Number
+  const generateSalesInvoiceNumber = useCallback(async () => {
+    if (!userId) return null;
+    const q = query(collection(db, `artifacts/${appId}/users/${userId}/invoices_sales`));
+    const querySnapshot = await getDocs(q);
+    let highestNum = 0;
+    querySnapshot.forEach((doc) => {
+      const inv = doc.data();
+      if (inv.invoiceNumber && inv.invoiceNumber.startsWith('DYT')) {
+        const numPart = parseInt(inv.invoiceNumber.substring(3), 10);
+        if (!isNaN(numPart) && numPart > highestNum) {
+          highestNum = numPart;
+        }
+      }
+    });
+    return `DYT${String(highestNum + 1).padStart(7, '0')}`; // DYT0000001
+  }, [userId]);
+
 
   // --- Handlers for Reservation Form ---
 
@@ -856,7 +900,7 @@ const App = () => {
         [name]: type === 'number' ? parseFloat(value) || 0 : value,
       };
       if (name === 'departureDate' || name === 'arrivalDate') {
-        newState.daysInclTravel = calculateDaysBetweenDates(newState.departureDate, newState.newState.arrivalDate) + 1;
+        newState.daysInclTravel = calculateDaysBetweenDates(newState.departureDate, newState.arrivalDate) + 1;
       }
       return newState;
     });
@@ -1534,6 +1578,234 @@ const App = () => {
         console.error("Error deleting product:", err);
         setError("Failed to delete product. Please try again.");
         addNotification(`Failed to delete product: ${err.message || err.toString()}`, 'error');
+      } finally {
+        setLoading(false);
+      }
+    });
+    setShowConfirmModal(true);
+  }, [userId, addNotification]);
+
+
+  // --- Sales Invoice Functions ---
+  const handleSalesInvoiceFormChange = useCallback((e) => {
+    const { name, value, type, checked } = e.target;
+    setSalesInvoiceForm(prev => {
+      const newState = {
+        ...prev,
+        [name]: type === 'checkbox' ? checked : value,
+      };
+
+      // Recalculate totals if products change
+      if (name === 'products') {
+        let newTotalAmount = 0;
+        let newTotalVAT = 0;
+        newState.products.forEach(item => {
+          newTotalAmount += item.lineTotal || 0;
+          newTotalVAT += item.lineVAT || 0;
+        });
+        newState.totalAmount = newTotalAmount;
+        newState.totalVAT = newTotalVAT;
+        newState.grandTotal = newTotalAmount + newTotalVAT;
+      }
+      return newState;
+    });
+  }, []);
+
+  const handleSalesInvoiceProductChange = useCallback((index, e) => {
+    const { name, value } = e.target;
+    setSalesInvoiceForm(prev => {
+      const newProducts = [...prev.products];
+      const product = newProducts[index];
+      const selectedProductData = products.find(p => p.productCode === value);
+
+      if (name === 'productCode' && selectedProductData) {
+        product.productCode = selectedProductData.productCode;
+        product.productName = selectedProductData.productName;
+        product.price = selectedProductData.price;
+        product.vatRate = selectedProductData.vatRate;
+      } else {
+        product[name] = value;
+      }
+
+      // Recalculate line total and VAT for the current product
+      const quantity = parseFloat(product.quantity) || 0;
+      const price = parseFloat(product.price) || 0;
+      const vatRate = parseFloat(product.vatRate) || 0;
+
+      product.lineTotal = (quantity * price);
+      product.lineVAT = (product.lineTotal * (vatRate / 100));
+      product.lineGrandTotal = product.lineTotal + product.lineVAT;
+
+      // Recalculate overall totals for the invoice
+      let newTotalAmount = 0;
+      let newTotalVAT = 0;
+      newProducts.forEach(item => {
+        newTotalAmount += item.lineTotal || 0;
+        newTotalVAT += item.lineVAT || 0;
+      });
+
+      return {
+        ...prev,
+        products: newProducts,
+        totalAmount: newTotalAmount,
+        totalVAT: newTotalVAT,
+        grandTotal: newTotalAmount + newTotalVAT,
+      };
+    });
+  }, [products]);
+
+  const addSalesInvoiceProduct = useCallback(() => {
+    setSalesInvoiceForm(prev => ({
+      ...prev,
+      products: [...prev.products, {
+        productCode: '', productName: '', quantity: 1, price: 0, vatRate: 20, lineTotal: 0, lineVAT: 0, lineGrandTotal: 0
+      }],
+    }));
+  }, []);
+
+  const removeSalesInvoiceProduct = useCallback((index) => {
+    setSalesInvoiceForm(prev => {
+      const newProducts = prev.products.filter((_, i) => i !== index);
+      let newTotalAmount = 0;
+      let newTotalVAT = 0;
+      newProducts.forEach(item => {
+        newTotalAmount += item.lineTotal || 0;
+        newTotalVAT += item.lineVAT || 0;
+      });
+      return {
+        ...prev,
+        products: newProducts,
+        totalAmount: newTotalAmount,
+        totalVAT: newTotalVAT,
+        grandTotal: newTotalAmount + newTotalVAT,
+      };
+    });
+  }, []);
+
+  const resetSalesInvoiceForm = useCallback(() => {
+    setSalesInvoiceForm({
+      invoiceNumber: '',
+      invoiceDate: '',
+      clientName: '',
+      clientID: '',
+      clientVATID: '',
+      clientAddress: '',
+      clientCity: '',
+      clientPostCode: '',
+      products: [],
+      paymentMethod: 'Cash',
+      bankDetails: {
+        iban: 'BG87BPBI79301036586601',
+        bankName: 'Пощенска банка'
+      },
+      dueDate: '',
+      isCopy: false,
+      totalAmount: 0,
+      totalVAT: 0,
+      grandTotal: 0,
+      notes: ''
+    });
+    setSelectedSalesInvoice(null);
+  }, []);
+
+  const handleSubmitSalesInvoice = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    addNotification('');
+
+    if (!userId) {
+      addNotification("User not authenticated. Please log in to save data.", 'error');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      let currentInvoiceNumber = salesInvoiceForm.invoiceNumber;
+      if (!selectedSalesInvoice && !currentInvoiceNumber) {
+        currentInvoiceNumber = await generateSalesInvoiceNumber();
+      }
+
+      const invoiceData = {
+        ...salesInvoiceForm,
+        invoiceNumber: currentInvoiceNumber,
+        totalAmount: parseFloat(salesInvoiceForm.totalAmount) || 0,
+        totalVAT: parseFloat(salesInvoiceForm.totalVAT) || 0,
+        grandTotal: parseFloat(salesInvoiceForm.grandTotal) || 0,
+        products: salesInvoiceForm.products.map(p => ({
+          productCode: p.productCode,
+          productName: p.productName,
+          quantity: parseFloat(p.quantity) || 0,
+          price: parseFloat(p.price) || 0,
+          vatRate: parseFloat(p.vatRate) || 0,
+          lineTotal: parseFloat(p.lineTotal) || 0,
+          lineVAT: parseFloat(p.lineVAT) || 0,
+          lineGrandTotal: parseFloat(p.lineGrandTotal) || 0,
+        })),
+        isCopy: salesInvoiceForm.isCopy,
+      };
+
+      const salesInvoicesCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/invoices_sales`);
+
+      if (selectedSalesInvoice) {
+        const invoiceDocRef = doc(salesInvoicesCollectionRef, selectedSalesInvoice.id);
+        await setDoc(invoiceDocRef, invoiceData, { merge: true });
+        addNotification('Sales Invoice updated successfully!', 'success');
+      } else {
+        await addDoc(salesInvoicesCollectionRef, invoiceData);
+        addNotification('Sales Invoice added successfully!', 'success');
+      }
+
+      resetSalesInvoiceForm();
+      setActiveTab('invoicingSales');
+    } catch (err) {
+      console.error("Error saving sales invoice:", err);
+      setError(`Failed to save sales invoice: ${err.message || err.toString()}`);
+      addNotification(`Failed to save sales invoice: ${err.message || err.toString()}`, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEditSalesInvoice = useCallback((invoice) => {
+    setSalesInvoiceForm({
+      ...invoice,
+      totalAmount: parseFloat(invoice.totalAmount) || 0,
+      totalVAT: parseFloat(invoice.totalVAT) || 0,
+      grandTotal: parseFloat(invoice.grandTotal) || 0,
+      products: invoice.products ? invoice.products.map(p => ({
+        ...p,
+        quantity: parseFloat(p.quantity) || 0,
+        price: parseFloat(p.price) || 0,
+        vatRate: parseFloat(p.vatRate) || 0,
+        lineTotal: parseFloat(p.lineTotal) || 0,
+        lineVAT: parseFloat(p.lineVAT) || 0,
+        lineGrandTotal: parseFloat(p.lineGrandTotal) || 0,
+      })) : [],
+    });
+    setSelectedSalesInvoice(invoice);
+    setActiveTab('addSalesInvoice'); // New tab for adding/editing sales invoices
+  }, []);
+
+  const handleDeleteSalesInvoice = useCallback((invoiceId) => {
+    setConfirmMessage("Are you sure you want to delete this sales invoice?");
+    setConfirmAction(() => async () => {
+      setLoading(true);
+      setError(null);
+      addNotification('');
+      if (!userId) {
+        addNotification("User not authenticated. Please log in to delete data.", 'error');
+        setLoading(false);
+        return;
+      }
+      try {
+        const invoiceDocRef = doc(db, `artifacts/${appId}/users/${userId}/invoices_sales`, invoiceId);
+        await deleteDoc(invoiceDocRef);
+        addNotification('Sales Invoice deleted successfully!', 'success');
+      } catch (err) {
+        console.error("Error deleting sales invoice:", err);
+        setError("Failed to delete sales invoice. Please try again.");
+        addNotification(`Failed to delete sales invoice: ${err.message || err.toString()}`, 'error');
       } finally {
         setLoading(false);
       }
@@ -3649,4 +3921,3 @@ const App = () => {
 };
 
 export default App;
-
