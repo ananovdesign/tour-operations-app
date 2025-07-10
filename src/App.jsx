@@ -284,7 +284,7 @@ const App = () => {
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       if (user) {
-        const isCurrentEmailPasswordUser = user.providerData.some(provider => provider.providerId === 'password');
+        const isCurrentEmailPasswordUser = user.isAnonymous === false && user.providerData.some(provider => provider.providerId === 'password');
 
         if (!isCurrentEmailPasswordUser) {
           console.log("Detected non-email/password user. Signing out to force login form.");
@@ -1330,6 +1330,7 @@ const App = () => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
+    // Filter out previous auto-generated notifications before adding new ones
     setNotifications(prev => prev.filter(n => !(n.source === 'auto-res' || n.source === 'auto-tour')));
 
     reservations.forEach(res => {
@@ -1341,8 +1342,9 @@ const App = () => {
         addNotification(
           `Reservation ${res.reservationNumber} for ${res.hotel} checks in on ${res.checkIn} (in ${diffDays} days).`,
           'warning',
-          true,
-          null
+          true, // dismissible
+          null, // autoDismiss, null means indefinite (until manually dismissed)
+          'auto-res' // custom source to filter later
         );
       }
     });
@@ -1362,14 +1364,16 @@ const App = () => {
             `Tour ${tour.tourId} to ${tour.hotel} has only ${fulfillment.toFixed(1)}% passengers booked (departing in ${diffDays} days).`,
             'warning',
             true,
-            null
+            null,
+            'auto-tour'
           );
         } else if (fulfillment === 0 && diffDays <= 14) {
-            addNotification(
+           addNotification(
             `Tour ${tour.tourId} to ${tour.hotel} has NO passengers booked (departing in ${diffDays} days).`,
             'error',
             true,
-            null
+            null,
+            'auto-tour'
           );
         }
       }
@@ -1587,62 +1591,21 @@ const App = () => {
 
 
   // --- Sales Invoice Functions ---
-const handleSalesInvoiceProductChange = useCallback((index, e) => {
-    const { name, value, type } = e.target;
+  const handleSalesInvoiceFormChange = useCallback((e) => {
+    const { name, value, type, checked } = e.target;
     setSalesInvoiceForm(prev => {
-      const newProducts = [...prev.products];
-      const product = { ...newProducts[index] }; // Create a copy to avoid direct mutation
-
-      if (name === 'productCode') {
-        const selectedProductData = products.find(p => p.productCode === value);
-        if (selectedProductData) {
-          product.productCode = selectedProductData.productCode;
-          product.productName = selectedProductData.productName;
-          product.price = selectedProductData.price;
-          product.vatRate = selectedProductData.vatRate;
-        } else {
-          // If product code is cleared or not found, clear other fields
-          product.productCode = value;
-          product.productName = '';
-          product.price = 0;
-          product.vatRate = 0;
-        }
-      } else {
-        product[name] = type === 'number' ? parseFloat(value) || 0 : value;
-      }
-
-      // Recalculate line total and VAT for the current product
-      const quantity = parseFloat(product.quantity) || 0;
-      const price = parseFloat(product.price) || 0;
-      const vatRate = parseFloat(product.vatRate) || 0;
-
-      product.lineTotal = (quantity * price);
-      product.lineVAT = (product.lineTotal * (vatRate / 100));
-      product.lineGrandTotal = product.lineTotal + product.lineVAT;
-
-      newProducts[index] = product; // Update the product in the array
-
-      // Recalculate overall totals for the invoice
-      let newTotalAmount = 0;
-      let newTotalVAT = 0;
-      newProducts.forEach(item => {
-        newTotalAmount += item.lineTotal || 0;
-        newTotalVAT += item.lineVAT || 0;
-      });
-
-      return {
+      const newState = {
         ...prev,
-        products: newProducts,
-        totalAmount: newTotalAmount,
-        totalVAT: newTotalVAT,
-        grandTotal: newTotalAmount + newTotalVAT,
- };
-    }); // This closes the setSalesInvoiceForm function call
-  }, [products]); // This closes the useCallback hook
+        [name]: type === 'checkbox' ? checked : value,
+      };
 
+      // No recalculation here, it's done in handleSalesInvoiceProductChange
+      return newState;
+    });
+  }, []);
 
   const handleSalesInvoiceProductChange = useCallback((index, e) => {
-    const { name, value } = e.target;
+    const { name, value, type } = e.target; // Corrected: 'type' is now destructured
     setSalesInvoiceForm(prev => {
       const newProducts = [...prev.products];
       const product = { ...newProducts[index] }; // Create a copy to avoid direct mutation
@@ -1662,6 +1625,7 @@ const handleSalesInvoiceProductChange = useCallback((index, e) => {
           product.vatRate = 0;
         }
       } else {
+        // Now 'type' is correctly defined
         product[name] = type === 'number' ? parseFloat(value) || 0 : value;
       }
 
@@ -1691,8 +1655,9 @@ const handleSalesInvoiceProductChange = useCallback((index, e) => {
         totalVAT: newTotalVAT,
         grandTotal: newTotalAmount + newTotalVAT,
       };
-    });
-  }, [products]); // Depend on products to ensure correct lookup
+    }); // Corrected closing for setSalesInvoiceForm
+  }, [products]); // Corrected closing for useCallback, and dependencies
+
 
   const addSalesInvoiceProduct = useCallback(() => {
     setSalesInvoiceForm(prev => ({
