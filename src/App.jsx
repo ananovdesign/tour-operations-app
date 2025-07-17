@@ -159,9 +159,10 @@ const App = () => {
     maxPassengers: 0,
   });
 
-  // State for Edit Customer Form (used in a modal)
+// State for Edit Customer Form (used in a modal)
   const [customerEditForm, setCustomerEditForm] = useState({
-    id: '',
+    docId: '', // To hold the actual document ID for Firestore
+    id: '',    // To hold the manual, user-entered ID
     firstName: '',
     fatherName: '',
     familyName: '',
@@ -371,22 +372,23 @@ const App = () => {
   };
 
   // --- Firestore Data Listeners (user-specific) ---
-  useEffect(() => {
+useEffect(() => {
     let unsubscribe;
     if (isAuthReady && userId) {
       setLoading(true);
-      const reservationsCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/reservations`);
-      unsubscribe = onSnapshot(reservationsCollectionRef, (snapshot) => {
-        const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
-        setReservations(data);
+      const customersCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/customers`);
+      unsubscribe = onSnapshot(customersCollectionRef, (snapshot) => {
+        // Correctly map the data, preserving the Firestore doc ID as 'docId' and the manual ID as 'id'
+        const data = snapshot.docs.map(doc => ({ docId: doc.id, ...doc.data() }));
+        setCustomers(data);
         setLoading(false);
       }, (err) => {
-        console.error("Error fetching reservations:", err);
-        setError("Failed to load reservations. Please try again.");
+        console.error("Error fetching customers:", err);
+        setError("Failed to load customers. Please try again.");
         setLoading(false);
       });
     } else if (isAuthReady && !userId) {
-      setReservations([]);
+      setCustomers([]);
       setLoading(false);
     }
     return () => {
@@ -886,11 +888,12 @@ const App = () => {
     setCustomerEditForm(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleUpdateCustomer = async (e) => {
+const handleUpdateCustomer = async (e) => {
     e.preventDefault();
-    if (!customerEditForm.id) {
-      setError("Customer ID not found. Cannot update.");
-      addNotification("Customer ID not found. Cannot update.", 'error');
+    // We check for docId now, which is the unique Firestore key
+    if (!customerEditForm.docId) {
+      setError("Customer document ID not found. Cannot update.");
+      addNotification("Customer document ID not found. Cannot update.", 'error');
       return;
     }
 
@@ -905,11 +908,18 @@ const App = () => {
     }
 
     try {
-      const customerDocRef = doc(db, `artifacts/${appId}/users/${userId}/customers`, customerEditForm.id);
-      await setDoc(customerDocRef, customerEditForm, { merge: true });
+      // Reference the document using its actual docId
+      const customerDocRef = doc(db, `artifacts/${appId}/users/${userId}/customers`, customerEditForm.docId);
+      
+      // Create a copy of the form data to save
+      const dataToSave = { ...customerEditForm };
+      // Delete the docId from the copy, so it doesn't get saved as a field in Firestore
+      delete dataToSave.docId;
+
+      await setDoc(customerDocRef, dataToSave, { merge: true });
       addNotification('Customer updated successfully!', 'success');
       setShowCustomerEditModal(false);
-    } catch (err) {
+    } catch (err)      {
       console.error("Error updating customer:", err);
       setError("Failed to update customer. Please try again.");
       addNotification(`Failed to update customer: ${err.message || err.toString()}`, 'error');
@@ -2505,7 +2515,7 @@ case 'addReservation':
           </div>
         );
 
-      case 'customers':
+case 'customers':
         return (
           <div className="p-6 bg-white rounded-xl shadow-lg">
             <h2 className="text-3xl font-bold mb-8 text-gray-800 border-b pb-4">Customers List</h2>
@@ -2525,7 +2535,7 @@ case 'addReservation':
                   </thead>
                   <tbody className="text-gray-700">
                     {customers.map(cust => (
-                      <tr key={cust.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors duration-150">
+                      <tr key={cust.docId} className="border-b border-gray-100 hover:bg-gray-50 transition-colors duration-150">
                         <td className="py-3 px-4">{cust.firstName} {cust.fatherName ? cust.fatherName + ' ' : ''}{cust.familyName}</td>
                         <td className="py-3 px-4 text-gray-500">{cust.id}</td>
                         <td className="py-3 px-4">{cust.email}</td>
@@ -2568,7 +2578,7 @@ case 'addReservation':
                     </div>
                     <div>
                       <label htmlFor="edit-id" className="block text-sm font-medium text-gray-700">ID</label>
-                      <input type="text" name="id" id="edit-id" value={customerEditForm.id} readOnly className="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm px-3 py-2" />
+                      <input type="text" name="id" id="edit-id" value={customerEditForm.id} onChange={handleCustomerEditFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
                     </div>
                     <div>
                       <label htmlFor="edit-address" className="block text-sm font-medium text-gray-700">Address</label>
