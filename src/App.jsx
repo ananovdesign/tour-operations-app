@@ -1289,7 +1289,7 @@ const App = () => {
     setFilterReservationCheckOutDate('');
   }, []);
 
-  const filteredReservations = useMemo(() => {
+const filteredReservations = useMemo(() => {
     return reservations.filter(res => {
       if (filterReservationStatus !== 'All' && res.status !== filterReservationStatus) return false;
       if (filterReservationHotel && !res.hotel?.toLowerCase().includes(filterReservationHotel.toLowerCase())) return false;
@@ -1297,7 +1297,12 @@ const App = () => {
       if (filterReservationCheckInDate && new Date(res.checkIn) < new Date(filterReservationCheckInDate)) return false;
       if (filterReservationCheckOutDate && new Date(res.checkOut) > new Date(filterReservationCheckOutDate)) return false;
       return true;
-    }).sort((a, b) => new Date(b.creationDate) - new Date(a.creationDate));
+    }).sort((a, b) => {
+      // Sort by reservation number descending
+      const numA = parseInt(a.reservationNumber?.substring(3) || '0', 10);
+      const numB = parseInt(b.reservationNumber?.substring(3) || '0', 10);
+      return numB - numA;
+    });
   }, [reservations, filterReservationStatus, filterReservationHotel, filterReservationTourType, filterReservationCheckInDate, filterReservationCheckOutDate]);
 
 
