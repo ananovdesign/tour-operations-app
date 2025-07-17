@@ -639,6 +639,28 @@ const App = () => {
 
 
   // --- Handlers for Reservation Form ---
+  const handleSelectExistingTourist = useCallback((touristIndex, customerId) => {
+    // Find the full customer object from the customers list
+    const selectedCustomer = customers.find(c => c.id === customerId);
+
+    setReservationForm(prev => {
+        const newTourists = [...prev.tourists];
+        if (selectedCustomer) {
+            // If a customer was selected, populate the form fields for that tourist
+            newTourists[touristIndex] = {
+                ...newTourists[touristIndex], // Keep any other fields that might not be in the customer object
+                ...selectedCustomer,          // Overwrite with the selected customer's data
+            };
+        } else {
+            // If the "-- New Tourist --" option was selected, reset the fields
+            newTourists[touristIndex] = {
+                firstName: '', fatherName: '', familyName: '', id: '', address: '',
+                city: '', postCode: '', email: '', phone: ''
+            };
+        }
+        return { ...prev, tourists: newTourists };
+    });
+  }, [customers]); // This function depends on the 'customers' list
 
   const handleReservationFormChange = useCallback((e) => {
     const { name, value, type, checked } = e.target;
@@ -2107,7 +2129,7 @@ const filteredReservations = useMemo(() => {
           </div>
         );
 
-      case 'addReservation':
+case 'addReservation':
         return (
           <div className="p-6 bg-white rounded-xl shadow-lg">
             <h2 className="text-3xl font-bold mb-8 text-gray-800 border-b pb-4">
@@ -2291,7 +2313,7 @@ const filteredReservations = useMemo(() => {
                       <button
                         type="button"
                         onClick={() => removeTourist(index)}
-                        className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white p-1 rounded-full text-xs transition duration-200" // Red accent button
+                        className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white p-1 rounded-full text-xs transition duration-200"
                         title="Remove Tourist"
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -2299,6 +2321,24 @@ const filteredReservations = useMemo(() => {
                         </svg>
                       </button>
                     )}
+                    
+                    {/* NEW: Dropdown to select existing customer */}
+                    <div className="col-span-full mb-4 border-b border-gray-100 pb-4">
+                        <label htmlFor={`select-customer-${index}`} className="block text-sm font-medium text-gray-700">Select Existing Customer</label>
+                        <select
+                            id={`select-customer-${index}`}
+                            onChange={(e) => handleSelectExistingTourist(index, e.target.value)}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
+                        >
+                            <option value="">-- New Tourist --</option>
+                            {[...customers].sort((a, b) => a.firstName.localeCompare(b.firstName)).map(cust => (
+                                <option key={cust.id} value={cust.id}>
+                                    {cust.firstName} {cust.familyName} ({cust.id})
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
                     <div>
                       <label htmlFor={`firstName-${index}`} className="block text-sm font-medium text-gray-700">First Name</label>
                       <input type="text" name="firstName" id={`firstName-${index}`} value={tourist.firstName} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" required />
@@ -2340,7 +2380,6 @@ const filteredReservations = useMemo(() => {
                 <button
                   type="button"
                   onClick={addTourist}
-                  // Primary button style
                   className="mt-4 px-6 py-2 bg-[#28A745] text-white rounded-lg hover:bg-[#218838] transition duration-200 shadow-md"
                 >
                   Add Another Tourist
