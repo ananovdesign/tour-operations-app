@@ -127,11 +127,12 @@ const App = () => {
     adults: 1,
     children: 0,
     tourists: [{
+      mode: 'new', // 'new' or 'existing'
       firstName: '',
       fatherName: '',
       familyName: '',
       id: '',
-      realId: '', // New field for Real ID
+      realId: '',
       address: '',
       city: '',
       postCode: '',
@@ -665,7 +666,7 @@ const App = () => {
     });
   }, []);
 
-  const handleTouristChange = useCallback((index, e) => {
+const handleTouristChange = useCallback((index, e) => {
     const { name, value } = e.target;
     setReservationForm(prev => {
       const newTourists = [...prev.tourists];
@@ -677,11 +678,51 @@ const App = () => {
     });
   }, []);
 
+  const handleTouristModeChange = useCallback((index, newMode) => {
+    setReservationForm(prev => {
+      const newTourists = [...prev.tourists];
+      const currentTourist = { ...newTourists[index], mode: newMode };
+
+      // If switching back to 'new', clear the fields to prevent confusion
+      if (newMode === 'new') {
+        currentTourist.firstName = '';
+        currentTourist.fatherName = '';
+        currentTourist.familyName = '';
+        currentTourist.id = '';
+        currentTourist.realId = '';
+        currentTourist.address = '';
+        currentTourist.city = '';
+        currentTourist.postCode = '';
+        currentTourist.email = '';
+        currentTourist.phone = '';
+      }
+
+      newTourists[index] = currentTourist;
+      return { ...prev, tourists: newTourists };
+    });
+  }, []);
+
+  const handleExistingTouristSelect = useCallback((index, selectedCustomerId) => {
+    // Find the full customer object from our customers state
+    const selectedCustomer = customers.find(c => c.id === selectedCustomerId);
+    if (!selectedCustomer) return;
+
+    setReservationForm(prev => {
+      const newTourists = [...prev.tourists];
+      // Overwrite the specific tourist's data with the selected customer's data
+      newTourists[index] = {
+        ...selectedCustomer,
+        mode: 'existing', // Ensure the mode is set to 'existing'
+      };
+      return { ...prev, tourists: newTourists };
+    });
+  }, [customers]); // We need to re-run this if the customers list changes
+
 const addTourist = useCallback(() => {
     setReservationForm(prev => ({
       ...prev,
       tourists: [...prev.tourists, {
-        firstName: '', fatherName: '', familyName: '', id: '', realId: '', address: '',
+        mode: 'new', firstName: '', fatherName: '', familyName: '', id: '', realId: '', address: '',
         city: '', postCode: '', email: '', phone: ''
       }],
     }));
@@ -695,11 +736,16 @@ const addTourist = useCallback(() => {
   }, []);
 
   // --- Customer Management (uses Firestore user-specific collection) ---
-  const manageCustomerRecords = useCallback(async (tourists) => {
+const manageCustomerRecords = useCallback(async (tourists) => {
     if (!userId) return;
     const customersCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/customers`);
 
     for (const tourist of tourists) {
+      // If the tourist was selected from the existing list, we don't need to update their record from here.
+      if (tourist.mode === 'existing') {
+        continue;
+      }
+
       if (!tourist.id) {
         console.warn("Skipping customer record management for a tourist without an ID (ID is required for Firestore).");
         continue;
@@ -805,7 +851,7 @@ const resetReservationForm = useCallback(() => {
       creationDate: '', reservationNumber: '', tourType: 'HOTEL ONLY', hotel: '',
       food: '', place: '', checkIn: '', checkOut: '', adults: 1, children: 0,
       tourists: [{
-        firstName: '', fatherName: '', familyName: '', id: '', realId: '', address: '',
+        mode: 'new', firstName: '', fatherName: '', familyName: '', id: '', realId: '', address: '',
         city: '', postCode: '', email: '', phone: ''
       }],
       depositPaid: false, depositAmount: 0, finalAmount: 0, owedToHotel: 0,
@@ -2286,75 +2332,126 @@ const filteredReservations = useMemo(() => {
                 />
               </div>
 
-              {/* Tourist Details */}
-              <div className="md:col-span-2 border-t border-gray-200 pt-4 mt-4">
-                <h3 className="text-lg font-semibold mb-4 text-gray-800">Tourist Details</h3>
-                {reservationForm.tourists.map((tourist, index) => (
-                  <div key={index} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 border border-gray-200 rounded-lg p-4 mb-4 relative shadow-sm">
-                    <h4 className="col-span-full text-md font-medium text-gray-700 mb-2">Tourist {index + 1}</h4>
-                    {reservationForm.tourists.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => removeTourist(index)}
-                        className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white p-1 rounded-full text-xs transition duration-200" // Red accent button
-                        title="Remove Tourist"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </button>
-                    )}
-                    <div>
-                      <label htmlFor={`firstName-${index}`} className="block text-sm font-medium text-gray-700">First Name</label>
-                      <input type="text" name="firstName" id={`firstName-${index}`} value={tourist.firstName} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" required />
-                    </div>
-                    <div>
-                      <label htmlFor={`fatherName-${index}`} className="block text-sm font-medium text-gray-700">Father's Name</label>
-                      <input type="text" name="fatherName" id={`fatherName-${index}`} value={tourist.fatherName} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
-                    </div>
-                    <div>
-                      <label htmlFor={`familyName-${index}`} className="block text-sm font-medium text-gray-700">Family Name</label>
-                      <input type="text" name="familyName" id={`familyName-${index}`} value={tourist.familyName} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" required />
-                    </div>
-                    <div>
-                        <label htmlFor={`id-${index}`} className="block text-sm font-medium text-gray-700">ID</label>
-                        <input type="text" name="id" id={`id-${index}`} value={tourist.id} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" placeholder="e.g., Passport/National ID" required />
+{/* Tourist Details */}
+                  <div className="md:col-span-2 border-t border-gray-200 pt-4 mt-4">
+                    <h3 className="text-lg font-semibold mb-4 text-gray-800">Tourist Details</h3>
+                    {reservationForm.tourists.map((tourist, index) => (
+                      <div key={index} className="border border-gray-200 rounded-lg p-4 mb-4 relative shadow-sm">
+                        <div className="flex justify-between items-center mb-4">
+                          <div className="flex items-center space-x-2">
+                            <h4 className="text-md font-medium text-gray-700">Tourist {index + 1}</h4>
+                            {/* Mode Toggle Buttons */}
+                            <div className="flex p-1 bg-gray-200 rounded-lg">
+                              <button
+                                type="button"
+                                onClick={() => handleTouristModeChange(index, 'new')}
+                                className={`px-3 py-1 text-sm rounded-md transition-colors duration-200 ${tourist.mode === 'new' ? 'bg-white text-gray-800 shadow-sm' : 'bg-transparent text-gray-600'}`}
+                              >
+                                New
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleTouristModeChange(index, 'existing')}
+                                className={`px-3 py-1 text-sm rounded-md transition-colors duration-200 ${tourist.mode === 'existing' ? 'bg-white text-gray-800 shadow-sm' : 'bg-transparent text-gray-600'}`}
+                              >
+                                Existing
+                              </button>
+                            </div>
+                          </div>
+                          {reservationForm.tourists.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => removeTourist(index)}
+                              className="bg-red-500 hover:bg-red-600 text-white p-1 rounded-full text-xs transition duration-200"
+                              title="Remove Tourist"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Conditional Rendering based on mode */}
+                        {tourist.mode === 'existing' ? (
+                          <div className="col-span-full">
+                            <label htmlFor={`existingCustomer-${index}`} className="block text-sm font-medium text-gray-700">Select Existing Customer</label>
+                            <select
+                              name="existingCustomer"
+                              id={`existingCustomer-${index}`}
+                              value={tourist.id || ''}
+                              onChange={(e) => handleExistingTouristSelect(index, e.target.value)}
+                              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
+                              required
+                            >
+                              <option value="" disabled>-- Select a customer --</option>
+                              {customers.map(c => (
+                                <option key={c.id} value={c.id}>
+                                  {`${c.firstName} ${c.familyName} (ID: ${c.id})`}
+                                </option>
+                              ))}
+                            </select>
+                            {tourist.id && (
+                               <div className="mt-2 text-sm text-gray-600 bg-gray-50 p-2 rounded-md">
+                                  Selected: {tourist.firstName} {tourist.familyName}, ID: {tourist.id}, Real ID: {tourist.realId}
+                               </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {/* Input fields for a new tourist */}
+                            <div>
+                              <label htmlFor={`firstName-${index}`} className="block text-sm font-medium text-gray-700">First Name</label>
+                              <input type="text" name="firstName" id={`firstName-${index}`} value={tourist.firstName} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" required />
+                            </div>
+                            <div>
+                              <label htmlFor={`fatherName-${index}`} className="block text-sm font-medium text-gray-700">Father's Name</label>
+                              <input type="text" name="fatherName" id={`fatherName-${index}`} value={tourist.fatherName} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
+                            </div>
+                            <div>
+                              <label htmlFor={`familyName-${index}`} className="block text-sm font-medium text-gray-700">Family Name</label>
+                              <input type="text" name="familyName" id={`familyName-${index}`} value={tourist.familyName} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" required />
+                            </div>
+                            <div>
+                              <label htmlFor={`id-${index}`} className="block text-sm font-medium text-gray-700">ID</label>
+                              <input type="text" name="id" id={`id-${index}`} value={tourist.id} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" placeholder="e.g., Passport/National ID" required />
+                            </div>
+                            <div>
+                              <label htmlFor={`realId-${index}`} className="block text-sm font-medium text-gray-700">Real ID</label>
+                              <input type="text" name="realId" id={`realId-${index}`} value={tourist.realId} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" placeholder="e.g., ЕГН/ЛНЧ" />
+                            </div>
+                            <div>
+                              <label htmlFor={`address-${index}`} className="block text-sm font-medium text-gray-700">Address</label>
+                              <input type="text" name="address" id={`address-${index}`} value={tourist.address} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
+                            </div>
+                            <div>
+                              <label htmlFor={`city-${index}`} className="block text-sm font-medium text-gray-700">City</label>
+                              <input type="text" name="city" id={`city-${index}`} value={tourist.city} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
+                            </div>
+                            <div>
+                              <label htmlFor={`postCode-${index}`} className="block text-sm font-medium text-gray-700">Post Code</label>
+                              <input type="text" name="postCode" id={`postCode-${index}`} value={tourist.postCode} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
+                            </div>
+                            <div>
+                              <label htmlFor={`email-${index}`} className="block text-sm font-medium text-gray-700">Email</label>
+                              <input type="email" name="email" id={`email-${index}`} value={tourist.email} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
+                            </div>
+                            <div>
+                              <label htmlFor={`phone-${index}`} className="block text-sm font-medium text-gray-700">Phone</label>
+                              <input type="tel" name="phone" id={`phone-${index}`} value={tourist.phone} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
+                            </div>
+                          </div>
+                        )}
                       </div>
-                      <div>
-                        <label htmlFor={`realId-${index}`} className="block text-sm font-medium text-gray-700">Real ID</label>
-                        <input type="text" name="realId" id={`realId-${index}`} value={tourist.realId} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" placeholder="e.g., ЕГН/ЛНЧ" />
-                      </div>
-                      <div>
-                        <label htmlFor={`address-${index}`} className="block text-sm font-medium text-gray-700">Address</label>
-                        <input type="text" name="address" id={`address-${index}`} value={tourist.address} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
-                      </div>
-                    <div>
-                      <label htmlFor={`city-${index}`} className="block text-sm font-medium text-gray-700">City</label>
-                      <input type="text" name="city" id={`city-${index}`} value={tourist.city} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
-                    </div>
-                    <div>
-                      <label htmlFor={`postCode-${index}`} className="block text-sm font-medium text-gray-700">Post Code</label>
-                      <input type="text" name="postCode" id={`postCode-${index}`} value={tourist.postCode} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
-                    </div>
-                    <div>
-                      <label htmlFor={`email-${index}`} className="block text-sm font-medium text-gray-700">Email</label>
-                      <input type="email" name="email" id={`email-${index}`} value={tourist.email} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
-                    </div>
-                    <div>
-                      <label htmlFor={`phone-${index}`} className="block text-sm font-medium text-gray-700">Phone</label>
-                      <input type="tel" name="phone" id={`phone-${index}`} value={tourist.phone} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
-                    </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={addTourist}
+                      className="mt-4 px-6 py-2 bg-[#28A745] text-white rounded-lg hover:bg-[#218838] transition duration-200 shadow-md"
+                    >
+                      Add Another Tourist
+                    </button>
                   </div>
-                ))}
-                <button
-                  type="button"
-                  onClick={addTourist}
-                  // Primary button style
-                  className="mt-4 px-6 py-2 bg-[#28A745] text-white rounded-lg hover:bg-[#218838] transition duration-200 shadow-md"
-                >
-                  Add Another Tourist
-                </button>
-              </div>
 
               {/* Financial Info */}
               <div className="md:col-span-2 border-t border-gray-200 pt-4 mt-4">
