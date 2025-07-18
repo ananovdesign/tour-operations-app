@@ -114,6 +114,7 @@ const App = () => {
   const notificationIdCounter = useRef(0); // For unique notification IDs
 
   // State for Add/Edit Reservation Form
+// State for Add/Edit Reservation Form
   const [reservationForm, setReservationForm] = useState({
     creationDate: '',
     reservationNumber: '',
@@ -130,6 +131,7 @@ const App = () => {
       fatherName: '',
       familyName: '',
       id: '',
+      realId: '', // New field for Real ID
       address: '',
       city: '',
       postCode: '',
@@ -160,8 +162,10 @@ const App = () => {
   });
 
   // State for Edit Customer Form (used in a modal)
+// State for Edit Customer Form (used in a modal)
   const [customerEditForm, setCustomerEditForm] = useState({
     id: '',
+    realId: '', // New field for Real ID
     firstName: '',
     fatherName: '',
     familyName: '',
@@ -673,11 +677,11 @@ const App = () => {
     });
   }, []);
 
-  const addTourist = useCallback(() => {
+const addTourist = useCallback(() => {
     setReservationForm(prev => ({
       ...prev,
       tourists: [...prev.tourists, {
-        firstName: '', fatherName: '', familyName: '', id: '', address: '',
+        firstName: '', fatherName: '', familyName: '', id: '', realId: '', address: '',
         city: '', postCode: '', email: '', phone: ''
       }],
     }));
@@ -704,7 +708,7 @@ const App = () => {
       const q = query(customersCollectionRef, where("id", "==", tourist.id));
       const querySnapshot = await getDocs(q);
 
-      const customerData = {
+const customerData = {
         firstName: tourist.firstName,
         fatherName: tourist.fatherName,
         familyName: tourist.familyName,
@@ -714,6 +718,7 @@ const App = () => {
         email: tourist.email,
         phone: tourist.phone,
         id: tourist.id,
+        realId: tourist.realId,
       };
 
       if (!querySnapshot.empty) {
@@ -795,12 +800,12 @@ const App = () => {
     }
   };
 
-  const resetReservationForm = useCallback(() => {
+const resetReservationForm = useCallback(() => {
     setReservationForm({
       creationDate: '', reservationNumber: '', tourType: 'HOTEL ONLY', hotel: '',
       food: '', place: '', checkIn: '', checkOut: '', adults: 1, children: 0,
       tourists: [{
-        firstName: '', fatherName: '', familyName: '', id: '', address: '',
+        firstName: '', fatherName: '', familyName: '', id: '', realId: '', address: '',
         city: '', postCode: '', email: '', phone: ''
       }],
       depositPaid: false, depositAmount: 0, finalAmount: 0, owedToHotel: 0,
@@ -2312,13 +2317,17 @@ const filteredReservations = useMemo(() => {
                       <input type="text" name="familyName" id={`familyName-${index}`} value={tourist.familyName} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" required />
                     </div>
                     <div>
-                      <label htmlFor={`id-${index}`} className="block text-sm font-medium text-gray-700">ID</label>
-                      <input type="text" name="id" id={`id-${index}`} value={tourist.id} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" placeholder="e.g., Passport/National ID" required />
-                    </div>
-                    <div>
-                      <label htmlFor={`address-${index}`} className="block text-sm font-medium text-gray-700">Address</label>
-                      <input type="text" name="address" id={`address-${index}`} value={tourist.address} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
-                    </div>
+                        <label htmlFor={`id-${index}`} className="block text-sm font-medium text-gray-700">ID</label>
+                        <input type="text" name="id" id={`id-${index}`} value={tourist.id} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" placeholder="e.g., Passport/National ID" required />
+                      </div>
+                      <div>
+                        <label htmlFor={`realId-${index}`} className="block text-sm font-medium text-gray-700">Real ID</label>
+                        <input type="text" name="realId" id={`realId-${index}`} value={tourist.realId} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" placeholder="e.g., ЕГН/ЛНЧ" />
+                      </div>
+                      <div>
+                        <label htmlFor={`address-${index}`} className="block text-sm font-medium text-gray-700">Address</label>
+                        <input type="text" name="address" id={`address-${index}`} value={tourist.address} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
+                      </div>
                     <div>
                       <label htmlFor={`city-${index}`} className="block text-sm font-medium text-gray-700">City</label>
                       <input type="text" name="city" id={`city-${index}`} value={tourist.city} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
@@ -2527,14 +2536,18 @@ const filteredReservations = useMemo(() => {
                       <label htmlFor="edit-familyName" className="block text-sm font-medium text-gray-700">Family Name</label>
                       <input type="text" name="familyName" id="edit-familyName" value={customerEditForm.familyName} onChange={handleCustomerEditFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" required />
                     </div>
-                    <div>
-                      <label htmlFor="edit-id" className="block text-sm font-medium text-gray-700">ID</label>
-                      <input type="text" name="id" id="edit-id" value={customerEditForm.id} readOnly className="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm px-3 py-2" />
-                    </div>
-                    <div>
-                      <label htmlFor="edit-address" className="block text-sm font-medium text-gray-700">Address</label>
-                      <input type="text" name="address" id="edit-address" value={customerEditForm.address} onChange={handleCustomerEditFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
-                    </div>
+                   <div>
+                        <label htmlFor="edit-id" className="block text-sm font-medium text-gray-700">ID</label>
+                        <input type="text" name="id" id="edit-id" value={customerEditForm.id} readOnly className="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm px-3 py-2" />
+                      </div>
+                      <div>
+                        <label htmlFor="edit-realId" className="block text-sm font-medium text-gray-700">Real ID</label>
+                        <input type="text" name="realId" id="edit-realId" value={customerEditForm.realId} onChange={handleCustomerEditFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" placeholder="e.g., ЕГН/ЛНЧ" />
+                      </div>
+                      <div>
+                        <label htmlFor="edit-address" className="block text-sm font-medium text-gray-700">Address</label>
+                        <input type="text" name="address" id="edit-address" value={customerEditForm.address} onChange={handleCustomerEditFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
+                      </div>
                     <div>
                       <label htmlFor="edit-city" className="block text-sm font-medium text-gray-700">City</label>
                       <input type="text" name="city" id="edit-city" value={customerEditForm.city} onChange={handleCustomerEditFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
