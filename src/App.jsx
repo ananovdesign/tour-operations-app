@@ -861,7 +861,7 @@ const resetReservationForm = useCallback(() => {
   }, []);
 
   // --- Edit Reservation Logic (uses Firestore user-specific collection) ---
-  const handleEditReservation = useCallback((reservation) => {
+const handleEditReservation = useCallback((reservation) => {
     setReservationForm({
       ...reservation,
       adults: parseInt(reservation.adults) || 0,
@@ -871,7 +871,12 @@ const resetReservationForm = useCallback(() => {
       owedToHotel: parseFloat(reservation.owedToHotel) || 0,
       profit: parseFloat(reservation.profit) || 0,
       approxTransportCost: parseFloat(reservation.approxTransportCost) || 0,
-      tourists: reservation.tourists ? reservation.tourists.map(t => ({ ...t })) : [],
+      // Ensure old reservations are compatible with the new tourist data structure
+      tourists: reservation.tourists ? reservation.tourists.map(t => ({
+        mode: 'new', // Default to 'new' mode for existing data
+        realId: '',  // Ensure realId exists with a default value
+        ...t,        // Spread the existing tourist data, which will overwrite defaults if present
+      })) : [],
     });
     setSelectedReservation(reservation);
     setActiveTab('addReservation');
@@ -905,8 +910,12 @@ const resetReservationForm = useCallback(() => {
   }, [userId, addNotification]);
 
   // --- Customer Management (uses Firestore user-specific collection) ---
-  const handleEditCustomer = (customer) => {
-    setCustomerEditForm({ ...customer });
+const handleEditCustomer = (customer) => {
+    // Ensure old customer data is compatible with the new form state
+    setCustomerEditForm({
+      realId: '', // Default value for the new field
+      ...customer,  // Spread existing data, which will overwrite the default if it exists
+    });
     setShowCustomerEditModal(true);
   };
 
