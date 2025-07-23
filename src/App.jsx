@@ -2025,17 +2025,17 @@ const filteredTours = useMemo(() => {
 
               {/* Financial Stats */}
               <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100"> {/* Soft white card, light border */}
-                <h3 className="font-semibold text-xl text-gray-700 mb-3">Financial Overview</h3>
-                <p className="text-gray-600 text-lg">Total Income: <span className="font-bold text-[#28A745]">BGN {dashboardStats.totalIncome.toFixed(2)}</span></p> {/* Green for income */}
-                <p className="text-gray-600 text-lg">Total Expenses: <span className="font-bold text-[#DC3545]">BGN {dashboardStats.totalExpenses.toFixed(2)}</span></p> {/* Red for expenses */}
-                <p className="text-gray-600 text-lg">Net Profit/Loss: <span className={`font-bold ${dashboardStats.totalIncome - dashboardStats.totalExpenses >= 0 ? 'text-[#28A745]' : 'text-[#DC3545]'}`}>BGN {(dashboardStats.totalIncome - dashboardStats.totalExpenses).toFixed(2)}</span></p>
+                <h3 className="font-semibold text-xl text-gray-700 mb-3">Финансови данни</h3>
+                <p className="text-gray-600 text-lg">Обща приходи: <span className="font-bold text-[#28A745]">BGN {dashboardStats.totalIncome.toFixed(2)}</span></p> {/* Green for income */}
+                <p className="text-gray-600 text-lg">Общо разходи: <span className="font-bold text-[#DC3545]">BGN {dashboardStats.totalExpenses.toFixed(2)}</span></p> {/* Red for expenses */}
+                <p className="text-gray-600 text-lg">Нетна печалба: <span className={`font-bold ${dashboardStats.totalIncome - dashboardStats.totalExpenses >= 0 ? 'text-[#28A745]' : 'text-[#DC3545]'}`}>BGN {(dashboardStats.totalIncome - dashboardStats.totalExpenses).toFixed(2)}</span></p>
               </div>
 
               {/* Bus Tour Stats */}
               <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100"> {/* Soft white card, light border */}
-                <h3 className="font-semibold text-xl text-gray-700 mb-3">Bus Tour Performance</h3>
-                <p className="text-gray-600 text-lg">Total Bus Passengers Booked: <span className="font-bold text-gray-800">{dashboardStats.totalBusPassengersBooked}</span></p>
-                <p className="text-gray-600 text-lg">Overall Fulfillment: <span className="font-bold text-gray-800">{dashboardStats.overallBusTourFulfillment.toFixed(1)}%</span></p>
+                <h3 className="font-semibold text-xl text-gray-700 mb-3">Автобусни програми</h3>
+                <p className="text-gray-600 text-lg">Общо пътници: <span className="font-bold text-gray-800">{dashboardStats.totalBusPassengersBooked}</span></p>
+                <p className="text-gray-600 text-lg">Общо запълване на седалките: <span className="font-bold text-gray-800">{dashboardStats.overallBusTourFulfillment.toFixed(1)}%</span></p>
               </div>
             </div>
           </div>
@@ -2043,7 +2043,7 @@ const filteredTours = useMemo(() => {
 case 'reservations':
         return (
           <div className="p-6 bg-white rounded-xl shadow-lg">
-            <h2 className="text-3xl font-bold mb-8 text-gray-800 border-b pb-4">Hotel Reservations</h2>
+            <h2 className="text-3xl font-bold mb-8 text-gray-800 border-b pb-4">Хотелски резервации</h2>
 
             {/* Filters for Reservations */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4 mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200 shadow-sm">
@@ -2057,14 +2057,14 @@ case 'reservations':
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                 >
                   <option value="All">All</option>
-                  <option value="Pending">Pending</option>
-                  <option value="Confirmed">Confirmed</option>
-                  <option value="Cancelled">Cancelled</option>
-                  <option value="Past">Past</option>
+                  <option value="Pending">Изчакване</option>
+                  <option value="Confirmed">Потвърдена</option>
+                  <option value="Cancelled">Отказана</option>
+                  <option value="Past">Изминала</option>
                 </select>
               </div>
               <div>
-                <label htmlFor="filterReservationHotel" className="block text-sm font-medium text-gray-700">Hotel</label>
+                <label htmlFor="filterReservationHotel" className="block text-sm font-medium text-gray-700">Хотел</label>
                 <input
                   type="text"
                   name="filterReservationHotel"
@@ -2076,7 +2076,7 @@ case 'reservations':
                 />
               </div>
               <div>
-                <label htmlFor="filterReservationTourType" className="block text-sm font-medium text-gray-700">Tour Type</label>
+                <label htmlFor="filterReservationTourType" className="block text-sm font-medium text-gray-700">Вид резервация</label>
                 <select
                   name="filterReservationTourType"
                   id="filterReservationTourType"
@@ -2084,13 +2084,13 @@ case 'reservations':
                   onChange={handleReservationFilterChange}
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                 >
-                  <option value="All">All</option>
+                  <option value="All">ВСИЧКИ</option>
                   <option value="PARTNER">PARTNER</option>
                   <option value="HOTEL ONLY">HOTEL ONLY</option>
                 </select>
               </div>
               <div>
-                <label htmlFor="filterReservationCheckInDate" className="block text-sm font-medium text-gray-700">Check-in After</label>
+                <label htmlFor="filterReservationCheckInDate" className="block text-sm font-medium text-gray-700">Настаняване след</label>
                 <input
                   type="date"
                   name="filterReservationCheckInDate"
@@ -2101,7 +2101,7 @@ case 'reservations':
                 />
               </div>
               <div>
-                <label htmlFor="filterReservationCheckOutDate" className="block text-sm font-medium text-gray-700">Check-out Before</label>
+                <label htmlFor="filterReservationCheckOutDate" className="block text-sm font-medium text-gray-700">Напускане преди</label>
                 <input
                   type="date"
                   name="filterReservationCheckOutDate"
@@ -2113,7 +2113,7 @@ case 'reservations':
               </div>
               {/* New Search Input */}
               <div className="lg:col-span-3 xl:col-span-4">
-                <label htmlFor="searchReservationTerm" className="block text-sm font-medium text-gray-700">Search by Lead Guest</label>
+                <label htmlFor="searchReservationTerm" className="block text-sm font-medium text-gray-700">Търси по име на гост</label>
                 <input
                   type="text"
                   name="searchReservationTerm"
