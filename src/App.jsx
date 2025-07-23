@@ -4177,8 +4177,8 @@ case 'invoicingSales':
         <aside className="w-full md:w-64 bg-white text-gray-800 p-4 rounded-b-xl md:rounded-r-xl md:rounded-b-none shadow-lg border-r border-gray-100">
           <div className="flex items-center justify-center md:justify-start mb-6">
             {/* Replace the text logo with your image logo */}
-            <img src={Logo} alt="Dynamex Logo" className="h-10 w-auto mr-3" /> {/* Adjust height/width as needed, slight reduction for a tighter feel */}
-            <span className="font-semibold text-xl text-gray-900">Dynamex</span> {/* Added text name next to logo */}
+            <img src={Logo} alt="Dynamex Logo" className="h-14 w-auto mr-3" /> {/* Adjust height/width as needed, slight reduction for a tighter feel */}
+            <span className="font-semibold text-xl text-gray-900">Dynamex Operations</span> {/* Added text name next to logo */}
           </div>
           <nav>
             <ul>
