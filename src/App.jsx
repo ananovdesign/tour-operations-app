@@ -95,8 +95,9 @@ const App = () => {
   // New: State for currently selected sales invoice for editing
   const [selectedSalesInvoice, setSelectedSalesInvoice] = useState(null);
   // New: Search term states
+ // New: Search term states
   const [searchCustomerTerm, setSearchCustomerTerm] = useState('');
-
+  const [searchReservationTerm, setSearchReservationTerm] = useState('');
 
   // Data states - populated from Firestore (user-specific)
   const [reservations, setReservations] = useState([]);
@@ -1353,11 +1354,21 @@ const handleEditCustomer = (customer) => {
 
 const filteredReservations = useMemo(() => {
     return reservations.filter(res => {
+      // Existing filters
       if (filterReservationStatus !== 'All' && res.status !== filterReservationStatus) return false;
       if (filterReservationHotel && !res.hotel?.toLowerCase().includes(filterReservationHotel.toLowerCase())) return false;
       if (filterReservationTourType !== 'All' && res.tourType !== filterReservationTourType) return false;
       if (filterReservationCheckInDate && new Date(res.checkIn) < new Date(filterReservationCheckInDate)) return false;
       if (filterReservationCheckOutDate && new Date(res.checkOut) > new Date(filterReservationCheckOutDate)) return false;
+
+      // New search filter for lead guest
+      if (searchReservationTerm) {
+        const leadGuest = res.tourists?.[0];
+        if (!leadGuest) return false; // No lead guest to search for
+        const fullName = `${leadGuest.firstName || ''} ${leadGuest.familyName || ''}`.toLowerCase();
+        if (!fullName.includes(searchReservationTerm.toLowerCase())) return false;
+      }
+
       return true;
     }).sort((a, b) => {
       // Sort by reservation number descending
@@ -1365,7 +1376,7 @@ const filteredReservations = useMemo(() => {
       const numB = parseInt(b.reservationNumber?.substring(3) || '0', 10);
       return numB - numA;
     });
-  }, [reservations, filterReservationStatus, filterReservationHotel, filterReservationTourType, filterReservationCheckInDate, filterReservationCheckOutDate]);
+  }, [reservations, filterReservationStatus, filterReservationHotel, filterReservationTourType, filterReservationCheckInDate, filterReservationCheckOutDate, searchReservationTerm]);
 
 
   // --- Filtered Tours Logic ---
@@ -2029,13 +2040,13 @@ const filteredTours = useMemo(() => {
             </div>
           </div>
         );
-      case 'reservations':
+case 'reservations':
         return (
           <div className="p-6 bg-white rounded-xl shadow-lg">
             <h2 className="text-3xl font-bold mb-8 text-gray-800 border-b pb-4">Hotel Reservations</h2>
 
             {/* Filters for Reservations */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200 shadow-sm"> {/* Added shadow-sm */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4 mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200 shadow-sm">
               <div>
                 <label htmlFor="filterReservationStatus" className="block text-sm font-medium text-gray-700">Status</label>
                 <select
@@ -2043,7 +2054,7 @@ const filteredTours = useMemo(() => {
                   id="filterReservationStatus"
                   value={filterReservationStatus}
                   onChange={handleReservationFilterChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" // Focus ring green
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                 >
                   <option value="All">All</option>
                   <option value="Pending">Pending</option>
@@ -2060,7 +2071,7 @@ const filteredTours = useMemo(() => {
                   id="filterReservationHotel"
                   value={filterReservationHotel}
                   onChange={handleReservationFilterChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" // Focus ring green
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                   placeholder="Filter by hotel name"
                 />
               </div>
@@ -2071,7 +2082,7 @@ const filteredTours = useMemo(() => {
                   id="filterReservationTourType"
                   value={filterReservationTourType}
                   onChange={handleReservationFilterChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" // Focus ring green
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                 >
                   <option value="All">All</option>
                   <option value="PARTNER">PARTNER</option>
@@ -2086,7 +2097,7 @@ const filteredTours = useMemo(() => {
                   id="filterReservationCheckInDate"
                   value={filterReservationCheckInDate}
                   onChange={handleReservationFilterChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" // Focus ring green
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                 />
               </div>
               <div>
@@ -2097,27 +2108,39 @@ const filteredTours = useMemo(() => {
                   id="filterReservationCheckOutDate"
                   value={filterReservationCheckOutDate}
                   onChange={handleReservationFilterChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" // Focus ring green
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                 />
               </div>
-              <div className="md:col-span-full flex justify-end">
+              {/* New Search Input */}
+              <div className="lg:col-span-3 xl:col-span-4">
+                <label htmlFor="searchReservationTerm" className="block text-sm font-medium text-gray-700">Search by Lead Guest</label>
+                <input
+                  type="text"
+                  name="searchReservationTerm"
+                  id="searchReservationTerm"
+                  value={searchReservationTerm}
+                  onChange={e => setSearchReservationTerm(e.target.value)}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
+                  placeholder="Enter first or last name..."
+                />
+              </div>
+              <div className="flex items-end">
                 <button
                   type="button"
                   onClick={resetReservationFilters}
-                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition duration-200 shadow-sm border border-gray-200" // Styled reset button
+                  className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition duration-200 shadow-sm border border-gray-200"
                 >
                   Reset Filters
                 </button>
               </div>
             </div>
 
-            {/* Removed PDF Export Button */}
             {filteredReservations.length === 0 ? (
               <p className="text-gray-600 text-center py-8">No reservations found matching your criteria. Add a new reservation to get started!</p>
             ) : (
-              <div className="overflow-x-auto rounded-xl shadow-md border border-gray-200"> {/* More rounded, subtle shadow */}
+              <div className="overflow-x-auto rounded-xl shadow-md border border-gray-200">
                 <table className="min-w-full bg-white">
-                  <thead className="bg-gray-50 text-gray-700 border-b border-gray-200"> {/* Light header, dark text */}
+                  <thead className="bg-gray-50 text-gray-700 border-b border-gray-200">
                     <tr>
                       <th className="py-3 px-4 text-left font-medium">Reservation Number</th>
                       <th className="py-3 px-4 text-left font-medium">Hotel</th>
@@ -2132,17 +2155,17 @@ const filteredTours = useMemo(() => {
                   </thead>
                   <tbody className="text-gray-700">
                     {filteredReservations.map(res => (
-                      <tr key={res.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors duration-150"> {/* Lighter border, subtle hover */}
+                      <tr key={res.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors duration-150">
                         <td className="py-3 px-4">{res.reservationNumber}</td>
                         <td className="py-3 px-4">{res.hotel}</td>
                         <td className="py-3 px-4">{res.tourists && res.tourists.length > 0 ? `${res.tourists[0].firstName} ${res.tourists[0].familyName}` : 'N/A'}</td>
-                        <td className="py-3 px-4 text-gray-500">{res.linkedTourId || 'N/A'}</td> {/* Muted tour ID */}
+                        <td className="py-3 px-4 text-gray-500">{res.linkedTourId || 'N/A'}</td>
                         <td className="py-3 px-4">{res.depositPaid ? 'Yes' : 'No'}</td>
                         <td className="py-3 px-4 text-gray-600">
                           {res.checkIn} - {res.checkOut}
                         </td>
                         <td className="py-3 px-4">
-                          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${ // More padding for pill shape
+                          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
                             res.status === 'Confirmed' ? 'bg-green-100 text-green-800' :
                             res.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
                             res.status === 'Cancelled' ? 'bg-red-100 text-red-800' :
@@ -2151,11 +2174,10 @@ const filteredTours = useMemo(() => {
                             {res.status}
                           </span>
                         </td>
-                        <td className="py-3 px-4 font-semibold text-right text-gray-800">BGN {res.profit.toFixed(2)}</td> {/* Darker profit text */}
+                        <td className="py-3 px-4 font-semibold text-right text-gray-800">BGN {res.profit.toFixed(2)}</td>
                         <td className="py-3 px-4 flex justify-center space-x-2">
                           <button
                             onClick={() => handleEditReservation(res)}
-                            // Styled to be like the green accent action buttons
                             className="bg-[#28A745] hover:bg-[#218838] text-white p-2 rounded-full shadow-md transition duration-200"
                             title="Edit"
                           >
@@ -2166,7 +2188,7 @@ const filteredTours = useMemo(() => {
                           </button>
                           <button
                             onClick={() => handleDeleteReservation(res.id)}
-                            className="bg-[#DC3545] hover:bg-[#C82333] text-white p-2 rounded-full shadow-md transition duration-200" // Styled to match red accent
+                            className="bg-[#DC3545] hover:bg-[#C82333] text-white p-2 rounded-full shadow-md transition duration-200"
                             title="Delete"
                           >
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -2182,7 +2204,6 @@ const filteredTours = useMemo(() => {
             )}
           </div>
         );
-
       case 'addReservation':
         return (
           <div className="p-6 bg-white rounded-xl shadow-lg">
