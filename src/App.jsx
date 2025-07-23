@@ -94,6 +94,8 @@ const App = () => {
   const [selectedProduct, setSelectedProduct] = useState(null);
   // New: State for currently selected sales invoice for editing
   const [selectedSalesInvoice, setSelectedSalesInvoice] = useState(null);
+  // New: Search term states
+  const [searchCustomerTerm, setSearchCustomerTerm] = useState('');
 
 
   // Data states - populated from Firestore (user-specific)
@@ -1382,7 +1384,7 @@ const filteredReservations = useMemo(() => {
     setFilterTourArrivalDate('');
   }, []);
 
-  const filteredTours = useMemo(() => {
+const filteredTours = useMemo(() => {
     return tours.filter(tour => {
       if (filterTourHotel && !tour.hotel?.toLowerCase().includes(filterTourHotel.toLowerCase())) return false;
       if (filterTourTransportCompany && !tour.transportCompany?.toLowerCase().includes(filterTourTransportCompany.toLowerCase())) return false;
@@ -1391,6 +1393,20 @@ const filteredReservations = useMemo(() => {
       return true;
     }).sort((a, b) => new Date(b.departureDate) - new Date(a.departureDate));
   }, [tours, filterTourHotel, filterTourTransportCompany, filterTourDepartureDate, filterTourArrivalDate]);
+
+
+  // New: Filtered Customers Logic with Search
+  const filteredCustomers = useMemo(() => {
+    let sortedCustomers = [...customers].sort((a, b) => (a.firstName || '').localeCompare(b.firstName || ''));
+
+    if (!searchCustomerTerm) {
+      return sortedCustomers;
+    }
+    return sortedCustomers.filter(cust => {
+      const fullName = `${cust.firstName || ''} ${cust.fatherName || ''} ${cust.familyName || ''}`.toLowerCase();
+      return fullName.includes(searchCustomerTerm.toLowerCase());
+    });
+  }, [customers, searchCustomerTerm]);
 
 
   // --- New: Notification Generation Logic ---
@@ -2581,11 +2597,29 @@ const filteredReservations = useMemo(() => {
           </div>
         );
 
-      case 'customers':
+case 'customers':
         return (
           <div className="p-6 bg-white rounded-xl shadow-lg">
-            <h2 className="text-3xl font-bold mb-8 text-gray-800 border-b pb-4">Customers List</h2>
-            {customers.length === 0 ? (
+            <div className="flex flex-col md:flex-row justify-between items-center mb-8 pb-4 border-b">
+              <h2 className="text-3xl font-bold text-gray-800">Customers List</h2>
+              {/* New Search Input */}
+              <div className="relative mt-4 md:mt-0">
+                <input
+                  type="text"
+                  placeholder="Search by name..."
+                  value={searchCustomerTerm}
+                  onChange={(e) => setSearchCustomerTerm(e.target.value)}
+                  className="w-full md:w-64 pl-10 pr-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            {filteredCustomers.length === 0 ? (
               <p className="text-gray-600 text-center py-8">No customers found. Customers are automatically added when you create a reservation.</p>
             ) : (
               <div className="overflow-x-auto rounded-xl shadow-md border border-gray-200">
@@ -2600,7 +2634,7 @@ const filteredReservations = useMemo(() => {
                     </tr>
                   </thead>
                   <tbody className="text-gray-700">
-                    {customers.map(cust => (
+                    {filteredCustomers.map(cust => (
                       <tr key={cust.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors duration-150">
                         <td className="py-3 px-4">{cust.firstName} {cust.fatherName ? cust.fatherName + ' ' : ''}{cust.familyName}</td>
                         <td className="py-3 px-4 text-gray-500">{cust.id}</td>
@@ -2642,18 +2676,18 @@ const filteredReservations = useMemo(() => {
                       <label htmlFor="edit-familyName" className="block text-sm font-medium text-gray-700">Family Name</label>
                       <input type="text" name="familyName" id="edit-familyName" value={customerEditForm.familyName} onChange={handleCustomerEditFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" required />
                     </div>
-                   <div>
-                        <label htmlFor="edit-id" className="block text-sm font-medium text-gray-700">ID</label>
-                        <input type="text" name="id" id="edit-id" value={customerEditForm.id} readOnly className="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm px-3 py-2" />
-                      </div>
-                      <div>
-                        <label htmlFor="edit-realId" className="block text-sm font-medium text-gray-700">Real ID</label>
-                        <input type="text" name="realId" id="edit-realId" value={customerEditForm.realId} onChange={handleCustomerEditFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" placeholder="e.g., ЕГН/ЛНЧ" />
-                      </div>
-                      <div>
-                        <label htmlFor="edit-address" className="block text-sm font-medium text-gray-700">Address</label>
-                        <input type="text" name="address" id="edit-address" value={customerEditForm.address} onChange={handleCustomerEditFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
-                      </div>
+                    <div>
+                      <label htmlFor="edit-id" className="block text-sm font-medium text-gray-700">ID</label>
+                      <input type="text" name="id" id="edit-id" value={customerEditForm.id} readOnly className="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm px-3 py-2" />
+                    </div>
+                    <div>
+                      <label htmlFor="edit-realId" className="block text-sm font-medium text-gray-700">Real ID</label>
+                      <input type="text" name="realId" id="edit-realId" value={customerEditForm.realId} onChange={handleCustomerEditFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" placeholder="e.g., ЕГН/ЛНЧ" />
+                    </div>
+                    <div>
+                      <label htmlFor="edit-address" className="block text-sm font-medium text-gray-700">Address</label>
+                      <input type="text" name="address" id="edit-address" value={customerEditForm.address} onChange={handleCustomerEditFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
+                    </div>
                     <div>
                       <label htmlFor="edit-city" className="block text-sm font-medium text-gray-700">City</label>
                       <input type="text" name="city" id="edit-city" value={customerEditForm.city} onChange={handleCustomerEditFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
