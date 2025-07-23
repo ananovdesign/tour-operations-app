@@ -2012,15 +2012,15 @@ const filteredTours = useMemo(() => {
       case 'dashboard':
         return (
           <div className="p-6 bg-white rounded-xl shadow-lg"> {/* Consistent card styling */}
-            <h2 className="text-3xl font-bold mb-8 text-gray-800 border-b pb-4">Dashboard & Analytics</h2>
+            <h2 className="text-3xl font-bold mb-8 text-gray-800 border-b pb-4">Главно табло и анализи</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {/* Reservation Stats */}
               <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100"> {/* Soft white card, light border */}
-                <h3 className="font-semibold text-xl text-gray-700 mb-3">Reservation Metrics</h3> {/* Darker text color */}
-                <p className="text-gray-600 text-lg">Total Reservations: <span className="font-bold text-gray-800">{dashboardStats.totalReservations}</span></p>
-                <p className="text-gray-600 text-lg">Total Profit: <span className="font-bold text-[#28A745]">BGN {dashboardStats.totalProfit.toFixed(2)}</span></p> {/* Green for profit */}
-                <p className="text-gray-600 text-lg">Avg. Profit/Res: <span className="font-bold text-[#28A745]">BGN {dashboardStats.averageProfitPerReservation.toFixed(2)}</span></p>
-                <p className="text-gray-600 text-lg">Avg. Stay/Res: <span className="font-bold text-gray-800">{dashboardStats.averageStayPerReservation.toFixed(1)} nights</span></p>
+                <h3 className="font-semibold text-xl text-gray-700 mb-3">Данни от резервации</h3> {/* Darker text color */}
+                <p className="text-gray-600 text-lg">Общ брой резервации: <span className="font-bold text-gray-800">{dashboardStats.totalReservations}</span></p>
+                <p className="text-gray-600 text-lg">Обща печалба: <span className="font-bold text-[#28A745]">BGN {dashboardStats.totalProfit.toFixed(2)}</span></p> {/* Green for profit */}
+                <p className="text-gray-600 text-lg">Средна печалба/рез: <span className="font-bold text-[#28A745]">BGN {dashboardStats.averageProfitPerReservation.toFixed(2)}</span></p>
+                <p className="text-gray-600 text-lg">Среден престой/рез: <span className="font-bold text-gray-800">{dashboardStats.averageStayPerReservation.toFixed(1)} nights</span></p>
               </div>
 
               {/* Financial Stats */}
@@ -4233,7 +4233,7 @@ case 'invoicingSales':
           <div className="flex items-center justify-center md:justify-start mb-6">
             {/* Replace the text logo with your image logo */}
             <img src={Logo} alt="Dynamex Logo" className="h-30 w-auto mr-3" /> {/* Adjust height/width as needed, slight reduction for a tighter feel */}
-            <span className="font-semibold text-xl text-gray-900">Dynamex Operations</span> {/* Added text name next to logo */}
+            <span className="font-semibold text-xl text-gray-900">-</span> {/* Added text name next to logo */}
           </div>
           <nav>
             <ul>
