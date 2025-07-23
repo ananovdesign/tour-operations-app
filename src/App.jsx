@@ -4233,7 +4233,7 @@ case 'invoicingSales':
           <div className="flex items-center justify-center md:justify-start mb-6">
             {/* Replace the text logo with your image logo */}
             <img src={Logo} alt="Dynamex Logo" className="h-30 w-auto mr-3" /> {/* Adjust height/width as needed, slight reduction for a tighter feel */}
-            <span className="font-semibold text-xl text-gray-900">-</span> {/* Added text name next to logo */}
+            <span className="font-semibold text-xl text-gray-900"></span> {/* Added text name next to logo */}
           </div>
           <nav>
             <ul>
