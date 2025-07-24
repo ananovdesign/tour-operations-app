@@ -4390,6 +4390,7 @@ return (
 
       <div className="flex flex-col md:flex-row min-h-screen">
         {/* Sidebar Navigation */}
+        <div className="flex flex-col md:flex-row min-h-screen">
         <aside className="w-full md:w-64 bg-white text-gray-800 p-4 rounded-b-xl md:rounded-r-xl md:rounded-b-none shadow-lg border-r border-gray-100">
           <div className="flex items-center justify-center md:justify-start mb-6">
             <img src={Logo} alt="Dynamex Logo" className="h-40 w-auto mr-3" />
@@ -4631,6 +4632,7 @@ return (
           <NotificationDisplay notifications={notifications} onDismiss={removeNotification} />
           {renderContent()}
         </main>
+          </div>
       </div>
         </div>
 
