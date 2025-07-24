@@ -1107,19 +1107,11 @@ const handleEditCustomer = (customer) => {
 
   const handleFinancialTransactionFormChange = useCallback((e) => {
     const { name, value, type } = e.target;
-    setFinancialTransactionForm(prev => {
-      let newState = { ...prev };
-      if (name === 'associatedReservationId' && value !== '') {
-        newState.associatedTourId = '';
-      } else if (name === 'associatedTourId' && value !== '') {
-        newState.associatedReservationId = '';
-      }
-      newState = {
-        ...newState,
-        [name]: type === 'number' ? parseFloat(value) || 0 : value,
-      };
-      return newState;
-    });
+    // This version simply updates the field that was changed, without affecting the other.
+    setFinancialTransactionForm(prev => ({
+      ...prev,
+      [name]: type === 'number' ? parseFloat(value) || 0 : value,
+    }));
   }, []);
 
   const handleSubmitFinancialTransaction = async (e) => {
