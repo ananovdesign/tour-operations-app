@@ -4384,9 +4384,7 @@ case 'customerContract':
     return <InvoicePrint invoiceData={invoiceToPrint} onPrintFinish={handlePrintFinish} />;
   }
 
-const handlePrintFinish = () => {
-    setInvoiceToPrint(null);
-  };
+
 
   if (invoiceToPrint) {
     return <InvoicePrint invoiceData={invoiceToPrint} onPrintFinish={handlePrintFinish} />;
