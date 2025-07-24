@@ -249,10 +249,12 @@ const App = () => {
   });
 
   // New: State for Sales Invoice Form
+// New: State for Sales Invoice Form
   const [salesInvoiceForm, setSalesInvoiceForm] = useState({
     invoiceNumber: '',
     invoiceDate: '',
     clientName: '',
+    clientMOL: '', // New field
     clientID: '',
     clientVATID: '',
     clientAddress: '',
@@ -1848,6 +1850,7 @@ const filteredTours = useMemo(() => {
       invoiceNumber: '',
       invoiceDate: '',
       clientName: '',
+      clientMOL: '', // New field
       clientID: '',
       clientVATID: '',
       clientAddress: '',
@@ -1928,8 +1931,9 @@ const filteredTours = useMemo(() => {
     }
   };
 
-  const handleEditSalesInvoice = useCallback((invoice) => {
+const handleEditSalesInvoice = useCallback((invoice) => {
     setSalesInvoiceForm({
+      clientMOL: '', // Default value for old invoices
       ...invoice,
       totalAmount: parseFloat(invoice.totalAmount) || 0,
       totalVAT: parseFloat(invoice.totalVAT) || 0,
@@ -3822,29 +3826,40 @@ case 'invoicingSales':
                     required
                   />
                 </div>
-                <div>
-                  <label htmlFor="clientName" className="block text-sm font-medium text-gray-700">Client Name</label>
-                  <input
-                    type="text"
-                    name="clientName"
-                    id="clientName"
-                    value={salesInvoiceForm.clientName}
-                    onChange={handleSalesInvoiceFormChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                    required
-                  />
-                </div>
-                <div>
-                  <label htmlFor="clientID" className="block text-sm font-medium text-gray-700">Client ID</label>
-                  <input
-                    type="text"
-                    name="clientID"
-                    id="clientID"
-                    value={salesInvoiceForm.clientID}
-                    onChange={handleSalesInvoiceFormChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                  />
-                </div>
+<div>
+                <label htmlFor="clientName" className="block text-sm font-medium text-gray-700">Client Name</label>
+                <input
+                  type="text"
+                  name="clientName"
+                  id="clientName"
+                  value={salesInvoiceForm.clientName}
+                  onChange={handleSalesInvoiceFormChange}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
+                  required
+                />
+              </div>
+              <div>
+                <label htmlFor="clientMOL" className="block text-sm font-medium text-gray-700">Client MOL</label>
+                <input
+                  type="text"
+                  name="clientMOL"
+                  id="clientMOL"
+                  value={salesInvoiceForm.clientMOL}
+                  onChange={handleSalesInvoiceFormChange}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
+                />
+              </div>
+              <div>
+                <label htmlFor="clientID" className="block text-sm font-medium text-gray-700">Client ID</label>
+                <input
+                  type="text"
+                  name="clientID"
+                  id="clientID"
+                  value={salesInvoiceForm.clientID}
+                  onChange={handleSalesInvoiceFormChange}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
+                />
+              </div>
                 <div>
                   <label htmlFor="clientVATID" className="block text-sm font-medium text-gray-700">Client VAT ID</label>
                   <input
