@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Генератор на Договори за Транспорт</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc; /* bg-slate-50 */
+            transition: background-color 0.3s;
+        }
+        /* Скриване на елементи при печат */
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+            .printable {
+                box-shadow: none !important;
+                border: none !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                width: 100% !important;
+                max-width: 100% !important;
+            }
+            body {
+                background-color: #fff !important;
+            }
+        }
+        #contract-preview {
+            line-height: 1.8;
+            font-size: 11pt; /* Стандартен размер за документи */
+            font-family: 'Times New Roman', serif;
+            color: #000;
+        }
+        #contract-preview h1 {
+            font-size: 14pt;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        #contract-preview h2 {
+            font-size: 12pt;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+        .input-icon {
+            position: absolute;
+            inset-y: 0;
+            left: 0;
+            top: 24px; /* Adjust to align with the input box */
+            padding-left: 0.75rem; /* pl-3 */
+            display: flex;
+            align-items: center;
+            pointer-events: none;
+        }
+        .form-input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #cbd5e1; /* border-slate-300 */
+            border-radius: 0.5rem; /* rounded-lg */
+            transition: all 0.2s;
+        }
+        .form-input:focus {
+            outline: 2px solid transparent;
+            outline-offset: 2px;
+            border-color: #3b82f6; /* focus:border-blue-500 */
+            box-shadow: 0 0 0 2px #bfdbfe; /* focus:ring-2 focus:ring-blue-200 */
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-4">
+
+    <!-- Форма за въвеждане на данни -->
+    <div id="form-container" class="w-full max-w-4xl">
+        <div class="bg-white p-8 rounded-2xl shadow-2xl shadow-slate-200">
+            <div class="text-center mb-8">
+                <h1 class="text-3xl font-bold text-slate-800">Генератор на договори</h1>
+                <p class="text-slate-500 mt-2">Попълнете данните, за да създадете вашия договор за транспорт.</p>
+            </div>
+            <div id="error-message" class="hidden bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg mb-6" role="alert">
+                <p class="font-bold">Грешка!</p>
+                <p>Моля, попълнете всички задължителни полета.</p>
+            </div>
+            <form id="contract-form" class="space-y-8">
+                <!-- Данни за Изпълнител -->
+                <fieldset class="border border-slate-200 p-4 rounded-lg">
+                    <legend class="text-lg font-semibold text-slate-800 px-2">Данни за Изпълнител</legend>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+                        <div><label for="executor_name" class="block text-sm font-medium text-slate-600 mb-1">Име на фирма</label><input type="text" id="executor_name" value="“Дайнамекс Логистикс” ООД" class="form-input"></div>
+                        <div><label for="executor_rep" class="block text-sm font-medium text-slate-600 mb-1">Представлявано от</label><input type="text" id="executor_rep" value="Емил Ананов" class="form-input"></div>
+                        <div><label for="executor_address" class="block text-sm font-medium text-slate-600 mb-1">Адрес</label><input type="text" id="executor_address" value="гр. Ракитово, ул. Васил Куртев 12, вх. А" class="form-input"></div>
+                        <div><label for="executor_eik" class="block text-sm font-medium text-slate-600 mb-1">ЕИК</label><input type="text" id="executor_eik" value="207107957" class="form-input"></div>
+                    </div>
+                </fieldset>
+
+                <!-- Данни за Възложител -->
+                <fieldset class="border border-slate-200 p-4 rounded-lg">
+                    <legend class="text-lg font-semibold text-slate-800 px-2">Данни за Възложител</legend>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+                        <div><label for="assignor_name" class="block text-sm font-medium text-slate-600 mb-1">Име на фирма</label><input type="text" id="assignor_name" value='"Дайнамекс Тур" ЕООД' class="form-input"></div>
+                        <div><label for="assignor_rep" class="block text-sm font-medium text-slate-600 mb-1">Представлявано от</label><input type="text" id="assignor_rep" value="Красимир Емилов Ананов" class="form-input"></div>
+                        <div><label for="assignor_address" class="block text-sm font-medium text-slate-600 mb-1">Адрес</label><input type="text" id="assignor_address" value="гр. Ракитово ул. Васил Куртев 12А" class="form-input"></div>
+                        <div><label for="assignor_bulstat" class="block text-sm font-medium text-slate-600 mb-1">Булстат</label><input type="text" id="assignor_bulstat" value="208193140" class="form-input"></div>
+                        <div class="md:col-span-2"><label for="assignor_license" class="block text-sm font-medium text-slate-600 mb-1">Лиценз</label><input type="text" id="assignor_license" value="РК-01-8569-15.04.2025г." class="form-input"></div>
+                    </div>
+                </fieldset>
+
+                <!-- Детайли по договора -->
+                <fieldset class="border border-slate-200 p-4 rounded-lg">
+                    <legend class="text-lg font-semibold text-slate-800 px-2">Детайли по договора</legend>
+                    <div class="space-y-6 mt-4">
+                        <div class="relative"><label for="date" class="block text-sm font-medium text-slate-600 mb-1">Дата на сключване</label><div class="input-icon"><svg class="w-5 h-5 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0h18M-4.5 12h22.5" /></svg></div><input type="date" id="date" name="date" class="w-full pl-10 p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"></div>
+                        <div class="relative"><label for="route" class="block text-sm font-medium text-slate-600 mb-1">Маршрут</label><div class="input-icon"><svg class="w-5 h-5 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 6.75V15m0 0 2.25-2.25M9 15l-2.25-2.25M15 6.75V15m0 0 2.25-2.25M15 15l-2.25-2.25M3 12l6.75 6.75M21 12l-6.75 6.75" /></svg></div><input type="text" id="route" name="route" placeholder="Пример: гр. София - к.к. Слънчев бряг - гр. София" class="w-full pl-10 p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"></div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="relative"><label for="distance" class="block text-sm font-medium text-slate-600 mb-1">Дължина в км.</label><div class="input-icon"><svg class="w-5 h-5 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 11.667 0l3.181-3.183m-4.991-2.696v4.992h-4.992" /></svg></div><input type="number" id="distance" name="distance" placeholder="Пример: 850" class="w-full pl-10 p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"></div>
+                            <div class="relative"><label for="period" class="block text-sm font-medium text-slate-600 mb-1">Срок за извършване</label><div class="input-icon"><svg class="w-5 h-5 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg></div><input type="text" id="period" name="period" placeholder="Пример: 20.07.2024 - 22.07.2024" class="w-full pl-10 p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"></div>
+                        </div>
+                        <div class="relative"><label for="price" class="block text-sm font-medium text-slate-600 mb-1">Цена на услугата</label><div class="input-icon"><svg class="w-5 h-5 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-15c-.621 0-1.125-.504-1.125-1.125V8.25c0-.621.504-1.125 1.125-1.125h.375m15-1.5-15-1.5" /></svg></div><input type="text" id="price" name="price" placeholder="Пример: 1500.00 лв. (хиляда и петстотин лева)" class="w-full pl-10 p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"></div>
+                    </div>
+                </fieldset>
+
+                <div class="text-center pt-4">
+                    <button type="button" id="generate-btn" class="w-full bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white font-bold py-3 px-8 rounded-lg shadow-lg hover:shadow-xl transition-all transform hover:scale-105">
+                        Генерирай Договор
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Контейнер за генерирания договор -->
+    <div id="contract-output" class="hidden w-full max-w-4xl printable">
+         <div class="bg-white p-8 md:p-12 rounded-2xl shadow-2xl shadow-slate-200">
+            <div id="contract-preview">
+                <!-- Съдържанието на договора ще се вмъкне тук -->
+            </div>
+            <div class="mt-12 text-center space-x-0 space-y-4 md:space-y-0 md:space-x-4 no-print">
+                <button type="button" id="back-btn" class="w-full md:w-auto bg-slate-500 hover:bg-slate-600 text-white font-bold py-3 px-6 rounded-lg shadow-md hover:shadow-lg transition">
+                    ← Назад към формата
+                </button>
+                <button type="button" id="print-btn" class="w-full md:w-auto bg-gradient-to-r from-green-500 to-teal-500 hover:from-green-600 hover:to-teal-600 text-white font-bold py-3 px-6 rounded-lg shadow-md hover:shadow-lg transition">
+                    Принтирай / Запази като PDF
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // DOM елементи
+        const generateBtn = document.getElementById('generate-btn');
+        const printBtn = document.getElementById('print-btn');
+        const backBtn = document.getElementById('back-btn');
+        const formContainer = document.getElementById('form-container');
+        const contractOutput = document.getElementById('contract-output');
+        const contractPreview = document.getElementById('contract-preview');
+        const errorMessage = document.getElementById('error-message');
+
+        // Поставяне на днешна дата по подразбиране
+        document.getElementById('date').valueAsDate = new Date();
+        
+        // Функция за генериране на договора
+        generateBtn.addEventListener('click', () => {
+            // Взимане на стойностите от формата
+            // -- Изпълнител
+            const executorName = document.getElementById('executor_name').value;
+            const executorRep = document.getElementById('executor_rep').value;
+            const executorAddress = document.getElementById('executor_address').value;
+            const executorEik = document.getElementById('executor_eik').value;
+            // -- Възложител
+            const assignorName = document.getElementById('assignor_name').value;
+            const assignorRep = document.getElementById('assignor_rep').value;
+            const assignorAddress = document.getElementById('assignor_address').value;
+            const assignorBulstat = document.getElementById('assignor_bulstat').value;
+            const assignorLicense = document.getElementById('assignor_license').value;
+            // -- Детайли по договора
+            const contractDateRaw = document.getElementById('date').value;
+            const route = document.getElementById('route').value;
+            const distance = document.getElementById('distance').value;
+            const period = document.getElementById('period').value;
+            const price = document.getElementById('price').value;
+
+            // Валидация - проверка дали всички полета са попълнени
+            const allFields = [executorName, executorRep, executorAddress, executorEik, assignorName, assignorRep, assignorAddress, assignorBulstat, assignorLicense, contractDateRaw, route, distance, period, price];
+            if (allFields.some(field => !field)) {
+                errorMessage.classList.remove('hidden');
+                window.scrollTo({ top: 0, behavior: 'smooth' }); // Превъртане до върха, за да се види грешката
+                return;
+            }
+            errorMessage.classList.add('hidden');
+            
+            const contractDate = new Date(contractDateRaw).toLocaleDateString('bg-BG', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+            // Шаблон на договора
+            const contractHTML = `
+                <h1>ДОГОВОР ЗА ТРАНСПОРТНА УСЛУГА</h1>
+                <p style="text-indent: 2em;">Днес, <strong>${contractDate} г.</strong>, в град Ракитово между:</p>
+                <br>
+                <p>
+                    <strong>${executorName}</strong> със седалище и адрес на управление: ${executorAddress}, ЕИК: ${executorEik}, представлявано от ${executorRep}, наричан по-долу за краткост <strong>ИЗПЪЛНИТЕЛ</strong>
+                </p>
+                <p style="text-align: center;">и</p>
+                <p>
+                    <strong>${assignorName}</strong>, ${assignorAddress}, Булстат: ${assignorBulstat}, лиценз за туроператор: ${assignorLicense}, представлявано от ${assignorRep}, наричан за краткост <strong>ВЪЗЛОЖИТЕЛ</strong>
+                </p>
+                <br>
+                <p>се сключи настоящият договор за следното:</p>
+                <br>
+                <p><strong>1.</strong> ВЪЗЛОЖИТЕЛЯТ възлага, а ИЗПЪЛНИТЕЛЯТ приема да извърши транспорт на група по маршрут: <strong>${route}</strong>, общо <strong>${distance} км.</strong></p>
+                <p><strong>2.</strong> Транспортът ще се извърши с туристически автобус марка БОВА, модел ФУТУРА с 41 седящи места и регистрационен номер PA0472MB.</p>
+                <p><strong>3.</strong> Срокът за извършване на транспортната услуга е от <strong>${period}</strong>.</p>
+                <p><strong>4.</strong> Автобусът ще се кормува през времето за извършване на транспорта от шофьор на фирмата ИЗПЪЛНИТЕЛ.</p>
+                <p><strong>5.</strong> Пушенето в автобуса не е разрешено. За целта се спира на всеки 2-3 часа, ако е необходимо.</p>
+                <p><strong>6.</strong> ВЪЗЛОЖИТЕЛЯТ и пътниците се задължават да пазят автобуса. Всяка щета, нанесена му от пътниците се заплаща от ВЪЗЛОЖИТЕЛЯ в момента на констатирането й.</p>
+                <p><strong>7.</strong> За извършване на транспортната услуга ВЪЗЛОЖИТЕЛЯТ се задължава да заплати на ИЗПЪЛНИТЕЛЯ сумата от <strong>${price}</strong>.</p>
+                <p><strong>8.</strong> ИЗПЪЛНИТЕЛЯТ се задължава при необходимост от ремонти на автобуса на пътя да ги извърши за своя сметка.</p>
+                <p><strong>9.</strong> Настоящият договор се състави и подписа в два еднообразни екземпляра - по един за всяка от страните.</p>
+                <br><br><br>
+                <table style="width: 100%; border: none;">
+                    <tr>
+                        <td style="text-align: center; width: 50%;"><strong>ВЪЗЛОЖИТЕЛ:</strong></td>
+                        <td style="text-align: center; width: 50%;"><strong>ИЗПЪЛНИТЕЛ:</strong></td>
+                    </tr>
+                    <tr>
+                        <td style="text-align: center; padding-top: 40px;">...................................</td>
+                        <td style="text-align: center; padding-top: 40px;">...................................</td>
+                    </tr>
+                     <tr>
+                        <td style="text-align: center;">/${assignorRep}/</td>
+                        <td style="text-align: center;">/${executorRep}/</td>
+                    </tr>
+                </table>
+            `;
+
+            // Показване на генерирания договор и скриване на формата
+            contractPreview.innerHTML = contractHTML;
+            formContainer.classList.add('hidden');
+            contractOutput.classList.remove('hidden');
+        });
+
+        // Функция за принтиране
+        printBtn.addEventListener('click', () => {
+            window.print();
+        });
+
+        // Функция за връщане към формата
+        backBtn.addEventListener('click', () => {
+            contractOutput.classList.add('hidden');
+            formContainer.classList.remove('hidden');
+        });
+
+    </script>
+</body>
+</html>
