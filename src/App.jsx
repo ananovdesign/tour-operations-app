@@ -4386,64 +4386,6 @@ case 'customerContract':
 
   return (
     <div className="font-sans antialiased bg-gray-100 min-h-screen text-gray-900" style={{ fontFamily: 'Inter, sans-serif' }}>
-      {/* Custom scrollbar for better aesthetics */}
-   <style
-          dangerouslySetInnerHTML={{
-            __html: `
-              ::-webkit-scrollbar {
-                width: 8px;
-                height: 8px;
-              }
-              ::-webkit-scrollbar-track {
-                background: #e0e0e0;
-                border-radius: 10px;
-              }
-              ::-webkit-scrollbar-thumb {
-                background: #888;
-                border-radius: 10px;
-              }
-              ::-webkit-scrollbar-thumb:hover {
-                background: #555;
-              }
-      
-              /* Responsive typography adjustments for smaller screens */
-              @media (max-width: 767px) {
-                .text-2xl { font-size: 1.5rem; }
-                .text-xl { font-size: 1.25rem; }
-                .text-lg { font-size: 1.125rem; }
-                .text-base { font-size: 1rem; }
-                .py-3 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
-                .px-4 { padding-left: 0.75rem; padding-right: 0.75rem; }
-              }
-            `,
-          }}
-        />
-        ::-webkit-scrollbar {
-          width: 8px;
-          height: 8px;
-        }
-        ::-webkit-scrollbar-track {
-          background: #e0e0e0;
-          border-radius: 10px;
-        }
-        ::-webkit-scrollbar-thumb {
-          background: #888;
-          border-radius: 10px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-          background: #555;
-        }
-
-        /* Responsive typography adjustments for smaller screens */
-        @media (max-width: 767px) {
-          .text-2xl { font-size: 1.5rem; }
-          .text-xl { font-size: 1.25rem; }
-          .text-lg { font-size: 1.125rem; }
-          .text-base { font-size: 1rem; }
-          .py-3 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
-          .px-4 { padding-left: 0.75rem; padding-right: 0.75rem; }
-        }
-      `}</style>
 
       <div className="flex flex-col md:flex-row min-h-screen">
         {/* Sidebar Navigation */}
