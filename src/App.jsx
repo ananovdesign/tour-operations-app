@@ -2139,7 +2139,7 @@ case 'reservations':
             <h2 className="text-3xl font-bold mb-8 text-gray-800 border-b pb-4">Hotel Reservations</h2>
 
             {/* Filters for Reservations */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4 mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200 shadow-sm">
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4 mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200 shadow-sm">
               <div>
                 <label htmlFor="filterReservationStatus" className="block text-sm font-medium text-gray-700">Status</label>
                 <select name="filterReservationStatus" id="filterReservationStatus" value={filterReservationStatus} onChange={handleReservationFilterChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2">
@@ -2162,11 +2162,19 @@ case 'reservations':
                   <option value="HOTEL ONLY">HOTEL ONLY</option>
                 </select>
               </div>
-              <div className="lg:col-span-2 xl:col-span-3">
+               <div>
+                <label htmlFor="filterReservationCheckInDate" className="block text-sm font-medium text-gray-700">Check-in After</label>
+                <input type="date" name="filterReservationCheckInDate" id="filterReservationCheckInDate" value={filterReservationCheckInDate} onChange={handleReservationFilterChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
+              </div>
+              <div>
+                <label htmlFor="filterReservationCheckOutDate" className="block text-sm font-medium text-gray-700">Check-out Before</label>
+                <input type="date" name="filterReservationCheckOutDate" id="filterReservationCheckOutDate" value={filterReservationCheckOutDate} onChange={handleReservationFilterChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
+              </div>
+              <div className="xl:col-span-2">
                 <label htmlFor="searchReservationTerm" className="block text-sm font-medium text-gray-700">Search by Lead Guest</label>
                 <input type="text" name="searchReservationTerm" id="searchReservationTerm" value={searchReservationTerm} onChange={e => setSearchReservationTerm(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" placeholder="Enter first or last name..." />
               </div>
-              <div className="flex items-end">
+              <div className="md:col-span-full xl:col-span-1 flex items-end">
                 <button type="button" onClick={resetReservationFilters} className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition duration-200 shadow-sm border border-gray-200">
                   Reset Filters
                 </button>
