@@ -89,29 +89,31 @@ const InvoicePrint = ({ invoiceData }) => {
   const displayedPaymentMethodText = invoiceData.paymentMethod === 'Bank' ? 'По банков път' : 'В брой';
   const fullClientAddress = [invoiceData.clientAddress, invoiceData.clientCity, invoiceData.clientPostCode].filter(Boolean).join(', ');
 
-  return (
-    <div className="invoice-output">
-      <div className="header-info">
-        <div className="logo-container"><img src={LOGO_URL} alt="Company Logo" /></div>
-        <div className="invoice-title-section">
-          <h1>Фактура</h1>
-          <div className="subtitle">{invoiceType}</div>
-        </div>
-        <div className="invoice-number-date-section">
-          <table>
-            <tbody>
-                <tr>
-                    <td className="label">Номер:</td>
-                    <td>{invoiceData.invoiceNumber}</td>
-                </tr>
-                <tr>
-                    <td className="label">Дата:</td>
-                    <td>{invoiceData.invoiceDate}</td>
-                </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
+   return (
+    <div className="print-preview-container">
+        <div className="invoice-output">
+          {/* --- Header --- */}
+          <div className="header-info">
+            <div className="logo-container"><img src={LOGO_URL} alt="Company Logo" /></div>
+            <div className="invoice-title-section">
+              <h1>Фактура</h1>
+              <div className="subtitle">{invoiceType}</div>
+            </div>
+            <div className="invoice-number-date-section">
+              <table>
+                <tbody>
+                    <tr>
+                        <td className="label">Номер:</td>
+                        <td>{invoiceData.invoiceNumber}</td>
+                    </tr>
+                    <tr>
+                        <td className="label">Дата:</td>
+                        <td>{invoiceData.invoiceDate}</td>
+                    </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap' }}>
         <div className="party-box" style={{ width: '48%' }}>
