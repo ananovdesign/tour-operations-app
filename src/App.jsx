@@ -3248,7 +3248,7 @@ case 'customers':
           </div>
         );
 
-      case 'addFinancialTransaction':
+    case 'addFinancialTransaction':
         return (
           <div className="p-6 bg-white rounded-xl shadow-lg">
             <h2 className="text-3xl font-bold mb-8 text-gray-800 border-b pb-4">
@@ -3308,19 +3308,6 @@ case 'customers':
                   required
                 />
               </div>
-              <div>
-                <label htmlFor="vat" className="block text-sm font-medium text-gray-700">VAT (Fixed Amount)</label>
-                <input
-                  type="number"
-                  name="vat"
-                  id="vat"
-                  value={financialTransactionForm.vat}
-                  onChange={handleFinancialTransactionFormChange}
-                  min="0"
-                  step="0.01"
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                />
-              </div>
               <div className="md:col-span-2">
                 <label htmlFor="reasonDescription" className="block text-sm font-medium text-gray-700">Reason/Description</label>
                 <textarea
@@ -3342,7 +3329,6 @@ case 'customers':
                   value={financialTransactionForm.associatedReservationId}
                   onChange={handleFinancialTransactionFormChange}
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                  disabled={financialTransactionForm.associatedTourId !== ''}
                 >
                   <option value="">-- None --</option>
                   {reservations.map(res => (
@@ -3360,7 +3346,6 @@ case 'customers':
                   value={financialTransactionForm.associatedTourId}
                   onChange={handleFinancialTransactionFormChange}
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                  disabled={financialTransactionForm.associatedReservationId !== ''}
                 >
                   <option value="">-- None --</option>
                   {tours.map(tour => (
