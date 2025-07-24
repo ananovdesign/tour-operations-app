@@ -4297,12 +4297,23 @@ case 'transportContract':
             />
           </div>
         );
-      case 'makeOffer':
+case 'makeOffer':
         return (
           <div className="p-0 bg-white rounded-xl shadow-lg h-full">
             <iframe
               src="/offer.html" // Loads offer.html from the 'public' folder
               title="Offer Generator"
+              className="w-full h-full border-0 rounded-xl"
+              style={{ minHeight: '80vh' }}
+            />
+          </div>
+        );
+      case 'confirmation':
+        return (
+          <div className="p-0 bg-white rounded-xl shadow-lg h-full">
+            <iframe
+              src="/confirmation.html" // Loads confirmation.html from the 'public' folder
+              title="Confirmation Generator"
               className="w-full h-full border-0 rounded-xl"
               style={{ minHeight: '80vh' }}
             />
@@ -4547,7 +4558,7 @@ case 'transportContract':
                 Transport Contract
               </button>
             </li>
-            <li className="mb-2">
+<li className="mb-2">
               <button
                 onClick={() => setActiveTab('makeOffer')}
                 className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base
@@ -4558,6 +4569,19 @@ case 'transportContract':
                   <path fillRule="evenodd" d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V7.414A2 2 0 0015.414 6L12 2.586A2 2 0 0010.586 2H6zm5 6a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V8z" clipRule="evenodd" />
                 </svg>
                 Make Offer
+              </button>
+            </li>
+            <li className="mb-2">
+              <button
+                onClick={() => setActiveTab('confirmation')}
+                className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base
+                  ${activeTab === 'confirmation' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}
+                `}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                Confirmation
               </button>
             </li>
                   {isEmailPasswordUser && (
