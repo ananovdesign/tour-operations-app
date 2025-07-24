@@ -4386,6 +4386,7 @@ case 'customerContract':
 
 return (
     <div className="font-sans antialiased bg-gray-100 min-h-screen text-gray-900" style={{ fontFamily: 'Inter, sans-serif' }}>
+      <div className="flex flex-col md:flex-row min-h-screen">
 
       <div className="flex flex-col md:flex-row min-h-screen">
         {/* Sidebar Navigation */}
@@ -4631,6 +4632,7 @@ return (
           {renderContent()}
         </main>
       </div>
+        </div>
 
       <ConfirmationModal
         show={showConfirmModal}
