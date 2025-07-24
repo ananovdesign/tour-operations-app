@@ -4413,6 +4413,32 @@ case 'customerContract':
           .py-3 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
           .px-4 { padding-left: 0.75rem; padding-right: 0.75rem; }
         }
+ <style>{`
+        ::-webkit-scrollbar {
+          width: 8px;
+          height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+          background: #e0e0e0;
+          border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+          background: #888;
+          border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+          background: #555;
+        }
+
+        /* Responsive typography adjustments for smaller screens */
+        @media (max-width: 767px) {
+          .text-2xl { font-size: 1.5rem; }
+          .text-xl { font-size: 1.25rem; }
+          .text-lg { font-size: 1.125rem; }
+          .text-base { font-size: 1rem; }
+          .py-3 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+          .px-4 { padding-left: 0.75rem; padding-right: 0.75rem; }
+        }
       `}</style>
 
       <div className="flex flex-col md:flex-row min-h-screen">
@@ -4421,8 +4447,8 @@ case 'customerContract':
         <aside className="w-full md:w-64 bg-white text-gray-800 p-4 rounded-b-xl md:rounded-r-xl md:rounded-b-none shadow-lg border-r border-gray-100">
           <div className="flex items-center justify-center md:justify-start mb-6">
             {/* Replace the text logo with your image logo */}
-            <img src={Logo} alt="Dynamex Logo" className="h-30 w-auto mr-3" /> {/* Adjust height/width as needed, slight reduction for a tighter feel */}
-            <span className="font-semibold text-xl text-gray-900"></span> {/* Added text name next to logo */}
+            <img src={Logo} alt="Dynamex Logo" className="h-14 w-auto mr-3" /> {/* Increased height from h-10 to h-14 */}
+            <span className="font-semibold text-xl text-gray-900">Dynamex</span> {/* Added text name next to logo */}
           </div>
           <nav>
             <ul>
@@ -4548,8 +4574,8 @@ case 'customerContract':
                       Financial Reports
                     </button>
                   </li>
-                  <li className="mb-2 mt-6 border-t border-gray-200 pt-6"> {/* Separator for new section */}
-                    <h3 className="text-sm font-bold mb-3 text-gray-500 uppercase tracking-wider">Invoicing</h3> {/* Smaller, muted heading */}
+                  <li className="mb-2 mt-6 border-t border-gray-200 pt-6">
+                    <h3 className="text-sm font-bold mb-3 text-gray-500 uppercase tracking-wider">Invoicing</h3>
                   </li>
                   <li className="mb-2">
                     <button
@@ -4591,91 +4617,91 @@ case 'customerContract':
                       Expense Invoices
                     </button>
                   </li>
-<li className="mb-2">
-              <button
-                onClick={() => setActiveTab('invoicingProducts')}
-                className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base
-                  ${activeTab === 'invoicingProducts' || activeTab === 'addProduct' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}
-                `}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h.01M7 3h.01M7 11h.01M7 15h.01M7 19h.01M17 7h.01M17 3h.01M17 11h.01M17 15h.01M17 19h.01M3 7h.01M3 3h.01M3 11h.01M3 15h.01M3 19h.01M21 7h.01M21 3h.01M21 11h.01M21 15h.01M21 19h.01M12 7h.01M12 3h.01M12 11h.01M12 15h.01M12 19h.01" />
-                </svg>
-                Product Management
-              </button>
-            </li>
-<li className="mb-2">
-              <button
-                onClick={() => setActiveTab('transportContract')}
-                className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base
-                  ${activeTab === 'transportContract' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}
-                `}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" viewBox="0 0 20 20" fill="currentColor">
-                  <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
-                  <path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" />
-                </svg>
-                Transport Contract
-              </button>
-            </li>
-<li className="mb-2">
-              <button
-                onClick={() => setActiveTab('makeOffer')}
-                className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base
-                  ${activeTab === 'makeOffer' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}
-                `}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V7.414A2 2 0 0015.414 6L12 2.586A2 2 0 0010.586 2H6zm5 6a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V8z" clipRule="evenodd" />
-                </svg>
-                Make Offer
-              </button>
-            </li>
- <li className="mb-2">
-              <button
-                onClick={() => setActiveTab('confirmation')}
-                className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base
-                  ${activeTab === 'confirmation' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}
-                `}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                </svg>
-                Confirmation
-              </button>
-            </li>
-<li className="mb-2">
-              <button
-                onClick={() => setActiveTab('customerContract')}
-                className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base
-                  ${activeTab === 'customerContract' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}
-                `}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-6-3a2 2 0 11-4 0 2 2 0 014 0zm-2 4a5 5 0 00-4.546 2.916A5.986 5.986 0 0010 16a5.986 5.986 0 004.546-2.084A5 5 0 0010 11z" clipRule="evenodd" />
-                </svg>
-                Customer Contract
-              </button>
-            </li>
-            <li className="mb-2">
-              <button
-                onClick={() => setActiveTab('createInvoice')}
-                className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base
-                  ${activeTab === 'createInvoice' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}
-                `}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" viewBox="0 0 20 20" fill="currentColor">
-                   <path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z" />
-                   <path fillRule="evenodd" d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" clipRule="evenodd" />
-                </svg>
-                Create Invoice
-              </button>
-            </li>
+                  <li className="mb-2">
+                    <button
+                      onClick={() => setActiveTab('invoicingProducts')}
+                      className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base
+                        ${activeTab === 'invoicingProducts' || activeTab === 'addProduct' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}
+                      `}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h.01M7 3h.01M7 11h.01M7 15h.01M7 19h.01M17 7h.01M17 3h.01M17 11h.01M17 15h.01M17 19h.01M3 7h.01M3 3h.01M3 11h.01M3 15h.01M3 19h.01M21 7h.01M21 3h.01M21 11h.01M21 15h.01M21 19h.01M12 7h.01M12 3h.01M12 11h.01M12 15h.01M12 19h.01" />
+                      </svg>
+                      Product Management
+                    </button>
+                  </li>
+                  <li className="mb-2">
+                    <button
+                      onClick={() => setActiveTab('transportContract')}
+                      className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base
+                        ${activeTab === 'transportContract' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}
+                      `}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
+                        <path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" />
+                      </svg>
+                      Transport Contract
+                    </button>
+                  </li>
+                  <li className="mb-2">
+                    <button
+                      onClick={() => setActiveTab('makeOffer')}
+                      className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base
+                        ${activeTab === 'makeOffer' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}
+                      `}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V7.414A2 2 0 0015.414 6L12 2.586A2 2 0 0010.586 2H6zm5 6a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V8z" clipRule="evenodd" />
+                      </svg>
+                      Make Offer
+                    </button>
+                  </li>
+                  <li className="mb-2">
+                    <button
+                      onClick={() => setActiveTab('confirmation')}
+                      className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base
+                        ${activeTab === 'confirmation' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}
+                      `}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                      Confirmation
+                    </button>
+                  </li>
+                  <li className="mb-2">
+                    <button
+                      onClick={() => setActiveTab('customerContract')}
+                      className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base
+                        ${activeTab === 'customerContract' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}
+                      `}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-6-3a2 2 0 11-4 0 2 2 0 014 0zm-2 4a5 5 0 00-4.546 2.916A5.986 5.986 0 0010 16a5.986 5.986 0 004.546-2.084A5 5 0 0010 11z" clipRule="evenodd" />
+                      </svg>
+                      Customer Contract
+                    </button>
+                  </li>
+                  <li className="mb-2">
+                    <button
+                      onClick={() => setActiveTab('createInvoice')}
+                      className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base
+                        ${activeTab === 'createInvoice' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}
+                      `}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" viewBox="0 0 20 20" fill="currentColor">
+                         <path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z" />
+                         <path fillRule="evenodd" d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" clipRule="evenodd" />
+                      </svg>
+                      Create Invoice
+                    </button>
+                  </li>
                   {isEmailPasswordUser && (
-                    <li className="mb-2 mt-auto pt-6 border-t border-gray-200"> {/* Pushed to bottom, consistent separator */}
+                    <li className="mb-2 mt-auto pt-6 border-t border-gray-200">
                       <button
                         onClick={handleLogout}
-                        className="flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base hover:bg-red-50 text-[#DC3545]" // Logout in red
+                        className="flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base hover:bg-red-50 text-[#DC3545]"
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -4697,7 +4723,7 @@ case 'customerContract':
         </aside>
 
         {/* Main Content Area */}
-        <main className="flex-1 p-6 md:p-8 overflow-y-auto bg-gray-100"> {/* Light background */}
+        <main className="flex-1 p-6 md:p-8 overflow-y-auto bg-gray-100">
           {/* Notifications will appear here */}
           <NotificationDisplay notifications={notifications} onDismiss={removeNotification} />
 
