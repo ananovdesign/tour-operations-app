@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import './InvoicePrint.css';
 
-// --- Helper Constants and Functions (from your HTML file) ---
+// --- Helper Constants and Functions ---
 const EUR_TO_BGN_RATE = 1.95583;
 const LOGO_URL = "https://dynamexres.netlify.app/assets/Logo-BhKKBcxG.png";
 
@@ -73,12 +73,10 @@ const InvoicePrint = ({ invoiceData, onPrintFinish }) => {
     const timer = setTimeout(() => {
         window.print();
     }, 500);
-    // Set up the event listener for after printing
     window.onafterprint = onPrintFinish;
-    // Cleanup
     return () => {
         clearTimeout(timer);
-        window.onafterprint = null; // Remove the event listener
+        window.onafterprint = null;
     };
   }, [onPrintFinish]);
 
@@ -86,8 +84,6 @@ const InvoicePrint = ({ invoiceData, onPrintFinish }) => {
   const totalVATAmountEUR = (invoiceData.totalVAT || 0) / EUR_TO_BGN_RATE;
   const totalDueAmountEUR = (invoiceData.grandTotal || 0) / EUR_TO_BGN_RATE;
   const amountInWordsBGN = amountToWordsBulgarian(invoiceData.grandTotal || 0);
-
-  // NEW: Determine if it's a copy or original
   const invoiceType = invoiceData.isCopy ? 'Копие' : 'Оригинал';
   const displayedPaymentMethodText = invoiceData.paymentMethod === 'Bank' ? 'По банков път' : 'В брой';
   const fullClientAddress = [invoiceData.clientAddress, invoiceData.clientCity, invoiceData.clientPostCode].filter(Boolean).join(', ');
@@ -99,7 +95,7 @@ const InvoicePrint = ({ invoiceData, onPrintFinish }) => {
             <div className="logo-container"><img src={LOGO_URL} alt="Company Logo" /></div>
             <div className="invoice-title-section">
               <h1>Фактура</h1>
-              <div className="subtitle">{invoiceType}</div> {/* CHANGED */}
+              <div className="subtitle">{invoiceType}</div>
             </div>
             <div className="invoice-number-date-section">
               <table>
@@ -171,10 +167,12 @@ const InvoicePrint = ({ invoiceData, onPrintFinish }) => {
                         <td className="label">Данъчна основа:</td>
                         <td>{invoiceData.totalAmount.toFixed(2)} ({totalBasePriceEUR.toFixed(2)} EUR)</td>
                     </tr>
-                    <tr>
+                    {invoiceData.totalVAT !== 0 && (
+                      <tr>
                         <td className="label">ДДС {invoiceData.products[0]?.vatRate || 0}%:</td>
                         <td>{invoiceData.totalVAT.toFixed(2)} ({totalVATAmountEUR.toFixed(2)} EUR)</td>
-                    </tr>
+                      </tr>
+                    )}
                     <tr>
                         <td className="total-sum">Сума за плащане:</td>
                         <td className="total-sum">{invoiceData.grandTotal.toFixed(2)} ({totalDueAmountEUR.toFixed(2)} EUR)</td>
@@ -189,7 +187,10 @@ const InvoicePrint = ({ invoiceData, onPrintFinish }) => {
               <table>
                  <tbody>
                     <tr><td className="label">Дата на данъчно събитие:</td><td>{invoiceData.invoiceDate}</td></tr>
-                    <tr><td className="label">Получил:</td><td><span className="signature-line"></span></td></tr>
+                    <tr><td className="label">Основание на сделката:</td><td>{invoiceData.transactionBasis}</td></tr>
+                    <tr><td className="label">Описание на сделката:</td><td>{invoiceData.transactionDescription}</td></tr>
+                    <tr><td className="label">Място на сделката:</td><td>{invoiceData.transactionPlace}</td></tr>
+                    <tr><td className="label">Получил:</td><td><span className="signature-line">{invoiceData.receivedBy}</span></td></tr>
                  </tbody>
               </table>
             </div>
@@ -211,7 +212,6 @@ const InvoicePrint = ({ invoiceData, onPrintFinish }) => {
 
           <div className="note">
             <p>{invoiceData.notes}</p>
-            {/* NEW: Conditional VAT Text */}
             {invoiceData.totalVAT === 0 && (
               <p>Основание за неначисляване на ДДС:"Режим на облагането на маржа в тур. услуги" - По член 86. ал.1 от ЗДДС.</p>
             )}
