@@ -3815,7 +3815,6 @@ case 'invoicingSales':
                     onChange={handleSalesInvoiceFormChange}
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2 bg-gray-100"
                     placeholder="Auto-generated or editable"
-                    disabled={!!selectedSalesInvoice}
                     required
                   />
                 </div>
@@ -3913,9 +3912,6 @@ case 'invoicingSales':
                 {/* Products Section */}
                 <div className="md:col-span-2 border-t border-gray-200 pt-4 mt-4">
                   <h3 className="text-lg font-semibold mb-4 text-gray-800">Products/Services</h3>
-                  {salesInvoiceForm.products.length === 0 && (
-                    <p className="text-gray-600 mb-4">No products added to this invoice. Click "Add Product" to start.</p>
-                  )}
                   {salesInvoiceForm.products.map((product, index) => (
                     <div key={index} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 border border-gray-200 rounded-lg p-4 mb-4 relative shadow-sm">
                       <h4 className="col-span-full text-md font-medium text-gray-700 mb-2">Item {index + 1}</h4>
@@ -3925,25 +3921,13 @@ case 'invoicingSales':
                         className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white p-1 rounded-full text-xs transition duration-200"
                         title="Remove Product"
                       >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
                       </button>
-
                       <div>
                         <label htmlFor={`productCode-${index}`} className="block text-sm font-medium text-gray-700">Product Code</label>
-                        <select
-                          name="productCode"
-                          id={`productCode-${index}`}
-                          value={product.productCode}
-                          onChange={(e) => handleSalesInvoiceProductChange(index, e)}
-                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                          required
-                        >
+                        <select name="productCode" id={`productCode-${index}`} value={product.productCode} onChange={(e) => handleSalesInvoiceProductChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" required>
                           <option value="">Select Product</option>
-                          {products.map(p => (
-                            <option key={p.id} value={p.productCode}>{p.productName} ({p.productCode})</option>
-                          ))}
+                          {products.map(p => (<option key={p.id} value={p.productCode}>{p.productName} ({p.productCode})</option>))}
                         </select>
                       </div>
                       <div>
@@ -3964,23 +3948,19 @@ case 'invoicingSales':
                       </div>
                       <div>
                         <label htmlFor={`lineTotal-${index}`} className="block text-sm font-medium text-gray-700">Line Total (BGN)</label>
-                        <input type="number" name="lineTotal" id={`lineTotal-${index}`} value={product.lineTotal.toFixed(2)} readOnly className="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm px-3 py-2" />
+                        <input type="number" name="lineTotal" id={`lineTotal-${index}`} value={(product.lineTotal || 0).toFixed(2)} readOnly className="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm px-3 py-2" />
                       </div>
                       <div>
                         <label htmlFor={`lineVAT-${index}`} className="block text-sm font-medium text-gray-700">Line VAT (BGN)</label>
-                        <input type="number" name="lineVAT" id={`lineVAT-${index}`} value={product.lineVAT.toFixed(2)} readOnly className="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm px-3 py-2" />
+                        <input type="number" name="lineVAT" id={`lineVAT-${index}`} value={(product.lineVAT || 0).toFixed(2)} readOnly className="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm px-3 py-2" />
                       </div>
                       <div>
                         <label htmlFor={`lineGrandTotal-${index}`} className="block text-sm font-medium text-gray-700">Line Grand Total (BGN)</label>
-                        <input type="number" name="lineGrandTotal" id={`lineGrandTotal-${index}`} value={product.lineGrandTotal.toFixed(2)} readOnly className="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm px-3 py-2" />
+                        <input type="number" name="lineGrandTotal" id={`lineGrandTotal-${index}`} value={(product.lineGrandTotal || 0).toFixed(2)} readOnly className="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm px-3 py-2" />
                       </div>
                     </div>
                   ))}
-                  <button
-                    type="button"
-                    onClick={addSalesInvoiceProduct}
-                    className="mt-4 px-6 py-2 bg-[#28A745] text-white rounded-lg hover:bg-[#218838] transition duration-200 shadow-md"
-                  >
+                  <button type="button" onClick={addSalesInvoiceProduct} className="mt-4 px-6 py-2 bg-[#28A745] text-white rounded-lg hover:bg-[#218838] transition duration-200 shadow-md">
                     Add Product
                   </button>
                 </div>
@@ -3991,69 +3971,19 @@ case 'invoicingSales':
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label htmlFor="paymentMethodSales" className="block text-sm font-medium text-gray-700">Payment Method</label>
-                      <select
-                        name="paymentMethod"
-                        id="paymentMethodSales"
-                        value={salesInvoiceForm.paymentMethod}
-                        onChange={handleSalesInvoiceFormChange}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                      >
+                      <select name="paymentMethod" id="paymentMethodSales" value={salesInvoiceForm.paymentMethod} onChange={handleSalesInvoiceFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2">
                         <option value="Cash">Cash</option>
                         <option value="Bank">Bank</option>
                         <option value="Cash 2">Cash 2</option>
                       </select>
                     </div>
                     <div>
-                      <label htmlFor="bankDetailsIban" className="block text-sm font-medium text-gray-700">Bank IBAN</label>
-                      <input
-                        type="text"
-                        name="bankDetails.iban"
-                        id="bankDetailsIban"
-                        value={salesInvoiceForm.bankDetails.iban}
-                        readOnly
-                        className="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm px-3 py-2"
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="bankDetailsName" className="block text-sm font-medium text-gray-700">Bank Name</label>
-                      <input
-                        type="text"
-                        name="bankDetails.bankName"
-                        id="bankDetailsName"
-                        value={salesInvoiceForm.bankDetails.bankName}
-                        readOnly
-                        className="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm px-3 py-2"
-                      />
-                    </div>
-                    <div>
                       <label htmlFor="dueDateSales" className="block text-sm font-medium text-gray-700">Due Date</label>
-                      <input
-                        type="date"
-                        name="dueDate"
-                        id="dueDateSales"
-                        value={salesInvoiceForm.dueDate}
-                        onChange={handleSalesInvoiceFormChange}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                      />
+                      <input type="date" name="dueDate" id="dueDateSales" value={salesInvoiceForm.dueDate} onChange={handleSalesInvoiceFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"/>
                     </div>
                     <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        name="isCopy"
-                        id="isCopy"
-                        checked={salesInvoiceForm.isCopy}
-                        onChange={handleSalesInvoiceFormChange}
-                        className="h-5 w-5 text-[#28A745] focus:ring-[#28A745] border-gray-300 rounded"
-                      />
+                      <input type="checkbox" name="isCopy" id="isCopy" checked={salesInvoiceForm.isCopy} onChange={handleSalesInvoiceFormChange} className="h-5 w-5 text-[#28A745] focus:ring-[#28A745] border-gray-300 rounded" />
                       <label htmlFor="isCopy" className="ml-2 block text-sm font-medium text-gray-700">Is Copy</label>
-                    </div>
-                    <div>
-                      <label htmlFor="totalAmountDisplay" className="block text-sm font-medium text-gray-700">Total Amount (excl. VAT)</label>
-                      <input type="text" id="totalAmountDisplay" value={`BGN ${salesInvoiceForm.totalAmount.toFixed(2)}`} readOnly className="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm px-3 py-2 font-semibold" />
-                    </div>
-                    <div>
-                      <label htmlFor="totalVATDisplay" className="block text-sm font-medium text-gray-700">Total VAT</label>
-                      <input type="text" id="totalVATDisplay" value={`BGN ${salesInvoiceForm.totalVAT.toFixed(2)}`} readOnly className="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm px-3 py-2 font-semibold" />
                     </div>
                     <div>
                       <label htmlFor="grandTotalDisplay" className="block text-sm font-medium text-gray-700">Grand Total (incl. VAT)</label>
@@ -4063,29 +3993,14 @@ case 'invoicingSales':
                 </div>
                 <div className="col-span-full">
                   <label htmlFor="notesSales" className="block text-sm font-medium text-gray-700">Notes</label>
-                  <textarea
-                    name="notes"
-                    id="notesSales"
-                    value={salesInvoiceForm.notes}
-                    onChange={handleSalesInvoiceFormChange}
-                    rows="2"
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                  ></textarea>
+                  <textarea name="notes" id="notesSales" value={salesInvoiceForm.notes} onChange={handleSalesInvoiceFormChange} rows="2" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"></textarea>
                 </div>
 
                 <div className="md:col-span-2 flex justify-end space-x-3 mt-8">
-                  <button
-                    type="button"
-                    onClick={() => { resetSalesInvoiceForm(); setActiveTab('invoicingSales'); }}
-                    className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition duration-200 shadow-sm"
-                  >
+                  <button type="button" onClick={() => { resetSalesInvoiceForm(); setActiveTab('invoicingSales'); }} className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition duration-200 shadow-sm">
                     Cancel
                   </button>
-                  <button
-                    type="submit"
-                    className="px-6 py-2 bg-[#28A745] text-white rounded-lg hover:bg-[#218838] transition duration-200 shadow-md"
-                    disabled={loading}
-                  >
+                  <button type="submit" className="px-6 py-2 bg-[#28A745] text-white rounded-lg hover:bg-[#218838] transition duration-200 shadow-md" disabled={loading}>
                     {loading ? 'Saving...' : selectedSalesInvoice ? 'Update Sales Invoice' : 'Add Sales Invoice'}
                   </button>
                 </div>
@@ -4094,15 +4009,12 @@ case 'invoicingSales':
               // Sales Invoices List
               <>
                 <div className="flex justify-end mb-4">
-                  <button
-                    onClick={() => { resetSalesInvoiceForm(); setActiveTab('addSalesInvoice'); }}
-                    className="px-6 py-2 bg-[#28A745] text-white rounded-lg hover:bg-[#218838] transition duration-200 shadow-md"
-                  >
+                  <button onClick={async () => { const newNumber = await generateSalesInvoiceNumber(); resetSalesInvoiceForm(); setSalesInvoiceForm(prev => ({...prev, invoiceNumber: newNumber})); setActiveTab('addSalesInvoice'); }} className="px-6 py-2 bg-[#28A745] text-white rounded-lg hover:bg-[#218838] transition duration-200 shadow-md">
                     Add New Sales Invoice
                   </button>
                 </div>
-                {salesInvoices.length === 0 ? (
-                  <p className="text-gray-600 text-center py-8">No sales invoices found. Add a new one to get started!</p>
+                {sortedSalesInvoices.length === 0 ? (
+                  <p className="text-gray-600 text-center py-8">No sales invoices found.</p>
                 ) : (
                   <div className="overflow-x-auto rounded-xl shadow-md border border-gray-200">
                     <table className="min-w-full bg-white">
@@ -4111,8 +4023,6 @@ case 'invoicingSales':
                           <th className="py-3 px-4 text-left font-medium">Invoice No.</th>
                           <th className="py-3 px-4 text-left font-medium">Date</th>
                           <th className="py-3 px-4 text-left font-medium">Client Name</th>
-                          <th className="py-3 px-4 text-right font-medium">Total Amount</th>
-                          <th className="py-3 px-4 text-right font-medium">Total VAT</th>
                           <th className="py-3 px-4 text-right font-medium">Grand Total</th>
                           <th className="py-3 px-4 text-left font-medium">Payment Method</th>
                           <th className="py-3 px-4 text-center font-medium">Actions</th>
@@ -4124,38 +4034,17 @@ case 'invoicingSales':
                             <td className="py-3 px-4 text-gray-600 font-mono text-sm">{inv.invoiceNumber}</td>
                             <td className="py-3 px-4 text-gray-600">{inv.invoiceDate}</td>
                             <td className="py-3 px-4">{inv.clientName}</td>
-                            <td className="py-3 px-4 text-right text-gray-800 font-semibold">BGN {parseFloat(inv.totalAmount).toFixed(2)}</td>
-                            <td className="py-3 px-4 text-right text-gray-600">BGN {parseFloat(inv.totalVAT).toFixed(2)}</td>
                             <td className="py-3 px-4 text-right text-[#28A745] font-bold">BGN {parseFloat(inv.grandTotal).toFixed(2)}</td>
                             <td className="py-3 px-4 text-gray-600">{inv.paymentMethod}</td>
                             <td className="py-3 px-4 flex justify-center space-x-2">
-                              <button
-                                onClick={() => setInvoiceToPrint(inv)}
-                                className="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-full shadow-md transition duration-200"
-                                title="Print"
-                              >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                  <path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v6a2 2 0 002 2h12a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clipRule="evenodd" />
-                                </svg>
+                              <button onClick={() => setInvoiceToPrint(inv)} className="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-full shadow-md transition duration-200" title="Print">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v6a2 2 0 002 2h12a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clipRule="evenodd" /></svg>
                               </button>
-                              <button
-                                onClick={() => handleEditSalesInvoice(inv)}
-                                className="bg-[#28A745] hover:bg-[#218838] text-white p-2 rounded-full shadow-md transition duration-200"
-                                title="Edit"
-                              >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                  <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zm-5.69 5.69L11.586 7.586 14.414 10.414 11.586 13.242 8.758 10.414l2.828-2.828z" />
-                                  <path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm-4 8a1 1 0 011-1h1a1 1 0 110 2H7a1 1 0 01-1-1zm10 0a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1zM4 14a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm10 0a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1zM3 18a1 1 0 011-1h1a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
-                                </svg>
+                              <button onClick={() => handleEditSalesInvoice(inv)} className="bg-[#28A745] hover:bg-[#218838] text-white p-2 rounded-full shadow-md transition duration-200" title="Edit">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zm-5.69 5.69L11.586 7.586 14.414 10.414 11.586 13.242 8.758 10.414l2.828-2.828z" /><path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm-4 8a1 1 0 011-1h1a1 1 0 110 2H7a1 1 0 01-1-1zm10 0a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1zM4 14a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm10 0a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1zM3 18a1 1 0 011-1h1a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" /></svg>
                               </button>
-                              <button
-                                onClick={() => handleDeleteSalesInvoice(inv.id)}
-                                className="bg-[#DC3545] hover:bg-[#C82333] text-white p-2 rounded-full shadow-md transition duration-200"
-                                title="Delete"
-                              >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                  <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1zm-1 3a1 1 0 011-1h4a1 1 0 110 2H7a1 1 0 01-1-1zm-1 3a1 1 0 011-1h4a1 1 0 110 2H7a1 1 0 01-1-1z" clipRule="evenodd" />
-                                </svg>
+                              <button onClick={() => handleDeleteSalesInvoice(inv.id)} className="bg-[#DC3545] hover:bg-[#C82333] text-white p-2 rounded-full shadow-md transition duration-200" title="Delete">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1zm-1 3a1 1 0 011-1h4a1 1 0 110 2H7a1 1 0 01-1-1zm-1 3a1 1 0 011-1h4a1 1 0 110 2H7a1 1 0 01-1-1z" clipRule="evenodd" /></svg>
                               </button>
                             </td>
                           </tr>
@@ -4168,7 +4057,7 @@ case 'invoicingSales':
             )}
           </div>
         );
-
+        
       case 'invoicingProducts':
       case 'addProduct': // Combined for add/edit
         return (
