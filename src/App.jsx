@@ -4308,12 +4308,34 @@ case 'makeOffer':
             />
           </div>
         );
-      case 'confirmation':
+     case 'confirmation':
         return (
           <div className="p-0 bg-white rounded-xl shadow-lg h-full">
             <iframe
               src="/confirmation.html" // Loads confirmation.html from the 'public' folder
               title="Confirmation Generator"
+              className="w-full h-full border-0 rounded-xl"
+              style={{ minHeight: '80vh' }}
+            />
+          </div>
+        );
+case 'customerContract':
+        return (
+          <div className="p-0 bg-white rounded-xl shadow-lg h-full">
+            <iframe
+              src="/ccontract.html" // Loads ccontract.html from the 'public' folder
+              title="Customer Contract Generator"
+              className="w-full h-full border-0 rounded-xl"
+              style={{ minHeight: '80vh' }}
+            />
+          </div>
+        );
+      case 'createInvoice':
+        return (
+          <div className="p-0 bg-white rounded-xl shadow-lg h-full">
+            <iframe
+              src="/createinvoice.html" // Loads createinvoice.html from the 'public' folder
+              title="Invoice Generator"
               className="w-full h-full border-0 rounded-xl"
               style={{ minHeight: '80vh' }}
             />
@@ -4571,7 +4593,7 @@ case 'makeOffer':
                 Make Offer
               </button>
             </li>
-            <li className="mb-2">
+ <li className="mb-2">
               <button
                 onClick={() => setActiveTab('confirmation')}
                 className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base
@@ -4582,6 +4604,33 @@ case 'makeOffer':
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                 </svg>
                 Confirmation
+              </button>
+            </li>
+<li className="mb-2">
+              <button
+                onClick={() => setActiveTab('customerContract')}
+                className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base
+                  ${activeTab === 'customerContract' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}
+                `}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-6-3a2 2 0 11-4 0 2 2 0 014 0zm-2 4a5 5 0 00-4.546 2.916A5.986 5.986 0 0010 16a5.986 5.986 0 004.546-2.084A5 5 0 0010 11z" clipRule="evenodd" />
+                </svg>
+                Customer Contract
+              </button>
+            </li>
+            <li className="mb-2">
+              <button
+                onClick={() => setActiveTab('createInvoice')}
+                className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base
+                  ${activeTab === 'createInvoice' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}
+                `}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" viewBox="0 0 20 20" fill="currentColor">
+                   <path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z" />
+                   <path fillRule="evenodd" d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" clipRule="evenodd" />
+                </svg>
+                Create Invoice
               </button>
             </li>
                   {isEmailPasswordUser && (
