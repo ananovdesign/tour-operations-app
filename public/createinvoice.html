@@ -1,0 +1,1438 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Фактура</title>
+    <!-- Tailwind CSS CDN for easy styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Import Inter font for a modern look */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+        /* Base styles for the body and container */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc; /* Lighter gray background from contract generator */
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            padding: 2rem; /* Increased padding for more breathing room */
+            box-sizing: border-box;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            max-width: 2000px; /* Increased max-width for a much wider layout */
+            gap: 2rem; /* Consistent spacing between main sections */
+        }
+
+        /* Styling for the input form and invoice preview panels, matching contract generator's main container */
+        .panel {
+            background-color: #ffffff;
+            padding: 2.5rem; /* Generous padding */
+            border-radius: 1rem; /* More pronounced rounded corners */
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08); /* Softer, larger shadow */
+            flex: 1; /* Allows panels to grow and shrink */
+        }
+
+        .input-form {
+            min-width: 450px; /* Ensures the form is comfortably wide */
+            /* Removed max-width to allow it to expand more freely */
+            flex: 1.2; /* Give input form more flex-grow to make it wider than preview */
+        }
+
+        .invoice-preview {
+            width: 100%;
+            overflow-x: auto; /* Allows horizontal scrolling for the invoice if needed */
+            flex: 1; /* Allow preview to take remaining space */
+        }
+
+        /* Headings, matching contract generator's section headings */
+        h2 {
+            font-size: 2.25rem; /* Larger, more impactful heading */
+            font-weight: 700;
+            margin-bottom: 2.5rem; /* More space below heading */
+            color: #1a202c; /* Darker text for contrast */
+            text-align: center;
+        }
+
+        h3 {
+            font-size: 1.5rem; /* Clear sub-heading size */
+            font-weight: 600;
+            margin-bottom: 1.25rem; /* Standard margin */
+            color: #2d3748;
+            border-bottom: 1px solid #e2e8f0; /* Subtle separator */
+            padding-bottom: 0.75rem;
+        }
+
+        /* Labels, matching contract generator's labels */
+        label {
+            display: block;
+            margin-bottom: 0.3rem; /* Reduced spacing for compactness */
+            font-weight: 500;
+            color: #4a5568;
+            font-size: 0.9rem; /* Slightly smaller for compactness */
+        }
+
+        /* Input fields, textareas, and selects, matching contract generator's form-field */
+        input[type="text"],
+        input[type="number"],
+        textarea,
+        select {
+            width: 100%;
+            padding: 0.75rem 1rem; /* Ample padding */
+            margin-bottom: 0.8rem; /* Reduced margin for compactness */
+            border: 2px solid #e2e8f0; /* Thicker border from contract generator */
+            border-radius: 0.625rem; /* Rounded corners */
+            font-size: 1rem;
+            color: #2d3748;
+            box-sizing: border-box;
+            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); /* Shadow from contract generator */
+            transition: border-color 0.2s, box-shadow 0.2s; /* Smooth transitions for focus */
+        }
+
+        input[type="text"]:focus,
+        input[type="number"]:focus,
+        textarea:focus,
+        select:focus {
+            border-color: #10b981; /* Teal-500 focus ring from contract generator */
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.3); /* Teal-500 with opacity */
+            outline: none; /* Remove default outline */
+        }
+
+        /* Remove spin buttons for number inputs */
+        input[type="number"]::-webkit-outer-spin-button,
+        input[type="number"]::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type="number"] {
+            -moz-appearance: textfield;
+        }
+
+        textarea {
+            min-height: 100px; /* Adjusted textarea height */
+            resize: vertical; /* Allow vertical resizing */
+            margin-bottom: 0.8rem; /* Consistent margin */
+        }
+
+        /* Form section styling */
+        .form-section {
+            padding-bottom: 1.5rem; /* Reduced padding for compactness */
+            border-bottom: 1px solid #edf2f7; /* Lighter separator */
+        }
+
+        .form-section:last-of-type {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+
+        /* Button styling, matching contract generator's primary button */
+        .button {
+            display: inline-block;
+            padding: 0.875rem 1.75rem; /* Larger padding for better touch targets */
+            border-radius: 0.625rem; /* Rounded corners */
+            font-size: 1.05rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s ease-in-out, transform 0.1s ease-in-out, box-shadow 0.2s;
+            text-align: center;
+            border: none;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); /* Stronger shadow */
+        }
+
+        .button-primary {
+            background-image: linear-gradient(to right, #3b82f6, #2563eb); /* Blue gradient from screenshot */
+            color: #ffffff;
+        }
+
+        .button-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(59, 130, 246, 0.3); /* Adjusted shadow for blue button */
+        }
+
+        .button-add {
+            background-color: #10b981; /* Greenish-teal for add button */
+            color: #ffffff;
+            margin-top: 1rem;
+        }
+
+        .button-add:hover {
+            background-color: #059669; /* Darker greenish-teal on hover */
+            transform: translateY(-1px);
+        }
+
+        /* Item row styling */
+        .item-row {
+            display: flex;
+            flex-wrap: wrap; /* Allow wrapping on smaller screens */
+            gap: 0.75rem; /* Spacing between item inputs */
+            margin-bottom: 0.75rem;
+            align-items: flex-end;
+            border: 1px solid #e2e8f0;
+            padding: 0.75rem;
+            border-radius: 0.625rem;
+            background-color: #f7fafc;
+        }
+
+        .item-row input {
+            margin-bottom: 0; /* Remove bottom margin for inputs within item rows */
+        }
+
+        .item-row .input-group {
+            flex: 1;
+            min-width: 120px; /* Minimum width for input groups */
+        }
+
+        .item-row .input-group.description {
+            flex: 3;
+            min-width: 200px;
+        }
+
+        .item-row .input-group.quantity,
+        .item-row .input-group.price {
+            flex: 1.2;
+        }
+
+        /* Remove button for item rows, matching contract generator's remove button */
+        .remove-item-btn {
+            background-color: transparent;
+            border: none;
+            color: #ef4444; /* Red-500 */
+            padding: 0.625rem 0.875rem; /* Adjusted padding */
+            border-radius: 0.5rem; /* Rounded corners */
+            cursor: pointer;
+            transition: all 0.2s ease;
+            height: fit-content;
+            box-shadow: none; /* No shadow for this button */
+        }
+
+        .remove-item-btn:hover {
+            background-color: #fecaca; /* Red-100 */
+            color: #dc2626; /* Red-600 */
+            transform: translateY(0); /* No transform for this button */
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        /* Tab styles, matching contract generator's tabs */
+        .tab-nav {
+            border-bottom: 1px solid #e2e8f0;
+            padding-top: 1rem; /* Space above tabs */
+            margin-bottom: 1.5rem; /* Space below tabs */
+        }
+        .tab-btn {
+            transition: all 0.3s ease;
+            border-bottom: 2px solid transparent;
+            font-weight: 500;
+            color: #6b7280; /* Gray text for inactive tabs */
+            padding: 0.75rem 1rem; /* Adjusted padding */
+            margin-right: 1.5rem; /* Spacing between tabs */
+        }
+
+        .tab-btn.active {
+            border-color: #0d9488; /* Darker teal for active tab */
+            color: #0d9488; /* Darker teal text for active tab */
+            font-weight: 600;
+        }
+
+        /* Invoice Preview Specific Styles - Modern Look */
+        #invoice-output {
+            width: 210mm; /* A4 width */
+            margin: 0 auto;
+            background-color: #fff;
+            box-shadow: 0 0 20px rgba(0,0,0,0.08); /* Stronger, softer shadow */
+            padding: 25mm; /* Increased padding for a premium feel */
+            box-sizing: border-box;
+            font-size: 10.5pt; /* Slightly larger base font for readability */
+            color: #333;
+            line-height: 1.5; /* Standard line height */
+        }
+
+        #invoice-output h1 {
+            font-size: 28pt; /* Larger invoice title */
+            font-weight: 700;
+            color: #1a202c;
+            margin-bottom: 0.5rem; /* Standard margin */
+            text-align: center;
+        }
+
+        #invoice-output .subtitle {
+            font-size: 15pt; /* Clear subtitle */
+            font-weight: 500;
+            color: #4a5568;
+            margin-bottom: 2rem; /* More space below subtitle */
+            text-align: center;
+        }
+
+        #invoice-output .header-info {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 2rem; /* More space below header info */
+            align-items: flex-start;
+        }
+
+        #invoice-output .header-info .logo-container {
+            width: 150px; /* Increased logo width */
+            height: auto;
+            margin-right: 1.5rem; /* More margin */
+            display: flex;
+            justify-content: flex-start;
+            align-items: flex-start;
+        }
+
+        #invoice-output .header-info .logo-container img {
+            max-width: 100%;
+            max-height: 120px; /* Increased max height for the logo */
+            object-fit: contain;
+        }
+
+        #invoice-output .header-info .invoice-title-section {
+            flex-grow: 1;
+            text-align: center;
+            padding-top: 0.5rem; /* Adjusted padding */
+        }
+
+        #invoice-output .header-info .invoice-number-date-section {
+            width: 200px; /* Adjusted width */
+            text-align: right;
+            font-size: 10pt; /* Standard font size */
+        }
+
+        #invoice-output .header-info table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        #invoice-output .header-info td {
+            padding: 0.125rem 0; /* Reduced padding */
+            vertical-align: top;
+        }
+
+        #invoice-output .header-info .label {
+            font-weight: 600;
+            width: 40%; /* Adjusted width */
+            color: #4a5568;
+        }
+
+        #invoice-output .party-box {
+            border: 1px solid #e2e8f0;
+            border-radius: 0.75rem; /* More rounded corners */
+            padding: 1.25rem; /* More padding */
+            margin-bottom: 1.5rem; /* More margin */
+            min-height: 120px; /* Adjusted height */
+            box-sizing: border-box;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); /* Softer shadow */
+        }
+
+        #invoice-output .party-box .title {
+            font-weight: 700;
+            font-size: 1.15rem; /* Clearer title */
+            margin-bottom: 0.75rem; /* Standard margin */
+            color: #1a202c;
+            border-bottom: 1px solid #edf2f7;
+            padding-bottom: 0.5rem; /* Standard padding */
+        }
+
+        #invoice-output .party-box table td {
+            padding: 0.125rem 0; /* Reduced padding */
+        }
+
+        #invoice-output .party-box table .label {
+            font-weight: 500;
+            color: #4a5568;
+        }
+
+        #invoice-output .details-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 1.5rem; /* More margin */
+            border: none;
+        }
+
+        #invoice-output .details-table th,
+        #invoice-output .details-table td {
+            border: none;
+            padding: 0.75rem 0.625rem; /* More padding */
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        #invoice-output .details-table th {
+            background-color: #f8fbfd;
+            font-weight: 600;
+            color: #2d3748;
+            text-transform: uppercase;
+            font-size: 9.5pt; /* Slightly larger font */
+        }
+
+        #invoice-output .details-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        #invoice-output .summary-section {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 1.5rem; /* More margin */
+            border-top: 1px solid #e2e8f0;
+            padding-top: 1.5rem; /* More padding */
+        }
+
+        #invoice-output .summary-section .left-col {
+            width: 55%;
+            vertical-align: top;
+            font-size: 10.5pt; /* Standard font size */
+            color: #4a5568;
+        }
+
+        #invoice-output .summary-section .right-col {
+            width: 40%;
+            text-align: right;
+            vertical-align: top;
+        }
+
+        #invoice-output .summary-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 0;
+        }
+
+        #invoice-output .summary-table td {
+            padding: 0.375rem 0; /* Standard padding */
+        }
+
+        #invoice-output .summary-table .label {
+            font-weight: 600;
+            text-align: left;
+            color: #2d3748;
+            font-size: 10.5pt; /* Standard font size */
+        }
+
+        #invoice-output .total-sum {
+            font-weight: 700;
+            font-size: 14pt; /* Larger total sum */
+            border-top: 2px solid #2d3748;
+            padding-top: 0.75rem; /* Standard padding */
+            margin-top: 0.75rem; /* Standard margin */
+            color: #1a202c;
+        }
+
+        #invoice-output .footer-section {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 2.5rem; /* More space for footer */
+            font-size: 10pt; /* Standard font size */
+        }
+
+        #invoice-output .footer-section div {
+            width: 48%;
+            vertical-align: top;
+        }
+
+        #invoice-output .footer-section table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        #invoice-output .footer-section td {
+            padding: 0.25rem 0; /* Standard padding */
+            vertical-align: top;
+        }
+
+        #invoice-output .footer-section .label {
+            font-weight: 600;
+            width: 40%;
+            color: #4a5568;
+        }
+
+        #invoice-output .signature-line {
+            border-bottom: 1px solid #a0aec0;
+            padding-top: 1.25rem; /* More padding */
+            margin-top: 1.25rem; /* More margin */
+            width: 80%;
+            display: inline-block;
+            color: #2d3748;
+        }
+
+        #invoice-output .note {
+            font-size: 8.5pt; /* Slightly larger note font */
+            margin-top: 2rem; /* More margin */
+            border-top: 1px solid #e2e8f0;
+            padding-top: 1rem; /* More padding */
+            color: #6b7280;
+        }
+
+        /* Print specific styles */
+        @media print {
+            body {
+                background-color: #fff;
+                padding: 0;
+                margin: 0;
+                display: block; /* Revert to block for print */
+                min-height: auto;
+            }
+            .input-form, .print-button, .tab-nav { /* Hide tabs in print */
+                display: none;
+            }
+            .container {
+                flex-direction: column;
+                margin: 0;
+                width: 100%;
+                max-width: none; /* Remove max-width for print */
+            }
+            .invoice-preview {
+                box-shadow: none;
+                padding: 0;
+                border-radius: 0;
+                overflow: visible;
+            }
+            #invoice-output {
+                border: none;
+                box-shadow: none;
+                margin: 0; /* Remove margin for print */
+                padding: 8mm; /* Very tight padding for print */
+                min-height: 297mm; /* Set explicit A4 height */
+                height: 297mm; /* Ensure it takes full A4 height */
+                width: 210mm; /* Ensure it takes full A4 width */
+                box-sizing: border-box; /* Include padding in total width/height */
+                font-size: 7.5pt; /* Even smaller base font size for print */
+                line-height: 1.1; /* Very compact line height for print */
+            }
+            #invoice-output h1 {
+                font-size: 20pt; /* Adjusted for print */
+                margin-bottom: 0.15rem; /* Reduced margin */
+            }
+            #invoice-output .subtitle {
+                font-size: 10pt; /* Adjusted for print */
+                margin-bottom: 0.75rem; /* Reduced margin */
+            }
+            #invoice-output .header-info {
+                margin-bottom: 0.75rem; /* Reduced margin */
+            }
+            #invoice-output .header-info .logo-container {
+                width: 100px; /* Increased logo width for print */
+                max-height: 80px; /* Increased max height for print */
+                margin-right: 10px; /* Reduced margin */
+            }
+            #invoice-output .header-info .invoice-number-date-section {
+                font-size: 7.5pt; /* Smaller font for print */
+            }
+            #invoice-output .header-info td {
+                padding: 0.5px 0; /* Minimal padding */
+            }
+            #invoice-output .party-box {
+                padding: 0.5rem; /* Reduced padding for print */
+                margin-bottom: 0.5rem; /* Reduced margin */
+                min-height: auto;
+            }
+            #invoice-output .party-box .title {
+                font-size: 9pt; /* Adjusted for print */
+                margin-bottom: 0.3rem; /* Reduced margin */
+                padding-bottom: 0.15rem; /* Reduced padding */
+            }
+            #invoice-output .party-box table td {
+                padding: 0.5px 0; /* Minimal padding */
+            }
+            #invoice-output .details-table {
+                margin-bottom: 0.75rem; /* Reduced margin */
+            }
+            #invoice-output .details-table th,
+            #invoice-output .details-table td {
+                padding: 0.3rem 0.2rem; /* More reduced padding for print table cells */
+                font-size: 8pt; /* Consistent with base font size */
+            }
+            #invoice-output .details-table th {
+                font-size: 8pt; /* Consistent with td */
+            }
+            #invoice-output .summary-section {
+                margin-top: 0.75rem; /* Reduced margin */
+                padding-top: 0.75rem; /* Reduced padding */
+            }
+            #invoice-output .summary-section .left-col,
+            #invoice-output .summary-section .right-col {
+                font-size: 8.5pt; /* Adjusted for print */
+            }
+            #invoice-output .summary-table td {
+                padding: 0.15rem 0; /* Reduced padding for print summary table */
+            }
+            #invoice-output .summary-table .label {
+                font-size: 8.5pt; /* Adjusted for print */
+            }
+            #invoice-output .total-sum {
+                font-size: 11pt; /* Adjusted for print */
+                padding-top: 0.4rem;
+                margin-top: 0.4rem;
+            }
+            #invoice-output .footer-section {
+                margin-top: 1rem; /* Reduced margin for print footer */
+                font-size: 7.5pt; /* Smaller font for print footer */
+            }
+            #invoice-output .footer-section td {
+                padding: 0.15rem 0; /* Reduced padding */
+            }
+            #invoice-output .signature-line {
+                padding-top: 0.75rem; /* Reduced padding */
+                margin-top: 0.75rem; /* Reduced margin */
+            }
+            #invoice-output .note {
+                font-size: 7pt; /* Even smaller for print notes */
+                margin-top: 1rem; /* Reduced margin */
+                padding-top: 0.5rem; /* Reduced padding */
+            }
+        }
+
+        /* Responsive adjustments for smaller screens (for screen display, not print) */
+        @media (max-width: 1024px) {
+            .container {
+                flex-direction: column; /* Stack panels vertically on smaller screens */
+                padding: 1rem;
+            }
+            .input-form {
+                max-width: 100%; /* Allow form to take full width */
+                min-width: auto;
+                flex: none; /* Remove flex grow on smaller screens */
+            }
+            .panel {
+                padding: 1.5rem;
+            }
+            h2 {
+                font-size: 1.75rem;
+                margin-bottom: 1.5rem;
+            }
+            h3 {
+                font-size: 1.2rem;
+                margin-bottom: 1rem;
+            }
+            .form-section {
+                margin-bottom: 2rem;
+                padding-bottom: 1.5rem;
+            }
+            .item-row .input-group {
+                min-width: 100px;
+            }
+            /* Reset invoice-output for screen preview on smaller screens */
+            #invoice-output {
+                padding: 15mm;
+                font-size: 9.5pt;
+                line-height: 1.5;
+            }
+            #invoice-output h1 {
+                font-size: 22pt;
+                margin-bottom: 0.5rem;
+            }
+            #invoice-output .subtitle {
+                font-size: 12pt;
+                margin-bottom: 2rem;
+            }
+            #invoice-output .header-info {
+                flex-direction: column;
+                align-items: center;
+                text-align: center;
+                margin-bottom: 2rem;
+            }
+            #invoice-output .header-info .logo-container {
+                margin-right: 0;
+                margin-bottom: 1rem;
+                width: 120px;
+                max-height: 90px;
+            }
+            #invoice-output .header-info .invoice-number-date-section {
+                width: 100%;
+                text-align: center;
+                font-size: 10pt;
+            }
+            #invoice-output .party-box {
+                width: 100% !important; /* Force full width for party boxes */
+                margin-bottom: 1rem;
+                padding: 1.25rem;
+            }
+            #invoice-output .party-box .title {
+                font-size: 1.15rem;
+                margin-bottom: 0.75rem;
+                padding-bottom: 0.5rem;
+            }
+            #invoice-output .details-table th,
+            #invoice-output .details-table td {
+                padding: 0.75rem 0.625rem;
+                font-size: 9.5pt;
+            }
+            .summary-section,
+            .footer-section {
+                flex-direction: column;
+                align-items: center;
+                text-align: center;
+                margin-top: 1.5rem;
+                padding-top: 1.5rem;
+            }
+            .summary-section .left-col,
+            .summary-section .right-col,
+            .footer-section div {
+                width: 100%;
+                margin-bottom: 1rem;
+            }
+            .summary-table .label {
+                text-align: right; /* Align labels right in summary on mobile */
+            }
+            .signature-line {
+                width: 100%;
+                padding-top: 1.25rem;
+                margin-top: 1.25rem;
+            }
+            .note {
+                font-size: 8.5pt;
+                margin-top: 2rem;
+                padding-top: 1rem;
+            }
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 1rem;
+            }
+            .panel {
+                padding: 1rem;
+            }
+            h2 {
+                font-size: 1.5rem;
+                margin-bottom: 1rem;
+            }
+            h3 {
+                font-size: 1.1rem;
+                margin-bottom: 0.75rem;
+            }
+            input[type="text"], input[type="number"], textarea, select {
+                padding: 0.625rem 0.75rem;
+                margin-bottom: 1rem;
+            }
+            .button {
+                padding: 0.75rem 1.5rem;
+                font-size: 0.95rem;
+            }
+            .item-row {
+                flex-direction: column; /* Stack item inputs vertically on small mobiles */
+                align-items: stretch;
+            }
+            .item-row .input-group {
+                min-width: auto;
+                width: 100%;
+            }
+            .remove-item-btn {
+                width: 100%;
+                padding: 0.75rem;
+            }
+            /* Reset invoice-output for screen preview on smaller screens */
+            #invoice-output {
+                padding: 10mm;
+                font-size: 9pt;
+            }
+            #invoice-output h1 {
+                font-size: 20pt;
+            }
+            #invoice-output .subtitle {
+                font-size: 10pt;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container lg:flex">
+        <div class="panel input-form">
+            <h2>Данни за фактура</h2>
+
+            <!-- Tab Navigation -->
+            <div class="tab-nav flex -mb-px px-6 sm:px-8">
+                <button data-tab="tab-our-company" class="tab-btn active py-3 px-1 text-sm font-medium">Наши данни</button>
+                <button data-tab="tab-invoice-details" class="tab-btn py-3 px-1 text-sm font-medium ml-8">Основни данни</button>
+                <button data-tab="tab-recipient-data" class="tab-btn py-3 px-1 text-sm font-medium ml-8">Получател</button>
+                <button data-tab="tab-items" class="tab-btn py-3 px-1 text-sm font-medium ml-8">Артикули</button>
+                <button data-tab="tab-payment-other" class="tab-btn py-3 px-1 text-sm font-medium ml-8">Плащане и други</button>
+            </div>
+
+            <!-- Tab Content Containers -->
+            <div id="tab-our-company" class="tab-content pt-6">
+                <!-- Our Company Data - Always visible in this tab, no toggle needed here -->
+                <div class="form-section">
+                    <h3>Нашите данни ("ДАЙНАМЕКС ТУР" ЕООД)</h3>
+                    <label for="ourCompanyName">Име на фирма:</label>
+                    <input type="text" id="ourCompanyName" value="ДАЙНАМЕКС ТУР ЕООД" readonly>
+
+                    <label for="ourMOL">МОЛ:</label>
+                    <input type="text" id="ourMOL" value="КРАСИМИР АНАНОВ" readonly>
+
+                    <label for="ourEIK">ЕИК:</label>
+                    <input type="text" id="ourEIK" value="208193140" readonly>
+
+                    <label for="ourVATID">ДДС номер:</label>
+                    <input type="text" id="ourVATID" value="BG208193140" readonly>
+
+                    <label for="ourAddress">Адрес:</label>
+                    <input type="text" id="ourAddress" value="гр. Ракитово, ул. Васил Куртев 12А">
+
+                    <label for="ourPhone">Телефон:</label>
+                    <input type="text" id="ourPhone" value="+359879 97 64 46">
+                </div>
+            </div>
+
+            <div id="tab-invoice-details" class="tab-content hidden pt-6">
+                <!-- Invoice Specific Data -->
+                <div class="form-section">
+                    <h3>Основни данни за фактурата</h3>
+                    <div class="grid grid-cols-1 gap-y-2">
+                        <div>
+                            <label for="invoiceNumber">Номер на фактура:</label>
+                            <input type="text" id="invoiceNumber" value="">
+                        </div>
+                        <div>
+                            <label for="invoiceDate">Дата на издаване:</label>
+                            <input type="text" id="invoiceDate" value="">
+                        </div>
+                        <div>
+                            <label for="invoiceType">Вид на фактурата:</label>
+                            <select id="invoiceType" class="invoice-type-select">
+                                <option value="Оригинал">Оригинал</option>
+                                <option value="Копие">Копие</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="tab-recipient-data" class="tab-content hidden pt-6">
+                <!-- Recipient Data -->
+                <div class="form-section">
+                    <h3>Данни за Получател (Вашият клиент)</h3>
+                    <div class="grid grid-cols-1 gap-y-2">
+                        <div>
+                            <label for="recipientName">Име на фирма:</label>
+                            <input type="text" id="recipientName" placeholder="Име на фирма Получател">
+                        </div>
+                        <div>
+                            <label for="recipientVATID">ДДС номер:</label>
+                            <input type="text" id="recipientVATID" placeholder="BG123456789">
+                        </div>
+                        <div>
+                            <label for="recipientIDNum">Идент. номер:</label>
+                            <input type="text" id="recipientIDNum" placeholder="Идент. номер">
+                        </div>
+                        <div>
+                            <label for="recipientAddress">Адрес:</label>
+                            <input type="text" id="recipientAddress" placeholder="Адрес на Получател">
+                        </div>
+                        <div>
+                            <label for="recipientMOL">МОЛ:</label>
+                            <input type="text" id="recipientMOL" placeholder="МОЛ на Получател">
+                        </div>
+                        <div>
+                            <label for="recipientPhone">Телефон:</label>
+                            <input type="text" id="recipientPhone" placeholder="Телефон на Получател">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="tab-items" class="tab-content hidden pt-6">
+                <!-- Items Section -->
+                <div class="form-section">
+                    <h3>Артикули / Услуги</h3>
+                    <div id="itemsContainer">
+                        <!-- Item rows will be added here by JS -->
+                    </div>
+                    <button type="button" class="button button-add w-full" onclick="addItem()">Добави артикул</button>
+                </div>
+            </div>
+
+            <div id="tab-payment-other" class="tab-content hidden pt-6">
+                <!-- Payment and Other Details -->
+                <div class="form-section">
+                    <h3>Данни за плащане и други</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2">
+                        <div>
+                            <label for="vatRate">ДДС процент (напр. 0.20 за 20%, 0 за 0%):</label>
+                            <input type="number" id="vatRate" step="0.01" value="0.20">
+                        </div>
+                        <div>
+                            <label for="taxEventDate">Дата на данъчно събитие:</label>
+                            <input type="text" id="taxEventDate" value="">
+                        </div>
+                        <div>
+                            <label for="transactionBasis">Основание на сделката:</label>
+                            <input type="text" id="transactionBasis" value="Услуга">
+                        </div>
+                        <div>
+                            <label for="transactionDescription">Описание на сделката:</label>
+                            <input type="text" id="transactionDescription" value="ТУРИСТИЧЕСКИ УСЛУГИ">
+                        </div>
+                        <div>
+                            <label for="transactionPlace">Място на сделката:</label>
+                            <input type="text" id="transactionPlace" value="България">
+                        </div>
+                        <div>
+                            <label for="receivedBy">Получил (име):</label>
+                            <input type="text" id="receivedBy" placeholder="Име на получил">
+                        </div>
+                        <div>
+                            <label for="preparedBy">Съставил (име):</label>
+                            <input type="text" id="preparedBy" value="КРАСИМИР АНАНОВ">
+                        </div>
+                        <div>
+                            <label for="paymentMethod">Метод на плащане:</label>
+                            <select id="paymentMethod" class="payment-method-select">
+                                <option value="bankTransfer">По банков път</option>
+                                <option value="cash">В брой</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div id="bankDetailsSection" class="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2">
+                        <div>
+                            <label for="iban">IBAN:</label>
+                            <input type="text" id="iban" value="BG87BPBI79301036586601">
+                        </div>
+                        <div>
+                            <label for="bank">Банка:</label>
+                            <input type="text" id="bank" value="ПОЩЕНСКА БАНКА">
+                        </div>
+                    </div>
+
+                    <label for="additionalNotes">Допълнителни бележки:</label>
+                    <textarea id="additionalNotes" placeholder="Напишете тук допълнителни бележки, ако има такива.">Основание за неначисляване на ДДС:"Режим на облагането на маржа в тур. услуги" - По член 86. ал.1 от ЗДДС.</textarea>
+                </div>
+            </div>
+
+            <button type="button" class="button button-primary w-full print-button">Генерирай и отпечатай фактура</button>
+        </div>
+
+        <div class="panel invoice-preview">
+            <h2>Преглед на фактура</h2>
+            <div id="invoice-output">
+                <!-- Invoice content will be dynamically generated here -->
+                <p class="text-center text-gray-500">Попълнете данните във формата, за да видите преглед на фактурата.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Exchange rate constant
+        const EUR_TO_BGN_RATE = 1.95583;
+        // Hardcoded logo URL
+        const LOGO_URL = "https://dynamexres.netlify.app/assets/Logo-BhKKBcxG.png";
+
+        // Set current date for date fields and initialize the invoice
+        window.onload = function() {
+            const today = new Date();
+            const dd = String(today.getDate()).padStart(2, '0');
+            const mm = String(today.getMonth() + 1).padStart(2, '0'); // January is 0!
+            const yyyy = today.getFullYear();
+            const formattedDate = `${dd}.${mm}.${yyyy}`;
+
+            document.getElementById('invoiceDate').value = formattedDate;
+            document.getElementById('taxEventDate').value = formattedDate;
+
+            // Add an initial item row
+            addItem();
+            
+            // Set up event listeners for payment method and initial visibility
+            const paymentMethodSelect = document.getElementById('paymentMethod');
+            paymentMethodSelect.addEventListener('change', toggleBankDetailsVisibility);
+            toggleBankDetailsVisibility(); // Set initial visibility
+
+            // Add event listener for invoice type select
+            document.getElementById('invoiceType').addEventListener('change', generateInvoice);
+
+            // Our company data section is now part of a tab, so no separate toggle needed on load
+            // document.getElementById('ourCompanyDataContent').classList.add('hidden');
+            // document.getElementById('toggleOurDataText').textContent = 'Покажи';
+
+
+            // Add event listeners to all input fields in the form to regenerate invoice on change
+            document.querySelectorAll('.input-form input, .input-form textarea, .input-form select').forEach(input => {
+                input.addEventListener('input', generateInvoice);
+            });
+
+            // Initialize tabs
+            initTabs();
+
+            // Generate initial invoice preview
+            generateInvoice();
+        };
+
+        let itemCounter = 0; // Unique ID for each item row
+
+        /**
+         * Initializes the tab functionality.
+         */
+        function initTabs() {
+            const tabNav = document.querySelector('.tab-nav');
+            const tabButtons = tabNav.querySelectorAll('.tab-btn');
+            const tabContents = document.querySelectorAll('.tab-content');
+
+            tabNav.addEventListener('click', (e) => {
+                if (e.target.matches('.tab-btn')) {
+                    const targetTabId = e.target.dataset.tab;
+
+                    // Deactivate all tab buttons and hide all tab contents
+                    tabButtons.forEach(btn => btn.classList.remove('active'));
+                    tabContents.forEach(content => content.classList.add('hidden'));
+
+                    // Activate the clicked tab button and show its content
+                    e.target.classList.add('active');
+                    document.getElementById(targetTabId).classList.remove('hidden');
+                }
+            });
+
+            // Ensure the first tab is active and visible on load
+            if (tabButtons.length > 0 && tabContents.length > 0) {
+                tabButtons[0].classList.add('active');
+                tabContents[0].classList.remove('hidden');
+            }
+        }
+
+        /**
+         * Toggles the visibility of the "Our Company Data" section.
+         * This function is no longer directly used for visibility toggle,
+         * as it's now handled by tabs. Keeping it for potential future use or if
+         * a sub-toggle within the tab is desired.
+         */
+        function toggleOurDataVisibility() {
+            // This function is effectively replaced by the tab system.
+            // If you want a toggle *within* the "Our Company Data" tab,
+            // you would need to re-implement specific logic here.
+            console.log("toggleOurDataVisibility is now handled by tabs.");
+        }
+
+        /**
+         * Adds a new item row to the invoice form.
+         */
+        function addItem() {
+            itemCounter++;
+            const itemsContainer = document.getElementById('itemsContainer');
+            const newItemRow = document.createElement('div');
+            newItemRow.classList.add('item-row');
+            newItemRow.dataset.itemId = itemCounter;
+
+            newItemRow.innerHTML = `
+                <div class="input-group description">
+                    <label>Наименование</label>
+                    <input type="text" class="item-description" placeholder="Наименование на стоката/услугата">
+                </div>
+                <div class="input-group">
+                    <label>Код</label>
+                    <input type="text" class="item-code" placeholder="Код (по желание)">
+                </div>
+                <div class="input-group">
+                    <label>Мярка</label>
+                    <input type="text" class="item-unit" placeholder="бр., кг., услуга" value="бр.">
+                </div>
+                <div class="input-group quantity">
+                    <label>Кол.</label>
+                    <input type="number" class="item-quantity" value="1" min="0.01" step="0.01">
+                </div>
+                <div class="input-group price">
+                    <label>Цена</label>
+                    <input type="number" class="item-price" value="0.00" min="0.00" step="0.01">
+                </div>
+                <button type="button" class="remove-item-btn" onclick="removeItem(${itemCounter})">X</button>
+            `;
+            itemsContainer.appendChild(newItemRow);
+
+            // Add event listeners to trigger invoice generation on input change
+            newItemRow.querySelectorAll('input').forEach(input => {
+                input.addEventListener('input', generateInvoice);
+            });
+        }
+
+        /**
+         * Removes an item row from the invoice form.
+         * @param {number} itemId - The unique ID of the item row to remove.
+         */
+        function removeItem(itemId) {
+            const itemRow = document.querySelector(`.item-row[data-item-id="${itemId}"]`);
+            if (itemRow) {
+                itemRow.remove();
+                generateInvoice(); // Update invoice preview after removing item
+            }
+        }
+
+        /**
+         * Toggles the visibility of bank details based on the selected payment method.
+         */
+        function toggleBankDetailsVisibility() {
+            const paymentMethod = document.getElementById('paymentMethod').value;
+            const bankDetailsSection = document.getElementById('bankDetailsSection');
+
+            if (paymentMethod === 'bankTransfer') {
+                bankDetailsSection.classList.remove('hidden');
+            } else {
+                bankDetailsSection.classList.add('hidden');
+            }
+            generateInvoice(); // Update invoice preview after changing visibility
+        }
+
+        /**
+         * Converts a number to its Bulgarian word representation.
+         * This is a simplified version and may not cover all complex cases.
+         * For a robust solution, consider a dedicated library or a more extensive implementation.
+         * @param {number} num - The number to convert.
+         * @returns {string} The number in Bulgarian words.
+         */
+        function amountToWordsBulgarian(num) {
+            if (num === 0) return "нула лева";
+            
+            const units = ['', 'един', 'два', 'три', 'четири', 'пет', 'шест', 'седем', 'осем', 'девет'];
+            const teens = ['десет', 'единадесет', 'дванадесет', 'тринадесет', 'четиринадесет', 'петнадесет', 'шестнадесет', 'седемнадесет', 'осемнадесет', 'деветнадесет'];
+            const tens = ['', '', 'двадесет', 'тридесет', 'четиридесет', 'петдесет', 'шестдесет', 'седемдесет', 'осемдесет', 'деветдесет'];
+            const hundreds = ['', 'сто', 'двеста', 'триста', 'четиристотин', 'петстотин', 'шестстотин', 'седемстотин', 'осемстотин', 'деветстотин'];
+
+            function convertLessThanOneThousand(n) {
+                let s = '';
+                if (n >= 100) {
+                    s += hundreds[Math.floor(n / 100)] + ' ';
+                    n %= 100;
+                }
+                if (n >= 20) {
+                    s += tens[Math.floor(n / 10)] + ' ';
+                    n %= 10;
+                } else if (n >= 10) {
+                    s += teens[n - 10] + ' ';
+                    return s.trim();
+                }
+                if (n > 0) {
+                    s += units[n] + ' ';
+                }
+                return s.trim();
+            }
+
+            let integerPart = Math.floor(num);
+            let fractionalPart = Math.round((num - integerPart) * 100);
+
+            let result = '';
+
+            if (integerPart >= 1000) {
+                let thousands = Math.floor(integerPart / 1000);
+                if (thousands === 1) {
+                    result += 'една хиляда ';
+                } else if (thousands === 2) {
+                    result += 'две хиляди ';
+                } else {
+                    result += convertLessThanOneThousand(thousands) + ' хиляди ';
+                }
+                integerPart %= 1000;
+            }
+
+            if (integerPart > 0) {
+                result += convertLessThanOneThousand(integerPart);
+            }
+            
+            if (result === '') {
+                result = 'нула';
+            }
+
+            result += ' лева';
+
+            if (fractionalPart > 0) {
+                result += ' и ' + fractionalPart + ' стотинки';
+            } else {
+                result += ' и нула стотинки'; // Ensure "and zero cents" is always there if no cents
+            }
+
+            return result.trim();
+        }
+
+        /**
+         * Generates the HTML content of the invoice based on user input.
+         * This function is called every time an input field changes.
+         */
+        function generateInvoice() {
+            const invoiceOutput = document.getElementById('invoice-output');
+
+            // Business Data (read-only for "ДАЙНАМЕКС ТУР" ЕООД)
+            const ourCompanyName = document.getElementById('ourCompanyName').value;
+            const ourMOL = document.getElementById('ourMOL').value;
+            const ourEIK = document.getElementById('ourEIK').value;
+            const ourVATID = document.getElementById('ourVATID').value;
+            const ourAddress = document.getElementById('ourAddress').value;
+            const ourPhone = document.getElementById('ourPhone').value;
+
+            // Invoice Details
+            const invoiceNumber = document.getElementById('invoiceNumber').value || '________';
+            const invoiceDate = document.getElementById('invoiceDate').value;
+            const invoiceType = document.getElementById('invoiceType').value; // Get invoice type
+
+            // Recipient Data
+            const recipientName = document.getElementById('recipientName').value || 'Име на получател';
+            const recipientVATID = document.getElementById('recipientVATID').value;
+            const recipientIDNum = document.getElementById('recipientIDNum').value;
+            const recipientAddress = document.getElementById('recipientAddress').value;
+            const recipientMOL = document.getElementById('recipientMOL').value;
+            const recipientPhone = document.getElementById('recipientPhone').value;
+
+            // Items Data
+            let itemsHtml = '';
+            let totalBasePrice = 0;
+            const vatRate = parseFloat(document.getElementById('vatRate').value || 0.20);
+            
+            const itemRows = document.querySelectorAll('.item-row');
+            itemRows.forEach((row, index) => {
+                const description = row.querySelector('.item-description').value;
+                const code = row.querySelector('.item-code').value;
+                const unit = row.querySelector('.item-unit').value;
+                const quantity = parseFloat(row.querySelector('.item-quantity').value);
+                const price = parseFloat(row.querySelector('.item-price').value);
+
+                if (description && !isNaN(quantity) && !isNaN(price)) {
+                    const itemSum = quantity * price;
+                    totalBasePrice += itemSum;
+
+                    const priceEUR = price / EUR_TO_BGN_RATE;
+                    const itemSumEUR = itemSum / EUR_TO_BGN_RATE;
+
+                    itemsHtml += `
+                        <tr>
+                            <td>${index + 1}</td>
+                            <td>${code}</td>
+                            <td>${description}</td>
+                            <td>${unit}</td>
+                            <td>${quantity.toFixed(2)}</td>
+                            <td>${price.toFixed(2)} (${priceEUR.toFixed(2)} EUR)</td>
+                            <td>${itemSum.toFixed(2)} (${itemSumEUR.toFixed(2)} EUR)</td>
+                        </tr>
+                    `;
+                }
+            });
+
+            const totalVATAmount = totalBasePrice * vatRate;
+            const totalDueAmount = totalBasePrice + totalVATAmount;
+
+            const totalBasePriceEUR = totalBasePrice / EUR_TO_BGN_RATE;
+            const totalVATAmountEUR = totalVATAmount / EUR_TO_BGN_RATE;
+            const totalDueAmountEUR = totalDueAmount / EUR_TO_BGN_RATE;
+
+            const amountInWordsBGN = amountToWordsBulgarian(totalDueAmount);
+            const amountInWordsCombined = `${amountInWordsBGN} (${totalDueAmountEUR.toFixed(2)} EUR)`;
+
+
+            // Other Details
+            const taxEventDate = document.getElementById('taxEventDate').value;
+            const transactionBasis = document.getElementById('transactionBasis').value;
+            const transactionDescription = document.getElementById('transactionDescription').value;
+            const transactionPlace = document.getElementById('transactionPlace').value;
+            const receivedBy = document.getElementById('receivedBy').value;
+            const preparedBy = document.getElementById('preparedBy').value;
+
+            // Payment Details - Conditional based on selected method
+            const paymentMethod = document.getElementById('paymentMethod').value;
+            let iban = '';
+            let bank = '';
+
+            if (paymentMethod === 'bankTransfer') {
+                iban = document.getElementById('iban').value;
+                bank = document.getElementById('bank').value;
+            }
+            const displayedPaymentMethodText = paymentMethod === 'bankTransfer' ? 'По банков път' : 'В брой';
+
+            const additionalNotes = document.getElementById('additionalNotes').value;
+
+            // Logo HTML - now hardcoded and without onerror attribute
+            const logoHtml = `<div class="logo-container"><img src="${LOGO_URL}" alt="Company Logo"></div>`;
+
+
+            invoiceOutput.innerHTML = `
+                <div class="header-info">
+                    ${logoHtml}
+                    <div class="invoice-title-section">
+                        <h1>Фактура</h1>
+                        <div class="subtitle">${invoiceType}</div>
+                    </div>
+                    <div class="invoice-number-date-section">
+                        <table>
+                            <tr>
+                                <td class="label">Номер:</td>
+                                <td>${invoiceNumber}</td>
+                            </tr>
+                            <tr>
+                                <td class="label">Дата:</td>
+                                <td>${invoiceDate}</td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; flex-wrap: wrap;">
+                    <div class="party-box" style="width: 48%;">
+                        <div class="title">Получател</div>
+                        <table>
+                            <tr>
+                                <td class="label">Име на фирма:</td>
+                                <td>${recipientName}</td>
+                            </tr>
+                            <tr>
+                                <td class="label">ДДС No:</td>
+                                <td>${recipientVATID}</td>
+                            </tr>
+                            <tr>
+                                <td class="label">Идент. No:</td>
+                                <td>${recipientIDNum}</td>
+                            </tr>
+                            <tr>
+                                <td class="label">Адрес:</td>
+                                <td>${recipientAddress}</td>
+                            </tr>
+                            <tr>
+                                <td class="label">МОЛ:</td>
+                                <td>${recipientMOL}</td>
+                            </tr>
+                            <tr>
+                                <td class="label">Телефон:</td>
+                                <td>${recipientPhone}</td>
+                            </tr>
+                        </table>
+                    </div>
+                    <div class="party-box" style="width: 48%;">
+                        <div class="title">Доставчик</div>
+                        <table>
+                            <tr>
+                                <td class="label">Име на фирма:</td>
+                                <td>${ourCompanyName}</td>
+                            </tr>
+                            <tr>
+                                <td class="label">ДДС No:</td>
+                                <td>${ourVATID}</td>
+                            </tr>
+                            <tr>
+                                <td class="label">ЕИК:</td>
+                                <td>${ourEIK}</td>
+                            </tr>
+                            <tr>
+                                <td class="label">Адрес:</td>
+                                <td>${ourAddress}</td>
+                            </tr>
+                            <tr>
+                                <td class="label">МОЛ:</td>
+                                <td>${ourMOL}</td>
+                            </tr>
+                            <tr>
+                                <td class="label">Телефон:</td>
+                                <td>${ourPhone}</td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+
+                <table class="details-table">
+                    <thead>
+                        <tr>
+                            <th>№</th>
+                            <th>Код</th>
+                            <th>Наименование на стоката/услугата</th>
+                            <th>Мярка</th>
+                            <th>Количество</th>
+                            <th>Цена (BGN/EUR)</th>
+                            <th>Сума (BGN/EUR)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${itemsHtml}
+                    </tbody>
+                </table>
+
+                <div class="summary-section">
+                    <div class="left-col">
+                        <p>Словом: ${amountInWordsCombined}</p>
+                    </div>
+                    <div class="right-col">
+                        <table class="summary-table">
+                            <tr>
+                                <td class="label">Данъчна основа ${vatRate * 100}%:</td>
+                                <td>${totalBasePrice.toFixed(2)} (${totalBasePriceEUR.toFixed(2)} EUR)</td>
+                            </tr>
+                            <tr>
+                                <td class="label">ДДС ${vatRate * 100}%:</td>
+                                <td>${totalVATAmount.toFixed(2)} (${totalVATAmountEUR.toFixed(2)} EUR)</td>
+                            </tr>
+                            <tr>
+                                <td class="total-sum">Сума за плащане:</td>
+                                <td class="total-sum">${totalDueAmount.toFixed(2)} (${totalDueAmountEUR.toFixed(2)} EUR)</td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="footer-section">
+                    <div style="width: 48%;">
+                        <table>
+                            <tr>
+                                <td class="label">Дата на данъчно събитие:</td>
+                                <td>${taxEventDate}</td>
+                            </tr>
+                            <tr>
+                                <td class="label">Основание на сделката:</td>
+                                <td>${transactionBasis}</td>
+                            </tr>
+                            <tr>
+                                <td class="label">Описание на сделката:</td>
+                                <td>${transactionDescription}</td>
+                            </tr>
+                            <tr>
+                                <td class="label">Място на сделката:</td>
+                                <td>${transactionPlace}</td>
+                            </tr>
+                            <tr>
+                                <td class="label">Получил:</td>
+                                <td><span class="signature-line">${receivedBy}</span></td>
+                            </tr>
+                        </table>
+                    </div>
+                    <div style="width: 48%;">
+                        <table>
+                            <tr>
+                                <td class="label">Плащане:</td>
+                                <td>${displayedPaymentMethodText}</td>
+                            </tr>
+                            ${paymentMethod === 'bankTransfer' ? `
+                            <tr>
+                                <td class="label">IBAN:</td>
+                                <td>${iban}</td>
+                            </tr>
+                            <tr>
+                                <td class="label">Банка:</td>
+                                <td>${bank}</td>
+                            </tr>
+                            ` : ''}
+                            <tr>
+                                <td class="label">Съставил:</td>
+                                <td><span class="signature-line">${preparedBy}</span></td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="note">
+                    <p>
+                        ${additionalNotes}
+                    </p>
+                    <p>
+                        Съгласно чл. 6, ал. 1 от Закона за счетоводството, чл. 114 от ЗДДС и чл. 78 от ППЗДДС печатът и подписът не са задължителни реквизити във фактурата.
+                    </p>
+                </div>
+            `;
+        }
+
+        // Add event listeners to all input fields and the select dropdowns in the form to regenerate invoice on change
+        document.querySelectorAll('.input-form input, .input-form textarea, .input-form select').forEach(input => {
+            input.addEventListener('input', generateInvoice);
+        });
+
+        // Trigger print dialog when "Generate and Print" button is clicked
+        document.querySelector('.print-button').addEventListener('click', () => {
+            window.print();
+        });
+
+    </script>
+</body>
+</html>
