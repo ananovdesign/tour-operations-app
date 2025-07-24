@@ -4286,6 +4286,17 @@ case 'invoicingSales':
             )}
           </div>
         );
+case 'transportContract':
+        return (
+          <div className="p-0 bg-white rounded-xl shadow-lg h-full">
+            <iframe
+              src="/transportcontract.html" // This loads the HTML file from your 'public' folder
+              title="Transport Contract Generator"
+              className="w-full h-full border-0 rounded-xl"
+              style={{ minHeight: '80vh' }} // Ensures the frame has a good height
+            />
+          </div>
+        );
       default:
         return <div>Select a module from the sidebar.</div>;
     }
@@ -4498,19 +4509,33 @@ case 'invoicingSales':
                       Expense Invoices
                     </button>
                   </li>
-                  <li className="mb-2">
-                    <button
-                      onClick={() => setActiveTab('invoicingProducts')}
-                      className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base
-                        ${activeTab === 'invoicingProducts' || activeTab === 'addProduct' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}
-                      `}
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h.01M7 3h.01M7 11h.01M7 15h.01M7 19h.01M17 7h.01M17 3h.01M17 11h.01M17 15h.01M17 19h.01M3 7h.01M3 3h.01M3 11h.01M3 15h.01M3 19h.01M21 7h.01M21 3h.01M21 11h.01M21 15h.01M21 19h.01M12 7h.01M12 3h.01M12 11h.01M12 15h.01M12 19h.01" />
-                      </svg>
-                      Product Management
-                    </button>
-                  </li>
+<li className="mb-2">
+              <button
+                onClick={() => setActiveTab('invoicingProducts')}
+                className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base
+                  ${activeTab === 'invoicingProducts' || activeTab === 'addProduct' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}
+                `}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h.01M7 3h.01M7 11h.01M7 15h.01M7 19h.01M17 7h.01M17 3h.01M17 11h.01M17 15h.01M17 19h.01M3 7h.01M3 3h.01M3 11h.01M3 15h.01M3 19h.01M21 7h.01M21 3h.01M21 11h.01M21 15h.01M21 19h.01M12 7h.01M12 3h.01M12 11h.01M12 15h.01M12 19h.01" />
+                </svg>
+                Product Management
+              </button>
+            </li>
+            <li className="mb-2">
+              <button
+                onClick={() => setActiveTab('transportContract')}
+                className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base
+                  ${activeTab === 'transportContract' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}
+                `}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
+                  <path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" />
+                </svg>
+                Transport Contract
+              </button>
+            </li>
                   {isEmailPasswordUser && (
                     <li className="mb-2 mt-auto pt-6 border-t border-gray-200"> {/* Pushed to bottom, consistent separator */}
                       <button
