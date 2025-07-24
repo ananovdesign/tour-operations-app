@@ -88,6 +88,7 @@ const App = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [selectedReservation, setSelectedReservation] = useState(null);
   const [viewingReservation, setViewingReservation] = useState(null); // State for the details modal
+  const [expandedReservationId, setExpandedReservationId] = useState(null); // State for expandable payment rows
   const [selectedTour, setSelectedTour] = useState(null);
   const [selectedFinancialTransaction, setSelectedFinancialTransaction] = useState(null);
   // State for currently selected expense invoice for editing
@@ -2188,28 +2189,64 @@ case 'reservations':
                       <th className="py-3 px-4 text-center font-medium">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="text-gray-700">
-                    {filteredReservations.map(res => (
-                      <tr key={res.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors duration-150">
-                        <td className="py-3 px-4">{res.reservationNumber}</td>
-                        <td className="py-3 px-4">{res.hotel}</td>
-                        <td className="py-3 px-4">{res.tourists && res.tourists.length > 0 ? `${res.tourists[0].firstName} ${res.tourists[0].familyName}` : 'N/A'}</td>
-                        <td className="py-3 px-4 text-gray-600">{res.checkIn} - {res.checkOut}</td>
-                        <td className="py-3 px-4"><span className={`px-3 py-1 rounded-full text-xs font-semibold ${res.status === 'Confirmed' ? 'bg-green-100 text-green-800' : res.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' : res.status === 'Cancelled' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'}`}>{res.status}</span></td>
-                        <td className="py-3 px-4 font-semibold text-right text-gray-800">BGN {res.profit.toFixed(2)}</td>
-                        <td className="py-3 px-4 flex justify-center space-x-2">
-                          <button onClick={() => setViewingReservation(res)} className="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-full shadow-md transition duration-200" title="View Details">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-                          </button>
-                          <button onClick={() => handleEditReservation(res)} className="bg-[#28A745] hover:bg-[#218838] text-white p-2 rounded-full shadow-md transition duration-200" title="Edit">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zm-5.69 5.69L11.586 7.586 14.414 10.414 11.586 13.242 8.758 10.414l2.828-2.828z" /><path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm-4 8a1 1 0 011-1h1a1 1 0 110 2H7a1 1 0 01-1-1zm10 0a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1zM4 14a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm10 0a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1zM3 18a1 1 0 011-1h1a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" /></svg>
-                          </button>
-                          <button onClick={() => handleDeleteReservation(res.id)} className="bg-[#DC3545] hover:bg-[#C82333] text-white p-2 rounded-full shadow-md transition duration-200" title="Delete">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1zm-1 3a1 1 0 011-1h4a1 1 0 110 2H7a1 1 0 01-1-1zm-1 3a1 1 0 011-1h4a1 1 0 110 2H7a1 1 0 01-1-1z" clipRule="evenodd" /></svg>
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                  <tbody>
+                    {filteredReservations.map(res => {
+                      const linkedPayments = financialTransactions.filter(ft => ft.associatedReservationId === res.reservationNumber);
+                      return (
+                        <React.Fragment key={res.id}>
+                          <tr onClick={() => setExpandedReservationId(expandedReservationId === res.id ? null : res.id)} className="cursor-pointer hover:bg-gray-100">
+                            <td className="py-3 px-4">{res.reservationNumber}</td>
+                            <td className="py-3 px-4">{res.hotel}</td>
+                            <td className="py-3 px-4">{res.tourists && res.tourists.length > 0 ? `${res.tourists[0].firstName} ${res.tourists[0].familyName}` : 'N/A'}</td>
+                            <td className="py-3 px-4 text-gray-600">{res.checkIn} - {res.checkOut}</td>
+                            <td className="py-3 px-4"><span className={`px-3 py-1 rounded-full text-xs font-semibold ${res.status === 'Confirmed' ? 'bg-green-100 text-green-800' : res.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' : res.status === 'Cancelled' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'}`}>{res.status}</span></td>
+                            <td className="py-3 px-4 font-semibold text-right text-gray-800">BGN {res.profit.toFixed(2)}</td>
+                            <td className="py-3 px-4 flex justify-center space-x-2">
+                              <button onClick={(e) => { e.stopPropagation(); setViewingReservation(res); }} className="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-full shadow-md transition duration-200" title="View Details">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                              </button>
+                              <button onClick={(e) => { e.stopPropagation(); handleEditReservation(res); }} className="bg-[#28A745] hover:bg-[#218838] text-white p-2 rounded-full shadow-md transition duration-200" title="Edit">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zm-5.69 5.69L11.586 7.586 14.414 10.414 11.586 13.242 8.758 10.414l2.828-2.828z" /><path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm-4 8a1 1 0 011-1h1a1 1 0 110 2H7a1 1 0 01-1-1zm10 0a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1zM4 14a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm10 0a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1zM3 18a1 1 0 011-1h1a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" /></svg>
+                              </button>
+                              <button onClick={(e) => { e.stopPropagation(); handleDeleteReservation(res.id); }} className="bg-[#DC3545] hover:bg-[#C82333] text-white p-2 rounded-full shadow-md transition duration-200" title="Delete">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1zm-1 3a1 1 0 011-1h4a1 1 0 110 2H7a1 1 0 01-1-1zm-1 3a1 1 0 011-1h4a1 1 0 110 2H7a1 1 0 01-1-1z" clipRule="evenodd" /></svg>
+                              </button>
+                            </td>
+                          </tr>
+                          {expandedReservationId === res.id && (
+                            <tr className="bg-gray-50">
+                              <td colSpan="7" className="p-4">
+                                <h4 className="font-semibold text-gray-700 mb-2">Linked Financial Transactions:</h4>
+                                {linkedPayments.length > 0 ? (
+                                  <table className="min-w-full bg-white text-sm rounded-lg shadow">
+                                    <thead className="bg-gray-200">
+                                      <tr>
+                                        <th className="py-1 px-2 text-left">Date</th>
+                                        <th className="py-1 px-2 text-left">Type</th>
+                                        <th className="py-1 px-2 text-left">Method</th>
+                                        <th className="py-1 px-2 text-right">Amount</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {linkedPayments.map(p => (
+                                        <tr key={p.id} className="border-b">
+                                          <td className="py-1 px-2">{p.date}</td>
+                                          <td className="py-1 px-2"><span className={`px-2 py-0.5 rounded-full text-xs ${p.type === 'income' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{p.type}</span></td>
+                                          <td className="py-1 px-2">{p.method}</td>
+                                          <td className="py-1 px-2 text-right font-medium">BGN {p.amount.toFixed(2)}</td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                ) : (
+                                  <p className="text-sm text-gray-500">No payments found for this reservation.</p>
+                                )}
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -2220,7 +2257,6 @@ case 'reservations':
               <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 z-50">
                 <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-4xl relative max-h-[90vh] flex flex-col">
                   <h3 className="text-2xl font-semibold mb-4 text-gray-800 border-b pb-3">Reservation Details: <span className="text-blue-600">{viewingReservation.reservationNumber}</span></h3>
-                  
                   <div className="overflow-y-auto">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-gray-700 mb-6">
                       <div><strong>Hotel:</strong> <span className="text-gray-600">{viewingReservation.hotel}</span></div>
@@ -2233,13 +2269,11 @@ case 'reservations':
                       <div><strong>Tour Operator:</strong> <span className="text-gray-600">{viewingReservation.tourOperator}</span></div>
                       <div><strong>Linked Tour ID:</strong> <span className="text-gray-600">{viewingReservation.linkedTourId || 'N/A'}</span></div>
                     </div>
-                    
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-gray-700 mb-6 border-t pt-4">
                       <div className="text-lg"><strong>Final Amount:</strong> <span className="font-bold text-green-600">BGN {viewingReservation.finalAmount.toFixed(2)}</span></div>
                       <div className="text-lg"><strong>Owed to Hotel:</strong> <span className="font-bold text-red-600">BGN {viewingReservation.owedToHotel.toFixed(2)}</span></div>
                       <div className="text-lg"><strong>Profit:</strong> <span className="font-bold text-blue-600">BGN {viewingReservation.profit.toFixed(2)}</span></div>
                     </div>
-
                     <h4 className="text-xl font-semibold mb-3 text-gray-800 border-t pt-4">Tourists ({viewingReservation.adults} Adults, {viewingReservation.children} Children)</h4>
                     <div className="overflow-x-auto max-h-60 rounded-lg border">
                       <table className="min-w-full bg-white">
@@ -2266,7 +2300,6 @@ case 'reservations':
                       </table>
                     </div>
                   </div>
-
                   <div className="flex justify-end mt-6 pt-4 border-t">
                     <button onClick={() => setViewingReservation(null)} className="px-6 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition duration-200 shadow-md">
                       Close
