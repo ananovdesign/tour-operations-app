@@ -2,13 +2,15 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
 /* Basic setup for the print preview page */
-body {
+.print-preview-container {
     font-family: 'Inter', sans-serif;
     background-color: #f8fafc;
     display: flex;
     justify-content: center;
     padding: 2rem;
     margin: 0;
+    box-sizing: border-box;
+    min-height: 100vh;
 }
 
 /* Invoice Preview Specific Styles - Modern Look */
