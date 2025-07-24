@@ -2138,7 +2138,6 @@ case 'reservations':
           <div className="p-6 bg-white rounded-xl shadow-lg">
             <h2 className="text-3xl font-bold mb-8 text-gray-800 border-b pb-4">Hotel Reservations</h2>
 
-            {/* Filters for Reservations */}
             <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4 mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200 shadow-sm">
               <div>
                 <label htmlFor="filterReservationStatus" className="block text-sm font-medium text-gray-700">Status</label>
@@ -2182,7 +2181,7 @@ case 'reservations':
             </div>
 
             {filteredReservations.length === 0 ? (
-              <p className="text-gray-600 text-center py-8">No reservations found matching your criteria.</p>
+              <p className="text-gray-600 text-center py-8">No reservations found.</p>
             ) : (
               <div className="overflow-x-auto rounded-xl shadow-md border border-gray-200">
                 <table className="min-w-full bg-white">
@@ -2233,6 +2232,7 @@ case 'reservations':
                                         <th className="py-1 px-2 text-left">Type</th>
                                         <th className="py-1 px-2 text-left">Method</th>
                                         <th className="py-1 px-2 text-right">Amount</th>
+                                        <th className="py-1 px-2 text-left">Linked Tour</th>
                                       </tr>
                                     </thead>
                                     <tbody>
@@ -2242,6 +2242,7 @@ case 'reservations':
                                           <td className="py-1 px-2"><span className={`px-2 py-0.5 rounded-full text-xs ${p.type === 'income' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{p.type}</span></td>
                                           <td className="py-1 px-2">{p.method}</td>
                                           <td className="py-1 px-2 text-right font-medium">BGN {p.amount.toFixed(2)}</td>
+                                          <td className="py-1 px-2">{p.associatedTourId || 'N/A'}</td>
                                         </tr>
                                       ))}
                                     </tbody>
@@ -2260,7 +2261,6 @@ case 'reservations':
               </div>
             )}
             
-            {/* Reservation Details Modal */}
             {viewingReservation && (
               <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 z-50">
                 <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-4xl relative max-h-[90vh] flex flex-col">
@@ -3398,55 +3398,26 @@ case 'financialReports':
         return (
           <div className="p-6 bg-white rounded-xl shadow-lg">
             <h2 className="text-3xl font-bold mb-8 text-gray-800 border-b pb-4">Financial Reports</h2>
-
-            {/* Filter Controls */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200 shadow-sm">
               <div>
                 <label htmlFor="reportStartDate" className="block text-sm font-medium text-gray-700">Start Date</label>
-                <input
-                  type="date"
-                  name="reportStartDate"
-                  id="reportStartDate"
-                  value={reportStartDate}
-                  onChange={handleReportFilterChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                />
+                <input type="date" name="reportStartDate" id="reportStartDate" value={reportStartDate} onChange={handleReportFilterChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
               </div>
               <div>
                 <label htmlFor="reportEndDate" className="block text-sm font-medium text-gray-700">End Date</label>
-                <input
-                  type="date"
-                  name="reportEndDate"
-                  id="reportEndDate"
-                  value={reportEndDate}
-                  onChange={handleReportFilterChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                />
+                <input type="date" name="reportEndDate" id="reportEndDate" value={reportEndDate} onChange={handleReportFilterChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
               </div>
               <div>
                 <label htmlFor="reportFilterType" className="block text-sm font-medium text-gray-700">Type</label>
-                <select
-                  name="reportFilterType"
-                  id="reportFilterType"
-                  value={reportFilterType}
-                  onChange={handleReportFilterChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                >
+                <select name="reportFilterType" id="reportFilterType" value={reportFilterType} onChange={handleReportFilterChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2">
                   <option value="all">All</option>
                   <option value="income">Income</option>
                   <option value="expense">Expense</option>
                 </select>
               </div>
-              {/* --- New Method Filter --- */}
               <div>
                 <label htmlFor="reportFilterMethod" className="block text-sm font-medium text-gray-700">Method</label>
-                <select
-                  name="reportFilterMethod"
-                  id="reportFilterMethod"
-                  value={reportFilterMethod}
-                  onChange={handleReportFilterChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                >
+                <select name="reportFilterMethod" id="reportFilterMethod" value={reportFilterMethod} onChange={handleReportFilterChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2">
                   <option value="all">All Methods</option>
                   <option value="Bank">Bank</option>
                   <option value="Cash">Cash</option>
@@ -3455,28 +3426,15 @@ case 'financialReports':
               </div>
               <div className="xl:col-span-2">
                 <label htmlFor="reportFilterAssociation" className="block text-sm font-medium text-gray-700">Associated With (ID)</label>
-                <input
-                  type="text"
-                  name="reportFilterAssociation"
-                  id="reportFilterAssociation"
-                  value={reportFilterAssociation}
-                  onChange={handleReportFilterChange}
-                  placeholder="Res/Tour ID"
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                />
+                <input type="text" name="reportFilterAssociation" id="reportFilterAssociation" value={reportFilterAssociation} onChange={handleReportFilterChange} placeholder="Res/Tour ID" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
               </div>
               <div className="md:col-span-full xl:col-span-1 flex items-end">
-                <button
-                  type="button"
-                  onClick={resetFinancialReportsFilters}
-                  className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition duration-200 shadow-sm border border-gray-200"
-                >
+                <button type="button" onClick={resetFinancialReportsFilters} className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition duration-200 shadow-sm border border-gray-200">
                   Reset Filters
                 </button>
               </div>
             </div>
 
-            {/* Totals Summary */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
               <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100 text-center">
                 <h3 className="font-semibold text-xl text-gray-700">Total Income</h3>
@@ -3492,7 +3450,6 @@ case 'financialReports':
               </div>
             </div>
 
-            {/* Transactions Table */}
             {filteredFinancialTransactions.length === 0 ? (
               <p className="text-gray-600 text-center py-8">No transactions match the selected filters.</p>
             ) : (
@@ -3500,48 +3457,24 @@ case 'financialReports':
                 <table className="min-w-full bg-white">
                   <thead className="bg-gray-50 text-gray-700 border-b border-gray-200">
                     <tr>
-                      <th className="py-3 px-4 text-left">
-                        <button onClick={() => requestSort('date')} className="font-medium flex items-center space-x-1 hover:text-gray-900">
-                          <span>Date</span>
-                          <span className="w-4">{sortConfig.key === 'date' ? (sortConfig.direction === 'ascending' ? '▲' : '▼') : ''}</span>
-                        </button>
-                      </th>
+                      <th className="py-3 px-4 text-left"><button onClick={() => requestSort('date')} className="font-medium flex items-center space-x-1 hover:text-gray-900"><span>Date</span><span className="w-4">{sortConfig.key === 'date' ? (sortConfig.direction === 'ascending' ? '▲' : '▼') : ''}</span></button></th>
                       <th className="py-3 px-4 text-left font-medium">Type</th>
-                      <th className="py-3 px-4 text-left">
-                        <button onClick={() => requestSort('method')} className="font-medium flex items-center space-x-1 hover:text-gray-900">
-                          <span>Method</span>
-                          <span className="w-4">{sortConfig.key === 'method' ? (sortConfig.direction === 'ascending' ? '▲' : '▼') : ''}</span>
-                        </button>
-                      </th>
-                      <th className="py-3 px-4 text-left">
-                        <button onClick={() => requestSort('amount')} className="font-medium flex items-center space-x-1 hover:text-gray-900">
-                          <span>Amount</span>
-                          <span className="w-4">{sortConfig.key === 'amount' ? (sortConfig.direction === 'ascending' ? '▲' : '▼') : ''}</span>
-                        </button>
-                      </th>
-                      <th className="py-3 px-4 text-left font-medium">VAT</th>
+                      <th className="py-3 px-4 text-left"><button onClick={() => requestSort('method')} className="font-medium flex items-center space-x-1 hover:text-gray-900"><span>Method</span><span className="w-4">{sortConfig.key === 'method' ? (sortConfig.direction === 'ascending' ? '▲' : '▼') : ''}</span></button></th>
+                      <th className="py-3 px-4 text-right"><button onClick={() => requestSort('amount')} className="font-medium flex items-center space-x-1 hover:text-gray-900"><span>Amount</span><span className="w-4">{sortConfig.key === 'amount' ? (sortConfig.direction === 'ascending' ? '▲' : '▼') : ''}</span></button></th>
                       <th className="py-3 px-4 text-left font-medium">Description</th>
                       <th className="py-3 px-4 text-left font-medium">Linked To</th>
                     </tr>
                   </thead>
                   <tbody className="text-gray-700">
                     {filteredFinancialTransactions.map(ft => (
-                      <tr key={ft.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors duration-150">
+                      <tr key={ft.id} className="border-b border-gray-100 hover:bg-gray-50">
                         <td className="py-3 px-4 text-gray-600">{ft.date}</td>
-                        <td className="py-3 px-4">
-                          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                            ft.type === 'income' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                          }`}>
-                            {ft.type.charAt(0).toUpperCase() + ft.type.slice(1)}
-                          </span>
-                        </td>
+                        <td className="py-3 px-4"><span className={`px-3 py-1 rounded-full text-xs font-semibold ${ft.type === 'income' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{ft.type.charAt(0).toUpperCase() + ft.type.slice(1)}</span></td>
                         <td className="py-3 px-4">{ft.method}</td>
                         <td className="py-3 px-4 text-right font-semibold">BGN {(ft.amount || 0).toFixed(2)}</td>
-                        <td className="py-3 px-4 text-right text-gray-600">BGN {(ft.vat || 0).toFixed(2)}</td>
                         <td className="py-3 px-4 text-gray-600">{ft.reasonDescription}</td>
-                        <td className="py-3 px-4 text-gray-500">
-                          {ft.associatedReservationId ? `Res: ${ft.associatedReservationId}` :
-                            ft.associatedTourId ? `Tour: ${ft.associatedTourId}` : 'N/A'}
+                        <td className="py-3 px-4 text-gray-500 text-xs">
+                           {[ft.associatedReservationId && `Res: ${ft.associatedReservationId}`, ft.associatedTourId && `Tour: ${ft.associatedTourId}`].filter(Boolean).join(', ') || 'N/A'}
                         </td>
                       </tr>
                     ))}
