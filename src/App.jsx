@@ -99,6 +99,9 @@ const App = () => {
   const [searchCustomerTerm, setSearchCustomerTerm] = useState('');
   const [searchReservationTerm, setSearchReservationTerm] = useState('');
 
+  // New: Sort configuration for financial reports
+  const [sortConfig, setSortConfig] = useState({ key: 'date', direction: 'descending' });
+
   // Data states - populated from Firestore (user-specific)
   const [reservations, setReservations] = useState([]);
   const [customers, setCustomers] = useState([]);
@@ -1308,8 +1311,8 @@ const dashboardStats = useMemo(() => {
     else if (name === 'reportFilterAssociation') setReportFilterAssociation(value);
   }, []);
 
-  const filteredFinancialTransactions = useMemo(() => {
-    return financialTransactions.filter(ft => {
+const filteredFinancialTransactions = useMemo(() => {
+    let sortableTransactions = financialTransactions.filter(ft => {
       const transactionDate = new Date(ft.date);
       const startDate = reportStartDate ? new Date(reportStartDate) : null;
       const endDate = reportEndDate ? new Date(reportEndDate) : null;
@@ -1331,8 +1334,23 @@ const dashboardStats = useMemo(() => {
       }
 
       return true;
-    }).sort((a, b) => new Date(b.date) - new Date(a.date));
-  }, [financialTransactions, reportStartDate, reportEndDate, reportFilterType, reportFilterAssociation]);
+    });
+
+    // New dynamic sorting logic
+    if (sortConfig.key !== null) {
+      sortableTransactions.sort((a, b) => {
+        if (a[sortConfig.key] < b[sortConfig.key]) {
+          return sortConfig.direction === 'ascending' ? -1 : 1;
+        }
+        if (a[sortConfig.key] > b[sortConfig.key]) {
+          return sortConfig.direction === 'ascending' ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+
+    return sortableTransactions;
+  }, [financialTransactions, reportStartDate, reportEndDate, reportFilterType, reportFilterAssociation, sortConfig]);
 
   const reportTotals = useMemo(() => {
     let totalIncome = 0;
@@ -1348,12 +1366,20 @@ const dashboardStats = useMemo(() => {
     return { totalIncome, totalExpenses, netProfit };
   }, [filteredFinancialTransactions]);
 
-  const resetFinancialReportsFilters = useCallback(() => {
+ const resetFinancialReportsFilters = useCallback(() => {
     setReportStartDate('');
     setReportEndDate('');
     setReportFilterType('all');
     setReportFilterAssociation('');
   }, []);
+
+  const requestSort = (key) => {
+    let direction = 'ascending';
+    if (sortConfig.key === key && sortConfig.direction === 'ascending') {
+      direction = 'descending';
+    }
+    setSortConfig({ key, direction });
+  };
 
 
   // --- Filtered Reservations Logic ---
@@ -3310,7 +3336,7 @@ case 'customers':
           </div>
         );
 
-      case 'financialReports':
+case 'financialReports':
         return (
           <div className="p-6 bg-white rounded-xl shadow-lg">
             <h2 className="text-3xl font-bold mb-8 text-gray-800 border-b pb-4">Financial Reports</h2>
@@ -3376,11 +3402,9 @@ case 'customers':
               </div>
             </div>
 
-            {/* Removed PDF Export Button */}
-
             {/* Totals Summary */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-              <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100 text-center"> {/* Consistent card styling */}
+              <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100 text-center">
                 <h3 className="font-semibold text-xl text-gray-700">Total Income</h3>
                 <p className="text-2xl font-bold text-[#28A745]">BGN {reportTotals.totalIncome.toFixed(2)}</p>
               </div>
@@ -3402,10 +3426,25 @@ case 'customers':
                 <table className="min-w-full bg-white">
                   <thead className="bg-gray-50 text-gray-700 border-b border-gray-200">
                     <tr>
-                      <th className="py-3 px-4 text-left font-medium">Date</th>
+                      <th className="py-3 px-4 text-left">
+                        <button onClick={() => requestSort('date')} className="font-medium flex items-center space-x-1 hover:text-gray-900">
+                          <span>Date</span>
+                          <span>{sortConfig.key === 'date' ? (sortConfig.direction === 'ascending' ? '▲' : '▼') : ''}</span>
+                        </button>
+                      </th>
                       <th className="py-3 px-4 text-left font-medium">Type</th>
-                      <th className="py-3 px-4 text-left font-medium">Method</th>
-                      <th className="py-3 px-4 text-left font-medium">Amount</th>
+                      <th className="py-3 px-4 text-left">
+                        <button onClick={() => requestSort('method')} className="font-medium flex items-center space-x-1 hover:text-gray-900">
+                          <span>Method</span>
+                          <span>{sortConfig.key === 'method' ? (sortConfig.direction === 'ascending' ? '▲' : '▼') : ''}</span>
+                        </button>
+                      </th>
+                      <th className="py-3 px-4 text-left">
+                        <button onClick={() => requestSort('amount')} className="font-medium flex items-center space-x-1 hover:text-gray-900">
+                          <span>Amount</span>
+                          <span>{sortConfig.key === 'amount' ? (sortConfig.direction === 'ascending' ? '▲' : '▼') : ''}</span>
+                        </button>
+                      </th>
                       <th className="py-3 px-4 text-left font-medium">VAT</th>
                       <th className="py-3 px-4 text-left font-medium">Description</th>
                       <th className="py-3 px-4 text-left font-medium">Linked To</th>
