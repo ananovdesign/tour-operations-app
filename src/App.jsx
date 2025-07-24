@@ -1191,7 +1191,7 @@ const handleEditCustomer = (customer) => {
 
 
   // --- Dashboard Calculations (Uses Firestore user-specific data) ---
-  const dashboardStats = useMemo(() => {
+const dashboardStats = useMemo(() => {
     const totalReservations = reservations.length;
     const totalProfit = reservations.reduce((sum, res) => sum + (res.profit || 0), 0);
     const averageProfitPerReservation = totalReservations > 0 ? totalProfit / totalReservations : 0;
@@ -1220,6 +1220,24 @@ const handleEditCustomer = (customer) => {
       ? (totalBookedPassengersAcrossAllTours / totalMaxPassengersAcrossAllTours) * 100
       : 0;
 
+    // --- New Balance Calculations ---
+    const balances = {
+      Bank: { income: 0, expense: 0 },
+      Cash: { income: 0, expense: 0 },
+      'Cash 2': { income: 0, expense: 0 },
+    };
+
+    financialTransactions.forEach(ft => {
+      if (balances[ft.method]) {
+        balances[ft.method][ft.type] += (ft.amount || 0);
+      }
+    });
+
+    const bankBalance = balances.Bank.income - balances.Bank.expense;
+    const cashBalance = balances.Cash.income - balances.Cash.expense;
+    const cash2Balance = balances['Cash 2'].income - balances['Cash 2'].expense;
+    // --- End of New Calculations ---
+
     return {
       totalReservations,
       totalProfit,
@@ -1229,6 +1247,10 @@ const handleEditCustomer = (customer) => {
       totalExpenses,
       overallBusTourFulfillment,
       totalBusPassengersBooked: totalBookedPassengersAcrossAllTours,
+      // Add new balances to the returned object
+      bankBalance,
+      cashBalance,
+      cash2Balance,
     };
   }, [reservations, financialTransactions, tours]);
 
@@ -2009,33 +2031,41 @@ const filteredTours = useMemo(() => {
     }
 
     switch (activeTab) {
-      case 'dashboard':
+case 'dashboard':
         return (
           <div className="p-6 bg-white rounded-xl shadow-lg"> {/* Consistent card styling */}
-            <h2 className="text-3xl font-bold mb-8 text-gray-800 border-b pb-4">Главно табло и анализи</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <h2 className="text-3xl font-bold mb-8 text-gray-800 border-b pb-4">Dashboard & Analytics</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"> {/* Changed to 4 columns on large screens */}
               {/* Reservation Stats */}
-              <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100"> {/* Soft white card, light border */}
-                <h3 className="font-semibold text-xl text-gray-700 mb-3">Данни от резервации</h3> {/* Darker text color */}
-                <p className="text-gray-600 text-lg">Общ брой резервации: <span className="font-bold text-gray-800">{dashboardStats.totalReservations}</span></p>
-                <p className="text-gray-600 text-lg">Обща печалба: <span className="font-bold text-[#28A745]">BGN {dashboardStats.totalProfit.toFixed(2)}</span></p> {/* Green for profit */}
-                <p className="text-gray-600 text-lg">Средна печалба/рез: <span className="font-bold text-[#28A745]">BGN {dashboardStats.averageProfitPerReservation.toFixed(2)}</span></p>
-                <p className="text-gray-600 text-lg">Среден престой/рез: <span className="font-bold text-gray-800">{dashboardStats.averageStayPerReservation.toFixed(1)} nights</span></p>
+              <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
+                <h3 className="font-semibold text-xl text-gray-700 mb-3">Reservation Metrics</h3>
+                <p className="text-gray-600 text-lg">Total Reservations: <span className="font-bold text-gray-800">{dashboardStats.totalReservations}</span></p>
+                <p className="text-gray-600 text-lg">Total Profit: <span className="font-bold text-[#28A745]">BGN {dashboardStats.totalProfit.toFixed(2)}</span></p>
+                <p className="text-gray-600 text-lg">Avg. Profit/Res: <span className="font-bold text-[#28A745]">BGN {dashboardStats.averageProfitPerReservation.toFixed(2)}</span></p>
+                <p className="text-gray-600 text-lg">Avg. Stay/Res: <span className="font-bold text-gray-800">{dashboardStats.averageStayPerReservation.toFixed(1)} nights</span></p>
               </div>
 
               {/* Financial Stats */}
-              <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100"> {/* Soft white card, light border */}
-                <h3 className="font-semibold text-xl text-gray-700 mb-3">Финансови данни</h3>
-                <p className="text-gray-600 text-lg">Обща приходи: <span className="font-bold text-[#28A745]">BGN {dashboardStats.totalIncome.toFixed(2)}</span></p> {/* Green for income */}
-                <p className="text-gray-600 text-lg">Общо разходи: <span className="font-bold text-[#DC3545]">BGN {dashboardStats.totalExpenses.toFixed(2)}</span></p> {/* Red for expenses */}
-                <p className="text-gray-600 text-lg">Нетна печалба: <span className={`font-bold ${dashboardStats.totalIncome - dashboardStats.totalExpenses >= 0 ? 'text-[#28A745]' : 'text-[#DC3545]'}`}>BGN {(dashboardStats.totalIncome - dashboardStats.totalExpenses).toFixed(2)}</span></p>
+              <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
+                <h3 className="font-semibold text-xl text-gray-700 mb-3">Financial Overview</h3>
+                <p className="text-gray-600 text-lg">Total Income: <span className="font-bold text-[#28A745]">BGN {dashboardStats.totalIncome.toFixed(2)}</span></p>
+                <p className="text-gray-600 text-lg">Total Expenses: <span className="font-bold text-[#DC3545]">BGN {dashboardStats.totalExpenses.toFixed(2)}</span></p>
+                <p className="text-gray-600 text-lg">Net Profit/Loss: <span className={`font-bold ${dashboardStats.totalIncome - dashboardStats.totalExpenses >= 0 ? 'text-[#28A745]' : 'text-[#DC3545]'}`}>BGN {(dashboardStats.totalIncome - dashboardStats.totalExpenses).toFixed(2)}</span></p>
               </div>
 
               {/* Bus Tour Stats */}
-              <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100"> {/* Soft white card, light border */}
-                <h3 className="font-semibold text-xl text-gray-700 mb-3">Автобусни програми</h3>
-                <p className="text-gray-600 text-lg">Общо пътници: <span className="font-bold text-gray-800">{dashboardStats.totalBusPassengersBooked}</span></p>
-                <p className="text-gray-600 text-lg">Общо запълване на седалките: <span className="font-bold text-gray-800">{dashboardStats.overallBusTourFulfillment.toFixed(1)}%</span></p>
+              <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
+                <h3 className="font-semibold text-xl text-gray-700 mb-3">Bus Tour Performance</h3>
+                <p className="text-gray-600 text-lg">Total Bus Passengers Booked: <span className="font-bold text-gray-800">{dashboardStats.totalBusPassengersBooked}</span></p>
+                <p className="text-gray-600 text-lg">Overall Fulfillment: <span className="font-bold text-gray-800">{dashboardStats.overallBusTourFulfillment.toFixed(1)}%</span></p>
+              </div>
+              
+              {/* --- New Balance Overview Card --- */}
+              <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
+                <h3 className="font-semibold text-xl text-gray-700 mb-3">Balance Overview</h3>
+                <p className="text-gray-600 text-lg">Bank Balance: <span className={`font-bold ${dashboardStats.bankBalance >= 0 ? 'text-gray-800' : 'text-[#DC3545]'}`}>BGN {dashboardStats.bankBalance.toFixed(2)}</span></p>
+                <p className="text-gray-600 text-lg">Cash Balance: <span className={`font-bold ${dashboardStats.cashBalance >= 0 ? 'text-gray-800' : 'text-[#DC3545]'}`}>BGN {dashboardStats.cashBalance.toFixed(2)}</span></p>
+                <p className="text-gray-600 text-lg">Cash 2 Balance: <span className={`font-bold ${dashboardStats.cash2Balance >= 0 ? 'text-gray-800' : 'text-[#DC3545]'}`}>BGN {dashboardStats.cash2Balance.toFixed(2)}</span></p>
               </div>
             </div>
           </div>
