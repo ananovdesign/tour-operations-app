@@ -14,6 +14,7 @@ import { collection, doc, addDoc, setDoc, deleteDoc, onSnapshot, query, where, g
 
 // Import your logo image
 import Logo from './Logo.png'; // Assuming Logo.png is in the same directory as App.jsx
+import InvoicePrint from './InvoicePrint.jsx'; // New component for printing
 
 // --- Notification Display Component ---
 const NotificationDisplay = ({ notifications, onDismiss }) => {
@@ -100,7 +101,11 @@ const App = () => {
   const [searchReservationTerm, setSearchReservationTerm] = useState('');
 
   // New: Sort configuration for financial reports
+// Sort configuration for financial reports
   const [sortConfig, setSortConfig] = useState({ key: 'date', direction: 'descending' });
+
+  // New: State to hold the invoice object for printing
+  const [invoiceToPrint, setInvoiceToPrint] = useState(null);
 
   // Data states - populated from Firestore (user-specific)
   const [reservations, setReservations] = useState([]);
@@ -3826,40 +3831,40 @@ case 'invoicingSales':
                     required
                   />
                 </div>
-<div>
-                <label htmlFor="clientName" className="block text-sm font-medium text-gray-700">Client Name</label>
-                <input
-                  type="text"
-                  name="clientName"
-                  id="clientName"
-                  value={salesInvoiceForm.clientName}
-                  onChange={handleSalesInvoiceFormChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                  required
-                />
-              </div>
-              <div>
-                <label htmlFor="clientMOL" className="block text-sm font-medium text-gray-700">Client MOL</label>
-                <input
-                  type="text"
-                  name="clientMOL"
-                  id="clientMOL"
-                  value={salesInvoiceForm.clientMOL}
-                  onChange={handleSalesInvoiceFormChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                />
-              </div>
-              <div>
-                <label htmlFor="clientID" className="block text-sm font-medium text-gray-700">Client ID</label>
-                <input
-                  type="text"
-                  name="clientID"
-                  id="clientID"
-                  value={salesInvoiceForm.clientID}
-                  onChange={handleSalesInvoiceFormChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                />
-              </div>
+                <div>
+                  <label htmlFor="clientName" className="block text-sm font-medium text-gray-700">Client Name</label>
+                  <input
+                    type="text"
+                    name="clientName"
+                    id="clientName"
+                    value={salesInvoiceForm.clientName}
+                    onChange={handleSalesInvoiceFormChange}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
+                    required
+                  />
+                </div>
+                <div>
+                  <label htmlFor="clientMOL" className="block text-sm font-medium text-gray-700">Client MOL</label>
+                  <input
+                    type="text"
+                    name="clientMOL"
+                    id="clientMOL"
+                    value={salesInvoiceForm.clientMOL}
+                    onChange={handleSalesInvoiceFormChange}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="clientID" className="block text-sm font-medium text-gray-700">Client ID</label>
+                  <input
+                    type="text"
+                    name="clientID"
+                    id="clientID"
+                    value={salesInvoiceForm.clientID}
+                    onChange={handleSalesInvoiceFormChange}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
+                  />
+                </div>
                 <div>
                   <label htmlFor="clientVATID" className="block text-sm font-medium text-gray-700">Client VAT ID</label>
                   <input
@@ -4002,7 +4007,7 @@ case 'invoicingSales':
                       <label htmlFor="bankDetailsIban" className="block text-sm font-medium text-gray-700">Bank IBAN</label>
                       <input
                         type="text"
-                        name="bankDetails.iban" // Note: This will need custom handling if you want to edit nested objects
+                        name="bankDetails.iban"
                         id="bankDetailsIban"
                         value={salesInvoiceForm.bankDetails.iban}
                         readOnly
@@ -4013,7 +4018,7 @@ case 'invoicingSales':
                       <label htmlFor="bankDetailsName" className="block text-sm font-medium text-gray-700">Bank Name</label>
                       <input
                         type="text"
-                        name="bankDetails.bankName" // Note: This will need custom handling if you want to edit nested objects
+                        name="bankDetails.bankName"
                         id="bankDetailsName"
                         value={salesInvoiceForm.bankDetails.bankName}
                         readOnly
@@ -4052,7 +4057,7 @@ case 'invoicingSales':
                     </div>
                     <div>
                       <label htmlFor="grandTotalDisplay" className="block text-sm font-medium text-gray-700">Grand Total (incl. VAT)</label>
-                      <input type="text" id="grandTotalDisplay" value={`BGN ${salesInvoiceForm.grandTotal.toFixed(2)}`} readOnly className="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm px-3 py-2 font-bold text-lg text-[#28A745]" /> {/* Green for grand total */}
+                      <input type="text" id="grandTotalDisplay" value={`BGN ${salesInvoiceForm.grandTotal.toFixed(2)}`} readOnly className="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm px-3 py-2 font-bold text-lg text-[#28A745]" />
                     </div>
                   </div>
                 </div>
@@ -4121,9 +4126,18 @@ case 'invoicingSales':
                             <td className="py-3 px-4">{inv.clientName}</td>
                             <td className="py-3 px-4 text-right text-gray-800 font-semibold">BGN {parseFloat(inv.totalAmount).toFixed(2)}</td>
                             <td className="py-3 px-4 text-right text-gray-600">BGN {parseFloat(inv.totalVAT).toFixed(2)}</td>
-                            <td className="py-3 px-4 text-right text-[#28A745] font-bold">BGN {parseFloat(inv.grandTotal).toFixed(2)}</td> {/* Grand total in green */}
+                            <td className="py-3 px-4 text-right text-[#28A745] font-bold">BGN {parseFloat(inv.grandTotal).toFixed(2)}</td>
                             <td className="py-3 px-4 text-gray-600">{inv.paymentMethod}</td>
                             <td className="py-3 px-4 flex justify-center space-x-2">
+                              <button
+                                onClick={() => setInvoiceToPrint(inv)}
+                                className="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-full shadow-md transition duration-200"
+                                title="Print"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                  <path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v6a2 2 0 002 2h12a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clipRule="evenodd" />
+                                </svg>
+                              </button>
                               <button
                                 onClick={() => handleEditSalesInvoice(inv)}
                                 className="bg-[#28A745] hover:bg-[#218838] text-white p-2 rounded-full shadow-md transition duration-200"
@@ -4360,6 +4374,15 @@ case 'customerContract':
         return <div>Select a module from the sidebar.</div>;
     }
   };
+
+  const handlePrintFinish = () => {
+    setInvoiceToPrint(null);
+  };
+
+  // If an invoice has been selected for printing, render only the print component.
+  if (invoiceToPrint) {
+    return <InvoicePrint invoiceData={invoiceToPrint} onPrintFinish={handlePrintFinish} />;
+  }
 
   return (
     <div className="font-sans antialiased bg-gray-100 min-h-screen text-gray-900" style={{ fontFamily: 'Inter, sans-serif' }}>
