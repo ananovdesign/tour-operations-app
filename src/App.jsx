@@ -255,18 +255,18 @@ const App = () => {
 
   // New: State for Sales Invoice Form
 // New: State for Sales Invoice Form
-  const [salesInvoiceForm, setSalesInvoiceForm] = useState({
+ const [salesInvoiceForm, setSalesInvoiceForm] = useState({
     invoiceNumber: '',
     invoiceDate: '',
     clientName: '',
-    clientMOL: '', // New field
+    clientMOL: '',
     clientID: '',
     clientVATID: '',
     clientAddress: '',
     clientCity: '',
     clientPostCode: '',
-    products: [], // Array of { productCode, productName, quantity, price, vatRate, lineTotal, lineVAT }
-    paymentMethod: 'Cash', // Default to Cash
+    products: [],
+    paymentMethod: 'Cash',
     bankDetails: {
       iban: 'BG87BPBI79301036586601',
       bankName: 'Пощенска банка'
@@ -276,7 +276,12 @@ const App = () => {
     totalAmount: 0,
     totalVAT: 0,
     grandTotal: 0,
-    notes: ''
+    notes: '',
+    // New editable fields
+    transactionBasis: 'Услуга',
+    transactionDescription: 'ТУРИСТИЧЕСКИ УСЛУГИ',
+    transactionPlace: 'България',
+    receivedBy: '',
   });
 
 
@@ -1850,12 +1855,12 @@ const filteredTours = useMemo(() => {
     });
   }, []);
 
-  const resetSalesInvoiceForm = useCallback(() => {
+ const resetSalesInvoiceForm = useCallback(() => {
     setSalesInvoiceForm({
       invoiceNumber: '',
       invoiceDate: '',
       clientName: '',
-      clientMOL: '', // New field
+      clientMOL: '',
       clientID: '',
       clientVATID: '',
       clientAddress: '',
@@ -1872,7 +1877,12 @@ const filteredTours = useMemo(() => {
       totalAmount: 0,
       totalVAT: 0,
       grandTotal: 0,
-      notes: ''
+      notes: '',
+      // New editable fields
+      transactionBasis: 'Услуга',
+      transactionDescription: 'ТУРИСТИЧЕСКИ УСЛУГИ',
+      transactionPlace: 'България',
+      receivedBy: '',
     });
     setSelectedSalesInvoice(null);
   }, []);
@@ -1938,8 +1948,13 @@ const filteredTours = useMemo(() => {
 
 const handleEditSalesInvoice = useCallback((invoice) => {
     setSalesInvoiceForm({
-      clientMOL: '', // Default value for old invoices
-      ...invoice,
+      // Defaults for old invoices that might not have these fields
+      clientMOL: '',
+      transactionBasis: 'Услуга',
+      transactionDescription: 'ТУРИСТИЧЕСКИ УСЛУГИ',
+      transactionPlace: 'България',
+      receivedBy: '',
+      ...invoice, // Overwrite defaults with saved data if it exists
       totalAmount: parseFloat(invoice.totalAmount) || 0,
       totalVAT: parseFloat(invoice.totalVAT) || 0,
       grandTotal: parseFloat(invoice.grandTotal) || 0,
@@ -1954,7 +1969,7 @@ const handleEditSalesInvoice = useCallback((invoice) => {
       })) : [],
     });
     setSelectedSalesInvoice(invoice);
-    setActiveTab('addSalesInvoice'); // New tab for adding/editing sales invoices
+    setActiveTab('addSalesInvoice');
   }, []);
 
   const handleDeleteSalesInvoice = useCallback((invoiceId) => {
@@ -3966,8 +3981,9 @@ case 'invoicingSales':
                 </div>
 
                 {/* Totals & Other Details */}
+   {/* Totals & Other Details */}
                 <div className="md:col-span-2 border-t border-gray-200 pt-4 mt-4">
-                  <h3 className="text-lg font-semibold mb-4 text-gray-800">Payment & Totals</h3>
+                  <h3 className="text-lg font-semibold mb-4 text-gray-800">Payment & Other Details</h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label htmlFor="paymentMethodSales" className="block text-sm font-medium text-gray-700">Payment Method</label>
@@ -3980,6 +3996,22 @@ case 'invoicingSales':
                     <div>
                       <label htmlFor="dueDateSales" className="block text-sm font-medium text-gray-700">Due Date</label>
                       <input type="date" name="dueDate" id="dueDateSales" value={salesInvoiceForm.dueDate} onChange={handleSalesInvoiceFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"/>
+                    </div>
+                    <div>
+                      <label htmlFor="transactionBasis" className="block text-sm font-medium text-gray-700">Основание на сделката</label>
+                      <input type="text" name="transactionBasis" id="transactionBasis" value={salesInvoiceForm.transactionBasis} onChange={handleSalesInvoiceFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
+                    </div>
+                    <div>
+                      <label htmlFor="transactionDescription" className="block text-sm font-medium text-gray-700">Описание на сделката</label>
+                      <input type="text" name="transactionDescription" id="transactionDescription" value={salesInvoiceForm.transactionDescription} onChange={handleSalesInvoiceFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
+                    </div>
+                    <div>
+                      <label htmlFor="transactionPlace" className="block text-sm font-medium text-gray-700">Място на сделката</label>
+                      <input type="text" name="transactionPlace" id="transactionPlace" value={salesInvoiceForm.transactionPlace} onChange={handleSalesInvoiceFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
+                    </div>
+                     <div>
+                      <label htmlFor="receivedBy" className="block text-sm font-medium text-gray-700">Получил (име)</label>
+                      <input type="text" name="receivedBy" id="receivedBy" value={salesInvoiceForm.receivedBy} onChange={handleSalesInvoiceFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
                     </div>
                     <div className="flex items-center">
                       <input type="checkbox" name="isCopy" id="isCopy" checked={salesInvoiceForm.isCopy} onChange={handleSalesInvoiceFormChange} className="h-5 w-5 text-[#28A745] focus:ring-[#28A745] border-gray-300 rounded" />
