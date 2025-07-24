@@ -203,9 +203,7 @@ const App = () => {
   const [reportFilterMethod, setReportFilterMethod] = useState('all'); // New filter state
   const [reportFilterAssociation, setReportFilterAssociation] = useState('');
 
-  // Sort configuration for financial reports
-  const [sortConfig, setSortConfig] = useState({ key: 'date', direction: 'descending' });
-
+  
   // States for Filters on Reservations
   const [filterReservationStatus, setFilterReservationStatus] = useState('All');
   const [filterReservationHotel, setFilterReservationHotel] = useState('');
@@ -1316,13 +1314,6 @@ const dashboardStats = useMemo(() => {
     else if (name === 'reportFilterAssociation') setReportFilterAssociation(value);
   }, []);
 
-  const resetFinancialReportsFilters = useCallback(() => {
-    setReportStartDate('');
-    setReportEndDate('');
-    setReportFilterType('all');
-    setReportFilterMethod('all');
-    setReportFilterAssociation('');
-  }, []);
 
   const requestSort = (key) => {
     let direction = 'ascending';
