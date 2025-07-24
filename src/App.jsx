@@ -4290,10 +4290,21 @@ case 'transportContract':
         return (
           <div className="p-0 bg-white rounded-xl shadow-lg h-full">
             <iframe
-              src="/transportcontract.html" // This loads the HTML file from your 'public' folder
+              src="/transportcontract.html" // This loads the contract.html from your 'public' folder
               title="Transport Contract Generator"
               className="w-full h-full border-0 rounded-xl"
               style={{ minHeight: '80vh' }} // Ensures the frame has a good height
+            />
+          </div>
+        );
+      case 'makeOffer':
+        return (
+          <div className="p-0 bg-white rounded-xl shadow-lg h-full">
+            <iframe
+              src="/offer.html" // Loads offer.html from the 'public' folder
+              title="Offer Generator"
+              className="w-full h-full border-0 rounded-xl"
+              style={{ minHeight: '80vh' }}
             />
           </div>
         );
@@ -4522,7 +4533,7 @@ case 'transportContract':
                 Product Management
               </button>
             </li>
-            <li className="mb-2">
+<li className="mb-2">
               <button
                 onClick={() => setActiveTab('transportContract')}
                 className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base
@@ -4534,6 +4545,19 @@ case 'transportContract':
                   <path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" />
                 </svg>
                 Transport Contract
+              </button>
+            </li>
+            <li className="mb-2">
+              <button
+                onClick={() => setActiveTab('makeOffer')}
+                className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base
+                  ${activeTab === 'makeOffer' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}
+                `}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V7.414A2 2 0 0015.414 6L12 2.586A2 2 0 0010.586 2H6zm5 6a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V8z" clipRule="evenodd" />
+                </svg>
+                Make Offer
               </button>
             </li>
                   {isEmailPasswordUser && (
