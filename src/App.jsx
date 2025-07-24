@@ -196,11 +196,15 @@ const App = () => {
     associatedTourId: '',
   });
 
-  // States for Financial Reports filters
+ // States for Financial Reports filters
   const [reportStartDate, setReportStartDate] = useState('');
   const [reportEndDate, setReportEndDate] = useState('');
   const [reportFilterType, setReportFilterType] = useState('all');
+  const [reportFilterMethod, setReportFilterMethod] = useState('all'); // New filter state
   const [reportFilterAssociation, setReportFilterAssociation] = useState('');
+
+  // Sort configuration for financial reports
+  const [sortConfig, setSortConfig] = useState({ key: 'date', direction: 'descending' });
 
   // States for Filters on Reservations
   const [filterReservationStatus, setFilterReservationStatus] = useState('All');
@@ -1303,16 +1307,34 @@ const dashboardStats = useMemo(() => {
 
   // --- Financial Reports Logic (Uses Firestore user-specific data) ---
 
-  const handleReportFilterChange = useCallback((e) => {
+ const handleReportFilterChange = useCallback((e) => {
     const { name, value } = e.target;
     if (name === 'reportStartDate') setReportStartDate(value);
     else if (name === 'reportEndDate') setReportEndDate(value);
     else if (name === 'reportFilterType') setReportFilterType(value);
+    else if (name === 'reportFilterMethod') setReportFilterMethod(value);
     else if (name === 'reportFilterAssociation') setReportFilterAssociation(value);
   }, []);
 
+  const resetFinancialReportsFilters = useCallback(() => {
+    setReportStartDate('');
+    setReportEndDate('');
+    setReportFilterType('all');
+    setReportFilterMethod('all');
+    setReportFilterAssociation('');
+  }, []);
+
+  const requestSort = (key) => {
+    let direction = 'ascending';
+    if (sortConfig.key === key && sortConfig.direction === 'ascending') {
+      direction = 'descending';
+    }
+    setSortConfig({ key, direction });
+  };
+
 const filteredFinancialTransactions = useMemo(() => {
     let sortableTransactions = financialTransactions.filter(ft => {
+      // --- Date Filters ---
       const transactionDate = new Date(ft.date);
       const startDate = reportStartDate ? new Date(reportStartDate) : null;
       const endDate = reportEndDate ? new Date(reportEndDate) : null;
@@ -1324,8 +1346,13 @@ const filteredFinancialTransactions = useMemo(() => {
         if (transactionDate >= adjustedEndDate) return false;
       }
 
+      // --- Type Filter ---
       if (reportFilterType !== 'all' && ft.type !== reportFilterType) return false;
+      
+      // --- New Method Filter ---
+      if (reportFilterMethod !== 'all' && ft.method !== reportFilterMethod) return false;
 
+      // --- Association Filter ---
       if (reportFilterAssociation) {
         const lowerCaseFilter = reportFilterAssociation.toLowerCase();
         const matchesReservation = ft.associatedReservationId?.toLowerCase().includes(lowerCaseFilter);
@@ -1336,7 +1363,7 @@ const filteredFinancialTransactions = useMemo(() => {
       return true;
     });
 
-    // New dynamic sorting logic
+    // --- Dynamic Sorting Logic ---
     if (sortConfig.key !== null) {
       sortableTransactions.sort((a, b) => {
         if (a[sortConfig.key] < b[sortConfig.key]) {
@@ -1350,7 +1377,7 @@ const filteredFinancialTransactions = useMemo(() => {
     }
 
     return sortableTransactions;
-  }, [financialTransactions, reportStartDate, reportEndDate, reportFilterType, reportFilterAssociation, sortConfig]);
+  }, [financialTransactions, reportStartDate, reportEndDate, reportFilterType, reportFilterMethod, reportFilterAssociation, sortConfig]);
 
   const reportTotals = useMemo(() => {
     let totalIncome = 0;
@@ -3342,7 +3369,7 @@ case 'financialReports':
             <h2 className="text-3xl font-bold mb-8 text-gray-800 border-b pb-4">Financial Reports</h2>
 
             {/* Filter Controls */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200 shadow-sm">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200 shadow-sm">
               <div>
                 <label htmlFor="reportStartDate" className="block text-sm font-medium text-gray-700">Start Date</label>
                 <input
@@ -3379,7 +3406,23 @@ case 'financialReports':
                   <option value="expense">Expense</option>
                 </select>
               </div>
+              {/* --- New Method Filter --- */}
               <div>
+                <label htmlFor="reportFilterMethod" className="block text-sm font-medium text-gray-700">Method</label>
+                <select
+                  name="reportFilterMethod"
+                  id="reportFilterMethod"
+                  value={reportFilterMethod}
+                  onChange={handleReportFilterChange}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
+                >
+                  <option value="all">All Methods</option>
+                  <option value="Bank">Bank</option>
+                  <option value="Cash">Cash</option>
+                  <option value="Cash 2">Cash 2</option>
+                </select>
+              </div>
+              <div className="xl:col-span-2">
                 <label htmlFor="reportFilterAssociation" className="block text-sm font-medium text-gray-700">Associated With (ID)</label>
                 <input
                   type="text"
@@ -3391,11 +3434,11 @@ case 'financialReports':
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
                 />
               </div>
-              <div className="md:col-span-full flex justify-end">
+              <div className="md:col-span-full xl:col-span-1 flex items-end">
                 <button
                   type="button"
                   onClick={resetFinancialReportsFilters}
-                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition duration-200 shadow-sm border border-gray-200"
+                  className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition duration-200 shadow-sm border border-gray-200"
                 >
                   Reset Filters
                 </button>
@@ -3429,20 +3472,20 @@ case 'financialReports':
                       <th className="py-3 px-4 text-left">
                         <button onClick={() => requestSort('date')} className="font-medium flex items-center space-x-1 hover:text-gray-900">
                           <span>Date</span>
-                          <span>{sortConfig.key === 'date' ? (sortConfig.direction === 'ascending' ? '▲' : '▼') : ''}</span>
+                          <span className="w-4">{sortConfig.key === 'date' ? (sortConfig.direction === 'ascending' ? '▲' : '▼') : ''}</span>
                         </button>
                       </th>
                       <th className="py-3 px-4 text-left font-medium">Type</th>
                       <th className="py-3 px-4 text-left">
                         <button onClick={() => requestSort('method')} className="font-medium flex items-center space-x-1 hover:text-gray-900">
                           <span>Method</span>
-                          <span>{sortConfig.key === 'method' ? (sortConfig.direction === 'ascending' ? '▲' : '▼') : ''}</span>
+                          <span className="w-4">{sortConfig.key === 'method' ? (sortConfig.direction === 'ascending' ? '▲' : '▼') : ''}</span>
                         </button>
                       </th>
                       <th className="py-3 px-4 text-left">
                         <button onClick={() => requestSort('amount')} className="font-medium flex items-center space-x-1 hover:text-gray-900">
                           <span>Amount</span>
-                          <span>{sortConfig.key === 'amount' ? (sortConfig.direction === 'ascending' ? '▲' : '▼') : ''}</span>
+                          <span className="w-4">{sortConfig.key === 'amount' ? (sortConfig.direction === 'ascending' ? '▲' : '▼') : ''}</span>
                         </button>
                       </th>
                       <th className="py-3 px-4 text-left font-medium">VAT</th>
