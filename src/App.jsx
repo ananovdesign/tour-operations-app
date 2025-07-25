@@ -128,12 +128,14 @@ const App = () => {
 
   // State for Add/Edit Reservation Form
 // State for Add/Edit Reservation Form
+// State for Add/Edit Reservation Form
   const [reservationForm, setReservationForm] = useState({
     creationDate: '',
     reservationNumber: '',
     tourType: 'HOTEL ONLY',
     hotel: '',
     food: '',
+    roomType: '', // New field
     place: '',
     checkIn: '',
     checkOut: '',
@@ -871,7 +873,7 @@ const customerData = {
 const resetReservationForm = useCallback(() => {
     setReservationForm({
       creationDate: '', reservationNumber: '', tourType: 'HOTEL ONLY', hotel: '',
-      food: '', place: '', checkIn: '', checkOut: '', adults: 1, children: 0,
+      food: '', roomType: '', place: '', checkIn: '', checkOut: '', adults: 1, children: 0,
       tourists: [{
         mode: 'new', firstName: '', fatherName: '', familyName: '', id: '', realId: '', address: '',
         city: '', postCode: '', email: '', phone: ''
@@ -885,7 +887,9 @@ const resetReservationForm = useCallback(() => {
   // --- Edit Reservation Logic (uses Firestore user-specific collection) ---
 const handleEditReservation = useCallback((reservation) => {
     setReservationForm({
+      clientMOL: '', // Default value for old invoices
       ...reservation,
+      roomType: reservation.roomType || '', // Add default for new field
       adults: parseInt(reservation.adults) || 0,
       children: parseInt(reservation.children) || 0,
       depositAmount: parseFloat(reservation.depositAmount) || 0,
@@ -903,7 +907,6 @@ const handleEditReservation = useCallback((reservation) => {
     setSelectedReservation(reservation);
     setActiveTab('addReservation');
   }, []);
-
   // --- Delete Reservation Logic (uses Firestore user-specific collection) ---
   const handleDeleteReservation = useCallback((reservationId) => {
     setConfirmMessage("Are you sure you want to delete this reservation?");
@@ -2369,7 +2372,7 @@ case 'reservations':
                   required
                 />
               </div>
-              <div>
+<div>
                 <label htmlFor="food" className="block text-sm font-medium text-gray-700">Food</label>
                 <input
                   type="text"
@@ -2378,6 +2381,18 @@ case 'reservations':
                   value={reservationForm.food}
                   onChange={handleReservationFormChange}
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
+                />
+              </div>
+              <div>
+                <label htmlFor="roomType" className="block text-sm font-medium text-gray-700">Room Type</label>
+                <input
+                  type="text"
+                  name="roomType"
+                  id="roomType"
+                  value={reservationForm.roomType}
+                  onChange={handleReservationFormChange}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
+                  placeholder="e.g., Double Room, Apartment"
                 />
               </div>
               <div>
