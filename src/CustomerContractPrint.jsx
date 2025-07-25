@@ -33,7 +33,7 @@ const CustomerContractPrint = ({ reservationData, onPrintFinish }) => {
         document.getElementById('pdf-signingDate').textContent = formatDate(form.elements.signingDate.value);
         document.getElementById('pdf-mainTouristName').textContent = getValue('mainTouristName');
         document.getElementById('pdf-mainTouristEGN').textContent = getValue('mainTouristEGN');
-        document.getElementById('pdf-mainTouristIdCard').textContent = getValue('mainTouristIdCard');
+        document.getElementById('pdf-mainTouristIdCard').textContent = ''; // BLANK as requested
         document.getElementById('pdf-mainTouristAddress').textContent = getValue('mainTouristAddress');
         document.getElementById('pdf-mainTouristPhone').textContent = getValue('mainTouristPhone');
         document.getElementById('pdf-mainTouristEmail').textContent = getValue('mainTouristEmail');
@@ -58,7 +58,7 @@ const CustomerContractPrint = ({ reservationData, onPrintFinish }) => {
         document.getElementById('pdf-adultDiscount').innerHTML = getOptionalValue('adultDiscount', 'Не е приложимо.');
         document.getElementById('pdf-singleRoomFee').innerHTML = getOptionalValue('singleRoomFee', 'Не е приложимо.');
         document.getElementById('pdf-extraExcursion').innerHTML = getOptionalValue('extraExcursion');
-        document.getElementById('pdf-insurance').innerHTML = getValue('insurance');
+        document.getElementById('pdf-insurance').innerHTML = 'НЕ Е ВКЛЮЧЕНА В ЦЕНАТА. ТУРИСТИТЕ СЕ ЗАДЪЛЖАВАТ ДА СКЛЮЧАТ ТАКАВА'; // Updated text
         document.getElementById('pdf-finalAmount').innerHTML = getValue('finalAmount', '0.00', ' лв.');
         document.getElementById('pdf-paymentTerms').innerHTML = getValue('paymentTerms');
         document.getElementById('pdf-depositAmount').textContent = getValue('depositAmount');
@@ -80,14 +80,14 @@ const CustomerContractPrint = ({ reservationData, onPrintFinish }) => {
         // Add main tourist (from form input)
         const mainTouristName = form.elements.mainTouristName.value || '';
         const mainTouristEGN = form.elements.mainTouristEGN.value || '';
-        const mainTouristIdCard = form.elements.mainTouristIdCard.value || '';
+        const mainTouristIdCard = form.elements.mainTouristIdCard.value || ''; // This will be blank based on form population
         if (mainTouristName || mainTouristEGN || mainTouristIdCard) {
             allTouristsData.push({name: mainTouristName, egn: mainTouristEGN, id: mainTouristIdCard});
         }
 
         // Add accompanying tourists from component state
         tourists.forEach((t) => {
-            allTouristsData.push({name: t.fullName, egn: t.realId, id: t.id});
+            allTouristsData.push({name: t.fullName, egn: t.realId, id: ''}); // BLANK as requested for accompanying tourists' ID
         });
         
         // Generate 13 rows for the PDF table, filling with data or leaving blank
@@ -103,7 +103,7 @@ const CustomerContractPrint = ({ reservationData, onPrintFinish }) => {
 
         tableHTML += '</tbody></table>';
         pdfTableContainer.innerHTML = tableHTML;
-    }, [formatDate, tourists]); // Add tourists to dependency array
+    }, [formatDate, tourists]);
 
     // Effect to populate the VISIBLE form fields when reservationData changes
     useEffect(() => {
@@ -115,7 +115,7 @@ const CustomerContractPrint = ({ reservationData, onPrintFinish }) => {
             if (leadTourist) {
                 form.elements.mainTouristName.value = `${leadTourist.firstName || ''} ${leadTourist.fatherName || ''} ${leadTourist.familyName || ''}`.trim();
                 form.elements.mainTouristEGN.value = leadTourist.realId || '';
-                form.elements.mainTouristIdCard.value = leadTourist.id || '';
+                form.elements.mainTouristIdCard.value = ''; // Set to BLANK as requested
                 form.elements.mainTouristAddress.value = `${leadTourist.address || ''}, ${leadTourist.city || ''}, ${leadTourist.postCode || ''}`.trim();
                 form.elements.mainTouristPhone.value = leadTourist.phone || '';
                 form.elements.mainTouristEmail.value = leadTourist.email || '';
@@ -126,7 +126,7 @@ const CustomerContractPrint = ({ reservationData, onPrintFinish }) => {
             setTourists(accompanyingTourists.map(t => ({
                 fullName: `${t.firstName || ''} ${t.fatherName || ''} ${t.familyName || ''}`.trim(),
                 realId: t.realId || '',
-                id: t.id || ''
+                id: '' // Set to BLANK as requested
             })));
 
             // Populate reservation details
@@ -158,7 +158,7 @@ const CustomerContractPrint = ({ reservationData, onPrintFinish }) => {
             form.elements.specialReqs.value = reservationData.specialReqs || '';
             
             form.elements.totalPrice.value = (reservationData.finalAmount || 0).toFixed(2);
-            form.elements.insurance.value = 'Медицинска застраховка "Помощ при пътуване" с лимит 5000 евро';
+            form.elements.insurance.value = 'НЕ Е ВКЛЮЧЕНА В ЦЕНАТА. ТУРИСТИТЕ СЕ ЗАДЪЛЖАВАТ ДА СКЛЮЧАТ ТАКАВА'; // Updated text
             form.elements.depositAmount.value = (reservationData.depositAmount || 0).toFixed(2);
 
             const remainingAmount = (reservationData.finalAmount || 0) - (reservationData.depositAmount || 0);
@@ -207,7 +207,7 @@ const CustomerContractPrint = ({ reservationData, onPrintFinish }) => {
             clearTimeout(timer);
             window.onafterprint = null; // Clean up on component unmount
         };
-    }, [onPrintFinish, populatePrintContent]); // Add populatePrintContent to dependencies
+    }, [onPrintFinish, populatePrintContent]);
 
     const handleTabClick = useCallback((tabId) => {
         setActiveTab(tabId);
@@ -512,7 +512,7 @@ const CustomerContractPrint = ({ reservationData, onPrintFinish }) => {
                     <p><b>8.3. Свободно време</b> -означава време, косто се дава от водача/екскурзовода на групата обикновено след предварително запознаване със съответното селище и което потребителят сам преценява как да оползотвори. През това време водачът/екскурзоводът на групата и автобусът не са на разположение на туристите.</p>
                     <p><b>8.4. Екскурзия по желание</b> -означава допълнителна факултативна екскурзия, алтернативна на свободното време, цената на която не е включена в общата цена, освен ако в програмата не е упоменато друго. Цената на екскурзията по желание се вписва в графа „цената не включва" в съответната програма.</p>
                     <p><b>8.5. Екскурзия без нощен преход</b> - означава организирано туристическо пътуване с обща цена по време на което няма предвидени нощувки в използваното превозно средство.</p>
-                    <p><b>8.6. Екскурзия с нощен преход</b> - означава организирано туристическо пътуване с обща цена по време на което има предвидена поне една нощувка в използваемото превозно средство.</p>
+                    <p><b>8.6. Екскурзия с нощен преход</b> - означава организирано туристическо пътуване с обща цена по време на което има предвидена поне една нощувка в използваното превозно средство.</p>
                     <p><b>8.7. Закуска / вечеря / друг вид хранене на блок маса (шведска маса, открит бюфет)</b> -означава хранене при което храната е поставена на общ плот или маса от която потребителят може да избере и консумира различни храни и питиета по своя преценка. Блок масата обикновено включва: колбас, кашкавал, масло, конфитюр, чай, кафе и др. Разнообразието и богатството на храните и напитките зависи от съответното заведение за хранене и развлечение.</p>
                     <p><b>8.8. Посещение на туристически обект</b> означава разглеждане отвътре на посочения обект, като в програмата изрично е посочено понятието „ПОСЕЩЕНИЕ". В повечето случаи посещенията на туристически обекти изискват заплащане на входна такса (закупуване на билет), освен ако в програмата не е упоменато друго.Препоръчваме: потребителят да осигури още в България сумите, които предвижда да похарчи в съответните валути за посещаваните държави. Музейните такси се плащат само в местна валута</p>
                 </div>
