@@ -169,17 +169,22 @@ const [selectedSalesInvoice, setSelectedSalesInvoice] = useState(null);
   });
 
   // State for Add/Edit Tour Form
-  const [tourForm, setTourForm] = useState({
-    tourId: '',
-    departureDate: '',
-    arrivalDate: '',
-    nights: 0,
-    daysInclTravel: 0,
-    transportCompany: '',
-    hotel: '',
-    maxPassengers: 0,
-  });
-
+const [tourForm, setTourForm] = useState({
+     tourId: '',
+     departureDate: '',
+     arrivalDate: '',
+     nights: 0,
+     daysInclTravel: 0,
+     transportCompany: '', // Existing
+     departureDateTimePlace: '', // NEW: Час и място на тръгване (combined)
+     transportDescription: '', // NEW: 2. Транспорт (general description)
+     insuranceDetails: '', // NEW: Застраховка
+     tourHotels: '', // NEW: Multiple hotels input
+     tourRoomSummary: '', // NEW: Room types and count of rooms for the tour
+     mealsIncluded: '', // NEW: Брой и вид на храненията, включени в пакетната цена
+     hotel: '', // Existing
+     maxPassengers: 0, // Existing
+   });
   // State for Edit Customer Form (used in a modal)
 // State for Edit Customer Form (used in a modal)
   const [customerEditForm, setCustomerEditForm] = useState({
@@ -1050,24 +1055,38 @@ const handleEditCustomer = (customer) => {
     }
   };
 
-  const resetTourForm = useCallback(() => {
-    setTourForm({
-      tourId: '', departureDate: '', arrivalDate: '', nights: 0, daysInclTravel: 0,
-      transportCompany: '', hotel: '', maxPassengers: 0,
-    });
-    setSelectedTour(null);
-  }, []);
+ const resetTourForm = useCallback(() => {
+     setTourForm({
+       tourId: '', departureDate: '', arrivalDate: '', nights: 0, daysInclTravel: 0,
+       transportCompany: '',
+       departureDateTimePlace: '', // NEW
+       transportDescription: '', // NEW
+       insuranceDetails: '', // NEW
+       tourHotels: '', // NEW
+       tourRoomSummary: '', // NEW
+       mealsIncluded: '', // NEW
+       hotel: '',
+       maxPassengers: 0,
+     });
+     setSelectedTour(null);
+   }, []);
 
-  const handleEditTour = useCallback((tour) => {
-    setTourForm({
-      ...tour,
-      nights: parseInt(tour.nights) || 0,
-      daysInclTravel: parseInt(tour.daysInclTravel) || 0,
-      maxPassengers: parseInt(tour.maxPassengers) || 0,
-    });
-    setSelectedTour(tour);
-    setActiveTab('addTour');
-  }, []);
+ const handleEditTour = useCallback((tour) => {
+     setTourForm({
+       ...tour,
+       nights: parseInt(tour.nights) || 0,
+       daysInclTravel: parseInt(tour.daysInclTravel) || 0,
+       maxPassengers: parseInt(tour.maxPassengers) || 0,
+       departureDateTimePlace: tour.departureDateTimePlace || '', // NEW
+       transportDescription: tour.transportDescription || '', // NEW
+       insuranceDetails: tour.insuranceDetails || '', // NEW
+       tourHotels: tour.tourHotels || '', // NEW
+       tourRoomSummary: tour.tourRoomSummary || '', // NEW
+       mealsIncluded: tour.mealsIncluded || '', // NEW
+     });
+     setSelectedTour(tour);
+     setActiveTab('addTour');
+   }, []);
 
   const handleDeleteTour = useCallback((tourId) => {
     setConfirmMessage("Are you sure you want to delete this tour? This will not un-link existing reservations.");
@@ -3030,6 +3049,14 @@ case 'customers':
                     <div><strong>Transport Company:</strong> <span className="text-gray-600">{selectedTour.transportCompany || 'N/A'}</span></div>
                     <div><strong>Hotel:</strong> <span className="font-semibold">{selectedTour.hotel || 'N/A'}</span></div>
                     <div><strong>Max Passengers:</strong> <span className="font-semibold">{selectedTour.maxPassengers}</span></div>
+                {/* NEW TOUR DETAIL DISPLAY FIELDS */}
+                <div className="md:col-span-2"><strong>Час и място на тръгване:</strong> <span className="text-gray-600">{selectedTour.departureDateTimePlace || 'N/A'}</span></div>
+                <div className="md:col-span-2"><strong>Описание на транспорта:</strong> <span className="text-gray-600">{selectedTour.transportDescription || 'N/A'}</span></div>
+                <div className="md:col-span-2"><strong>Информация за застраховка:</strong> <span className="text-gray-600">{selectedTour.insuranceDetails || 'N/A'}</span></div>
+                <div className="md:col-span-2"><strong>Хотели по тура:</strong> <span className="text-gray-600">{selectedTour.tourHotels || 'N/A'}</span></div>
+                <div className="md:col-span-2"><strong>Обобщение стаи по тура:</strong> <span className="text-gray-600">{selectedTour.tourRoomSummary || 'N/A'}</span></div>
+                <div className="md:col-span-2"><strong>Включени хранения:</strong> <span className="text-gray-600">{selectedTour.mealsIncluded || 'N/A'}</span></div>
+                {/* END OF NEW TOUR DETAIL DISPLAY FIELDS */}
                     <div><strong>Booked Passengers:</strong> <span className="font-semibold">{getLinkedReservations(selectedTour.tourId).reduce((sum, res) => sum + (res.adults || 0) + (res.children || 0), 0)}</span></div>
                     <div><strong>Fulfillment %:</strong> <span className="font-semibold text-[#28A745]">{((getLinkedReservations(selectedTour.tourId).reduce((sum, res) => sum + (res.adults || 0) + (res.children || 0), 0) / selectedTour.maxPassengers) * 100 || 0).toFixed(1)}%</span></div>
                   </div>
@@ -3141,17 +3168,91 @@ case 'customers':
                   className="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm px-3 py-2"
                 />
               </div>
-              <div>
-                <label htmlFor="transportCompany" className="block text-sm font-medium text-gray-700">Transport Company</label>
-                <input
-                  type="text"
-                  name="transportCompany"
-                  id="transportCompany"
-                  value={tourForm.transportCompany}
-                  onChange={handleTourFormChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                />
-              </div>
+        <div>
+           <label htmlFor="transportCompany" className="block text-sm font-medium text-gray-700">Transport Company</label>
+           <input
+             type="text"
+             name="transportCompany"
+             id="transportCompany"
+             value={tourForm.transportCompany}
+             onChange={handleTourFormChange}
+             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
+           />
+         </div>
+         {/* NEW BUS TOUR FIELDS BELOW */}
+         <div>
+           <label htmlFor="departureDateTimePlace" className="block text-sm font-medium text-gray-700">Час и място на тръгване</label>
+           <input
+             type="text" // Using text for flexibility (e.g., "06:00, Sofia, Nevsky Sq.")
+             name="departureDateTimePlace"
+             id="departureDateTimePlace"
+             value={tourForm.departureDateTimePlace}
+             onChange={handleTourFormChange}
+             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
+             placeholder="Напр. 06:00, гр. София, пл. Ал. Невски"
+           />
+         </div>
+         <div className="md:col-span-2"> {/* Span 2 columns for textarea */}
+           <label htmlFor="transportDescription" className="block text-sm font-medium text-gray-700">2. Транспорт</label>
+           <textarea
+             name="transportDescription"
+             id="transportDescription"
+             rows="2"
+             value={tourForm.transportDescription}
+             onChange={handleTourFormChange}
+             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
+             placeholder="Напр. Комфортен туристически автобус"
+           ></textarea>
+         </div>
+         <div className="md:col-span-2"> {/* Span 2 columns for textarea */}
+           <label htmlFor="insuranceDetails" className="block text-sm font-medium text-gray-700">Застраховка (описание)</label>
+           <textarea
+             name="insuranceDetails"
+             id="insuranceDetails"
+             rows="2"
+             value={tourForm.insuranceDetails}
+             onChange={handleTourFormChange}
+             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
+             placeholder="Напр. Медицинска застраховка 'Помощ при пътуване'"
+           ></textarea>
+         </div>
+         <div className="md:col-span-2"> {/* Span 2 columns for textarea */}
+           <label htmlFor="tourHotels" className="block text-sm font-medium text-gray-700">Хотели (множество)</label>
+           <textarea
+             name="tourHotels"
+             id="tourHotels"
+             rows="2"
+             value={tourForm.tourHotels}
+             onChange={handleTourFormChange}
+             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
+             placeholder="Напр. Хотел 'Планина', Хотел 'Изгрев'"
+           ></textarea>
+         </div>
+         <div className="md:col-span-2"> {/* Span 2 columns for textarea */}
+           <label htmlFor="tourRoomSummary" className="block text-sm font-medium text-gray-700">Брой и вид стаи (общо за тура)</label>
+           <textarea
+             name="tourRoomSummary"
+             id="tourRoomSummary"
+             rows="2"
+             value={tourForm.tourRoomSummary}
+             onChange={handleTourFormChange}
+             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
+             placeholder="Напр. 10 двойни стаи, 5 тройни стаи"
+           ></textarea>
+         </div>
+         <div className="md:col-span-2"> {/* Span 2 columns for textarea */}
+           <label htmlFor="mealsIncluded" className="block text-sm font-medium text-gray-700">Брой и вид на храненията, включени в пакетната цена</label>
+           <textarea
+             name="mealsIncluded"
+             id="mealsIncluded"
+             rows="2"
+             value={tourForm.mealsIncluded}
+             onChange={handleTourFormChange}
+             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
+             placeholder="Напр. 2 закуски и 2 вечери"
+           ></textarea>
+         </div>
+         {/* END OF NEW BUS TOUR FIELDS */}
               <div>
                 <label htmlFor="hotelTour" className="block text-sm font-medium text-gray-700">Hotel (Primary for Tour)</label>
                 <input
