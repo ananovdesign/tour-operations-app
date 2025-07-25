@@ -1,0 +1,122 @@
+/* Import Inter font for a modern look */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+/* Basic setup for the print preview page - visible on screen */
+.print-preview-container {
+    font-family: 'Inter', sans-serif;
+    background-color: #f9fafb; /* Very light gray background */
+    display: flex;
+    justify-content: center;
+    padding: 2rem;
+    margin: 0;
+    box-sizing: border-box;
+    min-height: 100vh;
+}
+
+/* Invoice Output (main container for the form content) */
+.invoice-output {
+    width: 210mm; /* A4 width */
+    margin: 0 auto;
+    background-color: #fff;
+    box-shadow: 0 0 20px rgba(0,0,0,0.08);
+    padding: 25mm;
+    box-sizing: border-box;
+    font-size: 10.5pt;
+    color: #333;
+    line-height: 1.5;
+}
+
+/* Custom focus ring color to match the new theme */
+.form-input:focus, .form-textarea:focus {
+    border-color: #3b82f6; /* Blue-500 */
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+    outline: none;
+}
+
+/* Tab styles */
+.tab-btn {
+    transition: all 0.3s ease;
+    border-bottom: 2px solid transparent;
+    color: #6b7280; /* Gray-500 */
+}
+
+.tab-btn.active {
+    border-color: #3b82f6; /* Blue-500 */
+    color: #3b82f6;
+}
+
+/* --------------------------------------------------- */
+/* Print-specific styles for the contract content */
+/* --------------------------------------------------- */
+
+/* Hide elements that should not be printed */
+@media print {
+    body {
+        background-color: #fff;
+        margin: 0;
+        padding: 0;
+        /* Ensure no unwanted margins or padding from the browser */
+    }
+
+    /* Hide everything that is not the .print-only content */
+    .print-preview-container > *:not(.print-only) {
+        display: none !important;
+    }
+
+    /* Make the .print-only container visible and take full page */
+    .print-only {
+        display: block !important;
+        position: static !important; /* Override absolute positioning */
+        left: auto !important;
+        width: 100% !important;
+        height: auto !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        box-shadow: none !important;
+        overflow: visible !important;
+    }
+
+    .no-print {
+        display: none !important;
+    }
+
+    /* Styles for the logical pages within the print-only div */
+    .pdf-logical-page {
+        background: white;
+        font-family: 'Times New Roman', Times, serif;
+        font-size: 10pt;
+        line-height: 1.5;
+        padding: 15mm; /* Standard A4 margins */
+        box-sizing: border-box;
+        page-break-after: always; /* Force new page after each logical page */
+        min-height: 297mm; /* Ensure each page fills A4 height */
+        width: 210mm; /* Ensure each page fills A4 width */
+    }
+
+    .pdf-logical-page:last-child {
+        page-break-after: avoid; /* No page break after the last logical page */
+    }
+
+    .pdf-logical-page h1, .pdf-logical-page h2 {
+        text-align: center;
+        font-weight: bold;
+        margin-top: 1.5em;
+        margin-bottom: 1em;
+    }
+    .pdf-logical-page h1 { font-size: 14pt; }
+    .pdf-logical-page h2 { font-size: 12pt; }
+    .pdf-logical-page p { text-align: justify; margin-bottom: 1em; }
+    .pdf-logical-page .signatures { margin-top: 50px; display: flex; justify-content: space-between; }
+    .pdf-logical-page .tourist-table-pdf { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 9pt; }
+    .pdf-logical-page .tourist-table-pdf th,
+    .pdf-logical-page .tourist-table-pdf td { border: 1px solid black; padding: 4px; text-align: left; }
+}
+
+/* Hide the print-only content from screen view by default */
+.print-only {
+    position: absolute;
+    left: -9999px; /* Move off-screen */
+    width: 210mm; /* Maintain A4 width for correct rendering when printed */
+    color: black; /* Ensure text is black for printing */
+    overflow: hidden; /* Hide overflow on screen */
+}
