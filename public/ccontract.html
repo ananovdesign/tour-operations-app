@@ -1,350 +1,1285 @@
-<script>
-    document.addEventListener('DOMContentLoaded', function () {
-        // --- UI Elements ---
-        const tabNav = document.getElementById('tab-nav');
-        const tabContents = document.querySelectorAll('.tab-content');
-        const addTouristBtn = document.getElementById('add-tourist-btn');
-        const touristsTableBody = document.getElementById('tourists-table-body');
-        const startDateInput = document.getElementById('startDate');
-        const endDateInput = document.getElementById('endDate');
-        const durationInput = document.getElementById('tripDuration');
-        const generatePdfBtn = document.getElementById('generate-pdf-btn');
-        const loadingModal = document.getElementById('loading-modal');
+ <!DOCTYPE html>
 
-        let touristCount = 0; // Tracks the number of *manually added* tourist rows
-        let isReservationDataLoaded = false; // Flag to indicate if data came from React
+<html lang="bg">
 
-        // --- Initial Setup ---
-        const today = new Date().toISOString().split('T')[0];
-        document.getElementById('signingDate').value = today;
+<head>
 
-        // --- Event Listeners ---
-        tabNav.addEventListener('click', (e) => {
-            if (e.target.tagName === 'BUTTON') {
-                const targetTab = e.target.dataset.tab;
-                tabNav.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-                e.target.classList.add('active');
-                tabContents.forEach(content => {
-                    content.classList.toggle('hidden', content.id !== targetTab);
-                });
-            }
-        });
+    <meta charset="UTF-8">
 
-        addTouristBtn.addEventListener('click', () => addTouristRow(false)); // False means not pre-filled
-        
-        touristsTableBody.addEventListener('click', function(e) {
-            const removeBtn = e.target.closest('.remove-tourist-btn');
-            if (removeBtn && !isReservationDataLoaded) { // Only allow removing if not pre-filled
-                removeBtn.closest('tr').remove();
-                updateTouristRowNumbers();
-            } else if (removeBtn && isReservationDataLoaded) {
-                alert("Cannot remove tourists when data is loaded from a reservation. Please edit the reservation directly in the main application.");
-            }
-        });
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-        // Set inputs to readOnly if data is loaded from reservation
-        const setFormFieldsReadOnly = (readOnly) => {
-            document.querySelectorAll('#contract-form input, #contract-form textarea, #contract-form select').forEach(input => {
-                // Allow contractNumber, signingDate, specialReqs, otherPayments, childDiscount, adultDiscount, singleRoomFee, extraExcursion, insurance, paymentTerms to be editable even if reservation data is loaded
-                const editableFields = ['contractNumber', 'signingDate', 'specialReqs', 'otherPayments', 'childDiscount', 'adultDiscount', 'singleRoomFee', 'extraExcursion', 'insurance', 'paymentTerms', 'mainTouristName', 'mainTouristEGN', 'mainTouristIdCard', 'mainTouristAddress', 'mainTouristPhone', 'mainTouristEmail', 'startDate', 'endDate', 'accommodationDesc', 'roomType', 'mealsDesc', 'totalPrice', 'finalAmount', 'depositAmount', 'finalPayment', 'transportDesc', 'departureInfo', 'returnInfo'];
-                if (!editableFields.includes(input.id)) { // Only set readOnly for fields that are NOT in the editable list
-                     input.readOnly = readOnly;
-                     input.classList.toggle('bg-gray-100', readOnly);
-                }
-            });
-            // Hide the 'Add Tourist' button if data is loaded from reservation
-            addTouristBtn.classList.toggle('hidden', readOnly);
-        };
+    <title>PDF Генератор на договори - Подобрена версия</title>
 
-        startDateInput.addEventListener('change', calculateDuration);
-        endDateInput.addEventListener('change', calculateDuration);
+    
 
-        generatePdfBtn.addEventListener('click', handlePdfGeneration);
+    <!-- Tailwind CSS -->
 
-        // --- Functions ---
-        function addTouristRow(isPreFilled = false, touristData = {}) {
-            touristCount++;
-            const row = document.createElement('tr');
-            row.classList.add('bg-white', 'border-b', 'hover:bg-gray-50');
-            row.innerHTML = `
-                <td class="px-4 py-3 text-center font-medium text-gray-700"></td>
-                <td class="px-6 py-2"><input type="text" class="form-input w-full rounded-md border-gray-300 text-sm tourist-name" placeholder="Трите имена" value="${touristData.fullName || ''}" ${isPreFilled ? 'readonly' : ''}></td>
-                <td class="px-6 py-2"><input type="text" class="form-input w-full rounded-md border-gray-300 text-sm tourist-egn" placeholder="ЕГН/ЛНЧ" value="${touristData.realId || ''}" ${isPreFilled ? 'readonly' : ''}></td>
-                <td class="px-6 py-2"><input type="text" class="form-input w-full rounded-md border-gray-300 text-sm tourist-id" placeholder="№ паспорт/л.к." value="${touristData.id || ''}" ${isPreFilled ? 'readonly' : ''}></td>
-                <td class="px-4 py-2 text-center">
-                    ${!isPreFilled ? `<button type="button" class="text-red-500 hover:text-red-700 remove-tourist-btn p-1 rounded-full hover:bg-red-100 transition-colors">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clip-rule="evenodd" /></svg>
-                    </button>` : ''}
-                </td>
-            `;
-            touristsTableBody.appendChild(row);
-            updateTouristRowNumbers();
-            // Add readonly class to input fields
-            if (isPreFilled) {
-                row.querySelectorAll('input').forEach(input => {
-                    input.classList.add('bg-gray-100');
-                });
-            }
-        }
+    <script src="https://cdn.tailwindcss.com"></script>
 
-        function updateTouristRowNumbers() {
-            const rows = touristsTableBody.querySelectorAll('tr');
-            rows.forEach((row, index) => {
-                row.querySelector('td:first-child').textContent = index + 1;
-            });
-            touristCount = rows.length;
-        }
+    
 
-        function calculateDuration() {
-            const startDate = new Date(startDateInput.value);
-            const endDate = new Date(endDateInput.value);
-            if (startDateInput.value && endDateInput.value && endDate >= startDate) {
-                const diffTime = Math.abs(endDate - startDate);
-                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                durationInput.value = `${diffDays + 1} дни / ${diffDays} нощувки`;
-            } else {
-                durationInput.value = '';
-            }
-        }
-        
-        // Function to fill the form with reservation data
-        function fillFormWithReservationData(reservation) {
-            isReservationDataLoaded = true;
-            setFormFieldsReadOnly(true); // Set most fields to read-only
+    <!-- Libraries for PDF Generation -->
 
-            // Clear existing tourist rows before adding new ones
-            touristsTableBody.innerHTML = '';
-            touristCount = 0; // Reset tourist counter
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
-            // Populate main tourist/lead guest details
-            const leadTourist = reservation.tourists?.[0];
-            if (leadTourist) {
-                document.getElementById('mainTouristName').value = `${leadTourist.firstName || ''} ${leadTourist.fatherName || ''} ${leadTourist.familyName || ''}`.trim();
-                document.getElementById('mainTouristEGN').value = leadTourist.realId || '';
-                document.getElementById('mainTouristIdCard').value = leadTourist.id || '';
-                document.getElementById('mainTouristAddress').value = `${leadTourist.address || ''}, ${leadTourist.city || ''}, ${leadTourist.postCode || ''}`.trim();
-                document.getElementById('mainTouristPhone').value = leadTourist.phone || '';
-                document.getElementById('mainTouristEmail').value = leadTourist.email || '';
-            }
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-            // Populate accompanying tourists
-            if (reservation.tourists && reservation.tourists.length > 1) {
-                for (let i = 1; i < reservation.tourists.length; i++) {
-                    const tourist = reservation.tourists[i];
-                    addTouristRow(true, { // Pass true for isPreFilled
-                        fullName: `${tourist.firstName || ''} ${tourist.fatherName || ''} ${tourist.familyName || ''}`.trim(),
-                        realId: tourist.realId || '',
-                        id: tourist.id || ''
-                    });
-                }
-            } else if (reservation.tourists && reservation.tourists.length === 1) {
-                // If only one tourist, ensure other tourists section is clear
-                 touristsTableBody.innerHTML = '';
-                 touristCount = 0;
-            }
+    
+
+    <!-- Google Fonts: Inter -->
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    
+
+    <style>
+
+        /* Custom styles for the new modern look */
+
+        body {
+
+            font-family: 'Inter', sans-serif;
+
+            background-color: #f9fafb; /* Very light gray background */
+
+        }
 
 
-            // Populate reservation details
-            document.getElementById('contractNumber').value = reservation.reservationNumber || '';
-            document.getElementById('signingDate').value = reservation.creationDate || today; // Use creationDate for signingDate
-            document.getElementById('startDate').value = reservation.checkIn || '';
-            document.getElementById('endDate').value = reservation.checkOut || '';
-            calculateDuration(); // Recalculate duration based on new dates
 
-            document.getElementById('transportDesc').value = 'СОБСТВЕН ТРАНСПОРТ - ОСИГУРЕН ОТ ТУРИСТИТЕ';
-            document.getElementById('departureInfo').value = 'СОБСТВЕН ТРАНСПОРТ';
-            document.getElementById('returnInfo').value = 'СОБСТВЕН ТРАНСПОРТ';
-            
-            document.getElementById('accommodationDesc').value = `${reservation.hotel || ''}, ${reservation.place || ''}, ${reservation.totalNights || 0} нощувки`;
-            document.getElementById('roomType').value = reservation.roomType || '';
-            document.getElementById('mealsDesc').value = reservation.food || '';
-            document.getElementById('otherServices').value = 'Водач-представител на фирмата по време на цялото пътуване;'; // Default
-            document.getElementById('specialReqs').value = reservation.specialReqs || ''; // If you add specialReqs to reservation form
-            
-            document.getElementById('totalPrice').value = (reservation.finalAmount || 0).toFixed(2);
-            document.getElementById('insurance').value = 'Медицинска застраховка "Помощ при пътуване" с лимит 5000 евро'; // Default
-            document.getElementById('finalAmount').value = (reservation.finalAmount - reservation.depositAmount).toFixed(2);
-            document.getElementById('depositAmount').value = (reservation.depositAmount || 0).toFixed(2);
+        /* Custom focus ring color to match the new theme */
 
-            const finalPaymentDate = new Date(reservation.checkIn);
-            finalPaymentDate.setDate(finalPaymentDate.getDate() - 30); // 30 days before check-in
-            const formattedFinalPaymentDate = finalPaymentDate.toISOString().split('T')[0];
+        .form-input:focus, .form-textarea:focus {
 
-            document.getElementById('finalPayment').value = `${(reservation.finalAmount - reservation.depositAmount).toFixed(2)} лв. до ${formatDate(formattedFinalPaymentDate)}`;
-            document.getElementById('paymentTerms').value = `Плащането е в брой в нашия офис в Ракитово, ул. Христо Ботев 4 или по банков път със следните данни:\nIBAN BG87BPBI79301036586601\nПолучател: ДАЙНАМЕКС ТУР\nОснование: ${reservation.reservationNumber || ''}`;
+            border-color: #3b82f6; /* Blue-500 */
+
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+
+            outline: none;
+
+        }
 
 
-            // Show success message
-            // alert('Contract form populated with reservation data!'); // Removed for smoother UX
-        }
 
-        async function handlePdfGeneration() {
-            loadingModal.classList.remove('hidden');
-            populatePdfContent();
+        /* Tab styles */
 
-            const { jsPDF } = window.jspdf;
-            const logicalPages = document.querySelectorAll('.pdf-logical-page');
-            const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
-            const pdfPageWidth = doc.internal.pageSize.getWidth();
-            const pdfPageHeight = doc.internal.pageSize.getHeight();
+        .tab-btn {
 
-            try {
-                for (let i = 0; i < logicalPages.length; i++) {
-                    const pageContent = logicalPages[i];
-                    
-                    if (i > 0) {
-                        doc.addPage();
-                    }
+            transition: all 0.3s ease;
 
-                    const canvas = await html2canvas(pageContent, {
-                        scale: 2, useCORS: true, width: pageContent.offsetWidth,
-                    });
+            border-bottom: 2px solid transparent;
 
-                    const imgData = canvas.toDataURL('image/png');
-                    const ratio = canvas.height / canvas.width;
-                    const pdfImgHeight = pdfPageWidth * ratio;
-                    let heightLeft = pdfImgHeight;
-                    let position = 0;
+            color: #6b7280; /* Gray-500 */
 
-                    doc.addImage(imgData, 'PNG', 0, position, pdfPageWidth, pdfImgHeight);
-                    heightLeft -= pdfPageHeight;
-
-                    while (heightLeft > 1) {
-                        position -= pdfPageHeight;
-                        doc.addPage();
-                        doc.addImage(imgData, 'PNG', 0, position, pdfPageWidth, pdfImgHeight);
-                        heightLeft -= pdfPageHeight;
-                    }
-                }
-                
-                const fileName = `Dogovor-${document.getElementById('contractNumber').value || 'XXXX'}.pdf`;
-                doc.save(fileName);
-
-            } catch (err) {
-                console.error("Error generating PDF:", err);
-                alert("Възникна грешка при генерирането на PDF файла. Моля, проверете конзолата за повече информация.");
-            } finally {
-                loadingModal.classList.add('hidden');
-            }
-        }
-
-        function populatePdfContent() {
-            const formatDate = (dateString) => {
-                if (!dateString) return '..................';
-                const date = new Date(dateString);
-                // Ensure correct day, month, year formatting for Bulgarian locale
-                const day = String(date.getDate()).padStart(2, '0');
-                const month = String(date.getMonth() + 1).padStart(2, '0'); // Months are 0-indexed
-                const year = date.getFullYear();
-                return `${day}.${month}.${year}г.`;
-            };
-
-            // Helper to get value from input and provide fallback or suffix
-            const getValue = (id, fallback = '..................', suffix = '') => {
-                const element = document.getElementById(id);
-                return (element && element.value !== '' ? element.value : fallback) + suffix;
-            };
-            const getOptionalValue = (id, fallback = 'Няма.') => document.getElementById(id).value || fallback;
+        }
 
 
-            // Populate contract data
-            document.getElementById('pdf-contractNumber').textContent = getValue('contractNumber', '').replace('..................', '');
-            document.getElementById('pdf-signingDate').textContent = formatDate(document.getElementById('signingDate').value);
-            document.getElementById('pdf-mainTouristName').textContent = getValue('mainTouristName');
-            document.getElementById('pdf-mainTouristEGN').textContent = getValue('mainTouristEGN');
-            document.getElementById('pdf-mainTouristIdCard').textContent = getValue('mainTouristIdCard');
-            document.getElementById('pdf-mainTouristAddress').textContent = getValue('mainTouristAddress');
-            document.getElementById('pdf-mainTouristPhone').textContent = getValue('mainTouristPhone');
-            document.getElementById('pdf-mainTouristEmail').textContent = getValue('mainTouristEmail');
-            
-            // Populate trip details
-            document.getElementById('pdf-startDate').textContent = formatDate(document.getElementById('startDate').value);
-            document.getElementById('pdf-endDate').textContent = formatDate(document.getElementById('endDate').value);
-            document.getElementById('pdf-tripDuration').textContent = getValue('tripDuration');
-            document.getElementById('pdf-transportDesc').textContent = getValue('transportDesc');
-            document.getElementById('pdf-departureInfo').textContent = getValue('departureInfo');
-            document.getElementById('pdf-returnInfo').textContent = getValue('returnInfo');
-            document.getElementById('pdf-accommodationDesc').textContent = getValue('accommodationDesc');
-            document.getElementById('pdf-roomType').textContent = getValue('roomType');
-            document.getElementById('pdf-mealsDesc').textContent = getValue('mealsDesc');
-            document.getElementById('pdf-otherServices').textContent = getOptionalValue('otherServices');
-            document.getElementById('pdf-specialReqs').textContent = getOptionalValue('specialReqs');
 
-            // Populate financials
-            document.getElementById('pdf-totalPrice').innerHTML = getValue('totalPrice', '0.00', ' лв.');
-            document.getElementById('pdf-otherPayments').innerHTML = getOptionalValue('otherPayments');
-            document.getElementById('pdf-childDiscount').innerHTML = getOptionalValue('childDiscount', 'Не е приложимо.');
-            document.getElementById('pdf-adultDiscount').innerHTML = getOptionalValue('adultDiscount', 'Не е приложимо.');
-            document.getElementById('pdf-singleRoomFee').innerHTML = getOptionalValue('singleRoomFee', 'Не е приложимо.');
-            document.getElementById('pdf-extraExcursion').innerHTML = getOptionalValue('extraExcursion');
-            document.getElementById('pdf-insurance').innerHTML = getValue('insurance');
-            document.getElementById('pdf-finalAmount').innerHTML = getValue('finalAmount', '0.00', ' лв.');
-            document.getElementById('pdf-paymentTerms').innerHTML = getValue('paymentTerms');
-            document.getElementById('pdf-depositAmount').textContent = getValue('depositAmount');
-            document.getElementById('pdf-finalPayment').innerHTML = getValue('finalPayment');
+        .tab-btn.active {
 
-            // Populate declarations
-            document.getElementById('pdf-declarationDate1').textContent = formatDate(document.getElementById('signingDate').value);
-            document.getElementById('pdf-declarationDate2').textContent = formatDate(document.getElementById('signingDate').value);
-            document.getElementById('pdf-declarationName').textContent = getValue('mainTouristName');
-            document.getElementById('pdf-declarationEGN').textContent = getValue('mainTouristEGN');
-            document.getElementById('pdf-declarationPhone').textContent = getValue('mainTouristPhone');
-            document.getElementById('pdf-declarationContractNumber').textContent = getValue('contractNumber', '').replace('..................', '');
+            border-color: #3b82f6; /* Blue-500 */
 
-            // Build and insert the tourist table for the PDF
-            const pdfTableContainer = document.getElementById('pdf-tourists-table-container');
-            const formRows = touristsTableBody.querySelectorAll('tr');
-            let tableHTML = '<h3 style="margin-top: 1em; font-weight: bold; text-align: center;">Данни на всички туристи в пакетното пътуване:</h3><table class="tourist-table-pdf"><thead><tr><th>№</th><th>Трите имена по док. за самоличност</th><th>ЕГН/ЛНЧ</th><th>№ паспорт/л.к.</th></tr></thead><tbody>';
-            
-            let allTouristsData = [];
-            // Add main tourist to the list
-            const mainTouristName = document.getElementById('mainTouristName').value || '';
-            const mainTouristEGN = document.getElementById('mainTouristEGN').value || '';
-            const mainTouristIdCard = document.getElementById('mainTouristIdCard').value || '';
-            if (mainTouristName || mainTouristEGN || mainTouristIdCard) {
-                allTouristsData.push({name: mainTouristName, egn: mainTouristEGN, id: mainTouristIdCard});
-            }
+            color: #3b82f6;
 
-            // Add accompanying tourists
-            if (formRows.length > 0) {
-                formRows.forEach((row) => {
-                    const name = row.querySelector('.tourist-name').value || '';
-                    const egn = row.querySelector('.tourist-egn').value || '';
-                    const id = row.querySelector('.tourist-id').value || '';
-                    allTouristsData.push({name, egn, id});
-                });
-            }
-            
-            // Generate 13 rows for the PDF table, filling with data or leaving blank
-            for (let i = 0; i < 13; i++) {
-                const data = allTouristsData[i];
-                tableHTML += `<tr>
-                    <td>${i + 1}</td>
-                    <td>${data ? data.name : ''}</td>
-                    <td>${data ? data.egn : ''}</td>
-                    <td>${data ? data.id : ''}</td>
-                </tr>`;
-            }
+        }
 
-            tableHTML += '</tbody></table>';
-            pdfTableContainer.innerHTML = tableHTML;
-        }
 
-        // --- Message Listener from Parent (React) ---
-        window.addEventListener('message', function(event) {
-            // Ensure the message is from a trusted origin (your own app's domain)
-            // In development, you might relax this, but for production, strict origin checking is crucial.
-            // For now, we'll trust messages from Netlify deployment.
-            // const allowedOrigin = 'https://your-netlify-app-name.netlify.app'; 
-            // if (event.origin !== allowedOrigin) {
-            //     console.warn('Received message from untrusted origin:', event.origin);
-            //     return;
-            // }
 
-            if (event.data && event.data.type === 'LOAD_RESERVATION_DATA' && event.data.payload) {
-                console.log('Received reservation data:', event.data.payload);
-                fillFormWithReservationData(event.data.payload);
-            }
-        });
-    });
-</script>
+        /* --- PDF Content Styling (remains the same) --- */
+
+        #pdf-content {
+
+            position: absolute;
+
+            left: -9999px;
+
+            width: 210mm;
+
+            color: black;
+
+        }
+
+
+
+        .pdf-logical-page {
+
+            background: white;
+
+            font-family: 'Times New Roman', Times, serif;
+
+            font-size: 10pt;
+
+            line-height: 1.5;
+
+            padding: 15mm;
+
+            box-sizing: border-box;
+
+            margin-bottom: 1mm; 
+
+        }
+
+
+
+        .pdf-logical-page h1, .pdf-logical-page h2 {
+
+            text-align: center;
+
+            font-weight: bold;
+
+            margin-top: 1.5em;
+
+            margin-bottom: 1em;
+
+        }
+
+        .pdf-logical-page h1 { font-size: 14pt; }
+
+        .pdf-logical-page h2 { font-size: 12pt; }
+
+        .pdf-logical-page p { text-align: justify; margin-bottom: 1em; }
+
+        .pdf-logical-page .signatures { margin-top: 50px; display: flex; justify-content: space-between; }
+
+        .pdf-logical-page .tourist-table-pdf { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 9pt; }
+
+        .pdf-logical-page .tourist-table-pdf th,
+
+        .pdf-logical-page .tourist-table-pdf td { border: 1px solid black; padding: 4px; text-align: left; }
+
+    </style>
+
+</head>
+
+<body class="antialiased">
+
+
+
+    <div class="min-h-screen flex items-center justify-center p-4">
+
+        <div class="max-w-5xl w-full mx-auto bg-white rounded-xl shadow-md overflow-hidden">
+
+            
+
+            <!-- Header -->
+
+            <div class="p-8 text-center">
+
+                <h1 class="text-3xl font-bold text-gray-800">Генератор на договори</h1>
+
+                <p class="mt-2 text-gray-600">Попълнете данните, за да създадете вашия договор за туристически пакет.</p>
+
+            </div>
+
+
+
+            <!-- Tab Navigation -->
+
+            <div class="px-8 border-b border-gray-200">
+
+                <nav class="flex flex-wrap -mb-px" id="tab-nav">
+
+                    <button data-tab="tab-1" class="tab-btn active py-4 px-4 text-sm font-medium">1. Основна информация</button>
+
+                    <button data-tab="tab-2" class="tab-btn py-4 px-4 text-sm font-medium">2. Данни за туристите</button>
+
+                    <button data-tab="tab-3" class="tab-btn py-4 px-4 text-sm font-medium">3. Детайли за пътуването</button>
+
+                    <button data-tab="tab-4" class="tab-btn py-4 px-4 text-sm font-medium">4. Финансови условия</button>
+
+                </nav>
+
+            </div>
+
+
+
+            <!-- Contract Form -->
+
+            <div class="p-8">
+
+                <form id="contract-form">
+
+
+
+                    <!-- Tab 1: General Info -->
+
+                    <div id="tab-1" class="tab-content">
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+                            <div>
+
+                                <label for="contractNumber" class="block text-sm font-medium text-gray-700 mb-1">Номер на договор</label>
+
+                                <input type="text" id="contractNumber" class="form-input w-full rounded-md border-gray-300" placeholder="2025/01">
+
+                            </div>
+
+                            <div>
+
+                                <label for="signingDate" class="block text-sm font-medium text-gray-700 mb-1">Дата на подписване</label>
+
+                                <input type="date" id="signingDate" class="form-input w-full rounded-md border-gray-300">
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+
+
+                    <!-- Tab 2: Tourist Info -->
+
+                    <div id="tab-2" class="tab-content hidden">
+
+                        <h3 class="text-lg font-semibold text-gray-800 mb-4 border-b pb-2">Данни на основен потребител</h3>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+
+                            <div>
+
+                                <label for="mainTouristName" class="block text-sm font-medium text-gray-700 mb-1">Трите имена на турист</label>
+
+                                <input type="text" id="mainTouristName" class="form-input w-full rounded-md border-gray-300" placeholder="Иван Иванов Иванов">
+
+                            </div>
+
+                            <div>
+
+                                <label for="mainTouristEGN" class="block text-sm font-medium text-gray-700 mb-1">ЕГН</label>
+
+                                <input type="text" id="mainTouristEGN" class="form-input w-full rounded-md border-gray-300" placeholder="0000000000">
+
+                            </div>
+
+                            <div>
+
+                                <label for="mainTouristIdCard" class="block text-sm font-medium text-gray-700 mb-1">Л.К. №</label>
+
+                                <input type="text" id="mainTouristIdCard" class="form-input w-full rounded-md border-gray-300" placeholder="600000000">
+
+                            </div>
+
+                            <div>
+
+                                <label for="mainTouristAddress" class="block text-sm font-medium text-gray-700 mb-1">Адрес</label>
+
+                                <input type="text" id="mainTouristAddress" class="form-input w-full rounded-md border-gray-300" placeholder="гр. София, ул. Примерна №1">
+
+                            </div>
+
+                            <div>
+
+                                <label for="mainTouristPhone" class="block text-sm font-medium text-gray-700 mb-1">GSM</label>
+
+                                <input type="text" id="mainTouristPhone" class="form-input w-full rounded-md border-gray-300" placeholder="0888123456">
+
+                            </div>
+
+                            <div>
+
+                                <label for="mainTouristEmail" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+
+                                <input type="email" id="mainTouristEmail" class="form-input w-full rounded-md border-gray-300" placeholder="ivan.ivanov@email.com">
+
+                            </div>
+
+                        </div>
+
+                        <div class="flex justify-between items-center mb-4 border-b pb-2">
+
+                            <h3 class="text-lg font-semibold text-gray-800">Придружаващи туристи</h3>
+
+                            <button type="button" id="add-tourist-btn" class="flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-500 hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg>
+
+                                Добави
+
+                            </button>
+
+                        </div>
+
+                        <div class="overflow-x-auto rounded-lg border border-gray-200">
+
+                            <table class="w-full text-sm text-left text-gray-600">
+
+                                <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+
+                                    <tr>
+
+                                        <th scope="col" class="px-4 py-3 w-12 text-center">№</th>
+
+                                        <th scope="col" class="px-6 py-3">Трите имена</th>
+
+                                        <th scope="col" class="px-6 py-3">ЕГН/ЛНЧ</th>
+
+                                        <th scope="col" class="px-6 py-3">№ паспорт/л.к.</th>
+
+                                        <th scope="col" class="px-4 py-3 text-center">Действие</th>
+
+                                    </tr>
+
+                                </thead>
+
+                                <tbody id="tourists-table-body">
+
+                                    <!-- Tourist rows will be added here -->
+
+                                </tbody>
+
+                            </table>
+
+                        </div>
+
+                    </div>
+
+
+
+                    <!-- Tab 3: Trip Details -->
+
+                    <div id="tab-3" class="tab-content hidden">
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+                            <div>
+
+                                <label for="startDate" class="block text-sm font-medium text-gray-700 mb-1">Начална дата</label>
+
+                                <input type="date" id="startDate" class="form-input w-full rounded-md border-gray-300">
+
+                            </div>
+
+                            <div>
+
+                                <label for="endDate" class="block text-sm font-medium text-gray-700 mb-1">Крайна дата</label>
+
+                                <input type="date" id="endDate" class="form-input w-full rounded-md border-gray-300">
+
+                            </div>
+
+                            <div>
+
+                                <label for="tripDuration" class="block text-sm font-medium text-gray-700 mb-1">Продължителност</label>
+
+                                <input type="text" id="tripDuration" class="form-input w-full rounded-md border-gray-300 bg-gray-100" readonly placeholder="Автоматично">
+
+                            </div>
+
+                            <div class="lg:col-span-3">
+
+                                <label for="transportDesc" class="block text-sm font-medium text-gray-700 mb-1">1. Транспорт</label>
+
+                                <textarea id="transportDesc" rows="2" class="form-textarea w-full rounded-md border-gray-300" placeholder="Напр. Комфортен туристически автобус"></textarea>
+
+                            </div>
+
+                            <div>
+
+                                <label for="departureInfo" class="block text-sm font-medium text-gray-700 mb-1">Час и място на тръгване</label>
+
+                                <input type="text" id="departureInfo" class="form-input w-full rounded-md border-gray-300" placeholder="06:00, гр. София, пл. Ал. Невски">
+
+                            </div>
+
+                            <div class="lg:col-span-2">
+
+                                <label for="returnInfo" class="block text-sm font-medium text-gray-700 mb-1">Час и място на връщане</label>
+
+                                <input type="text" id="returnInfo" class="form-input w-full rounded-md border-gray-300" placeholder="Около 22:00, гр. София, пл. Ал. Невски">
+
+                            </div>
+
+                            <div class="lg:col-span-2">
+
+                                <label for="accommodationDesc" class="block text-sm font-medium text-gray-700 mb-1">2. Настаняване</label>
+
+                                <textarea id="accommodationDesc" rows="3" class="form-textarea w-full rounded-md border-gray-300" placeholder="Напр. Хотел 'Планина' 3*, гр. Банско, 2 нощувки"></textarea>
+
+                            </div>
+
+                            <div>
+
+                                <label for="roomType" class="block text-sm font-medium text-gray-700 mb-1">Брой и вид стаи</label>
+
+                                <input type="text" id="roomType" class="form-input w-full rounded-md border-gray-300" placeholder="1 двойна стая">
+
+                            </div>
+
+                            <div class="lg:col-span-3">
+
+                                <label for="mealsDesc" class="block text-sm font-medium text-gray-700 mb-1">3. Брой и вид на храненията, включени в пакетната цена</label>
+
+                                <input type="text" id="mealsDesc" class="form-input w-full rounded-md border-gray-300" placeholder="2 закуски и 2 вечери">
+
+                            </div>
+
+                            <div class="lg:col-span-3">
+
+                                <label for="otherServices" class="block text-sm font-medium text-gray-700 mb-1">3.3. Други услуги, включени в общата цена</label>
+
+                                <textarea id="otherServices" rows="3" class="form-textarea w-full rounded-md border-gray-300" placeholder="Водач-представител на фирмата по време на цялото пътуване;"></textarea>
+
+                            </div>
+
+                            <div class="lg:col-span-3">
+
+                                <label for="specialReqs" class="block text-sm font-medium text-gray-700 mb-1">3.4. Специални изисквания на потребителя</label>
+
+                                <textarea id="specialReqs" rows="2" class="form-textarea w-full rounded-md border-gray-300" placeholder="Вегетарианско меню, настаняване на висок етаж..."></textarea>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                    
+
+                    <!-- Tab 4: Financials -->
+
+                    <div id="tab-4" class="tab-content hidden">
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+                            <div>
+
+                                <label for="totalPrice" class="block text-sm font-medium text-gray-700 mb-1">3.5 Обща цена в лева на пътуването</label>
+
+                                <input type="number" id="totalPrice" class="form-input w-full rounded-md border-gray-300" placeholder="0.00">
+
+                            </div>
+
+                            <div>
+
+                                <label for="otherPayments" class="block text-sm font-medium text-gray-700 mb-1">3.5.1 Други плащания, включени в цената</label>
+
+                                <input type="text" id="otherPayments" class="form-input w-full rounded-md border-gray-300" placeholder="Пътни и гранични такси">
+
+                            </div>
+
+                            <div>
+
+                                <label for="childDiscount" class="block text-sm font-medium text-gray-700 mb-1">3.5.1.1 Отстъпки за деца до 10/12 г.</label>
+
+                                <input type="text" id="childDiscount" class="form-input w-full rounded-md border-gray-300" placeholder="50 лв.">
+
+                            </div>
+
+                            <div>
+
+                                <label for="adultDiscount" class="block text-sm font-medium text-gray-700 mb-1">3.5.1.2 Отстъпки за трети възрастен</label>
+
+                                <input type="text" id="adultDiscount" class="form-input w-full rounded-md border-gray-300" placeholder="20 лв.">
+
+                            </div>
+
+                            <div>
+
+                                <label for="singleRoomFee" class="block text-sm font-medium text-gray-700 mb-1">3.5.1.3 Доплащане за единична стая</label>
+
+                                <input type="text" id="singleRoomFee" class="form-input w-full rounded-md border-gray-300" placeholder="60 лв.">
+
+                            </div>
+
+                            <div>
+
+                                <label for="extraExcursion" class="block text-sm font-medium text-gray-700 mb-1">3.5.1.4 Други - допълнителна екскурзия</label>
+
+                                <input type="text" id="extraExcursion" class="form-input w-full rounded-md border-gray-300" placeholder="Екскурзия до ... - 30 лв.">
+
+                            </div>
+
+                            <div class="md:col-span-2">
+
+                                <label for="insurance" class="block text-sm font-medium text-gray-700 mb-1">3.5.1.5 Застраховка</label>
+
+                                <input type="text" id="insurance" class="form-input w-full rounded-md border-gray-300" placeholder="Медицинска застраховка 'Помощ при пътуване' с лимит 5000 евро">
+
+                            </div>
+
+                            <div>
+
+                                <label for="finalAmount" class="block text-sm font-medium text-gray-700 mb-1">3.6 Крайна обща дължима сума</label>
+
+                                <input type="number" id="finalAmount" class="form-input w-full rounded-md border-gray-300" placeholder="0.00">
+
+                            </div>
+
+                            <div class="md:col-span-2">
+
+                                <label for="paymentTerms" class="block text-sm font-medium text-gray-700 mb-1">3.7 Начин и срок за плащане</label>
+
+                                <input type="text" id="paymentTerms" class="form-input w-full rounded-md border-gray-300" placeholder="По банков път до ДД.ММ.ГГГГ">
+
+                            </div>
+
+                            <div>
+
+                                <label for="depositAmount" class="block text-sm font-medium text-gray-700 mb-1">Депозит (лв.)</label>
+
+                                <input type="number" id="depositAmount" class="form-input w-full rounded-md border-gray-300" placeholder="0.00">
+
+                            </div>
+
+                            <div>
+
+                                <label for="finalPayment" class="block text-sm font-medium text-gray-700 mb-1">Остатък от пълната сума в размер на</label>
+
+                                <input type="text" id="finalPayment" class="form-input w-full rounded-md border-gray-300" placeholder="... лв. до ДД.ММ.ГГГГ">
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </form>
+
+            </div>
+
+            
+
+            <!-- Action Buttons -->
+
+            <div class="px-8 pb-8">
+
+                <button type="button" id="generate-pdf-btn" class="w-full inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all transform hover:scale-105">
+
+                    Генерирай Договор
+
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+
+    <!-- Loading Modal -->
+
+    <div id="loading-modal" class="fixed inset-0 bg-gray-900 bg-opacity-60 flex items-center justify-center z-50 hidden">
+
+        <div class="flex flex-col items-center text-white">
+
+            <svg class="animate-spin h-10 w-10 text-white mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+
+            </svg>
+
+            <p class="text-lg font-semibold">Генериране на PDF...</p>
+
+            <p>Моля, изчакайте.</p>
+
+        </div>
+
+    </div>
+
+
+
+    <!-- Hidden content for PDF generation, divided into 6 logical pages -->
+
+    <div id="pdf-content">
+
+        <!-- Section 1: Main Contract Header -->
+
+        <div class="pdf-logical-page">
+
+            <h1>ДОГОВОР ЗА ТУРИСТИЧЕСКИ ПАКЕТ № <span id="pdf-contractNumber"></span></h1>
+
+            <p style="text-align: center;">съгласно разпоредбите на Закона за туризма</p>
+
+            <p>Днес, <span id="pdf-signingDate"></span> в гр. Ракитово, се подписа настоящия договор за пътуване между:</p>
+
+            <p>
+
+                <b>“ДАЙНАМЕКС ТУР” ЕООД</b> с удостоверение за туроператор № РК-01-8569/15.04.2025г., с адрес на управление гр. Ракитово, ул. "Васил Куртев" №12А, тел. 0879976446, Булстат № BG208193140 , представлявана и управлявана от КРАСИМИР ЕМИЛОВ АНАНОВ, наричан по долу за краткост <b>ТУРОПЕРАТОР</b> от една страна и
+
+            </p>
+
+            <p>
+
+                ИМЕНА: <b id="pdf-mainTouristName"></b>, ЕГН: <b id="pdf-mainTouristEGN"></b>, Л.К. №: <b id="pdf-mainTouristIdCard"></b>,
+
+                АДРЕС: <b id="pdf-mainTouristAddress"></b>, GSM: <b id="pdf-mainTouristPhone"></b>, EMAIL: <b id="pdf-mainTouristEmail"></b>
+
+            </p>
+
+            <p>от друга страна, наричан за краткост <b>ПОТРЕБИТЕЛ</b> се сключи настоящият договор за следното:</p>
+
+            <div id="pdf-tourists-table-container"></div>
+
+        </div>
+
+
+
+        <!-- Section 2: Subject of the Contract & Financials -->
+
+        <div class="pdf-logical-page">
+
+            <h2>І. ПРЕДМЕТ НА ДОГОВОРА</h2>
+
+            <p>1. Потребителят възлага и заплаща на Туроператора да му предостави туристическо пътуване при определен маршрут и платена от него цена при условията на настоящия договор.</p>
+
+            <p>2. Туроператорът приема да организира туристическото пътуване на Потребителя по определен маршрут заплащане на договорената цена при условията на настоящия договор.</p>
+
+            <p>3. Организирано туристическо пътуване е при следните условия:</p>
+
+            <p><b>3.1. Маршрут на пътуването</b><br>
+
+                Начална дата на пътуването: <span id="pdf-startDate"></span> &nbsp;&nbsp;Крайна дата на пътуването: <span id="pdf-endDate"></span><br>
+
+                Продължителност на пътуването: <span id="pdf-tripDuration"></span>
+
+            </p>
+
+            <p><b>3.2. Основни услуги, включени в общата цена</b><br>
+
+                1. Транспорт: <span id="pdf-transportDesc"></span><br>
+
+                Час и място на тръгване: <span id="pdf-departureInfo"></span><br>
+
+                Час и място на връщане: <span id="pdf-returnInfo"></span><br>
+
+                2. Настаняване: <span id="pdf-accommodationDesc"></span><br>
+
+                Брой и вид стаи: <span id="pdf-roomType"></span><br>
+
+                3. Брой и вид на храненията, включени в пакетната цена: <span id="pdf-mealsDesc"></span>
+
+            </p>
+
+            <p><b>3.3. Други услуги, включени в общата цена:</b> <span id="pdf-otherServices"></span></p>
+
+            <p><b>3.4. Специални изисквания на потребителя, за които е постигнато съгласие между двете страни по този договор:</b> <span id="pdf-specialReqs"></span></p>
+
+            <p><b>3.5. Обща цена в лева на пътуването:</b> <span id="pdf-totalPrice"></span></p>
+
+            <p><b>3.5.1. Други плащания, включени в цената:</b> <span id="pdf-otherPayments"></span></p>
+
+            <p><b>3.5.1.1. Отстъпки за деца до 10/12 г., настанени с двама възрастни в двойна стая:</b> <span id="pdf-childDiscount"></span></p>
+
+            <p><b>3.5.1.2. Отстъпки за трети възрастен в тройна стая, общо:</b> <span id="pdf-adultDiscount"></span></p>
+
+            <p><b>3.5.1.3. Доплащане за единична стая:</b> <span id="pdf-singleRoomFee"></span></p>
+
+            <p><b>3.5.1.4. Други - допълнителна екскурзия:</b> <span id="pdf-extraExcursion"></span></p>
+
+            <p><b>3.5.1.5. Застраховка:</b> <span id="pdf-insurance"></span></p>
+
+            <p><b>3.6 Крайна обща дължима сума:</b> <span id="pdf-finalAmount"></span></p>
+
+            <p><b>3.7 Начин и срок за плащане на пълната сума по пътуването:</b> <span id="pdf-paymentTerms"></span></p>
+
+            <p>ПОТВЪРЖДАВАМ от свое име и от името на гореизброените туристи, че съм запознат с условията за записване и програмата на пътуването и внасям депозит от <span id="pdf-depositAmount"></span> лв.</p>
+
+            <p>Потребителят се задължава да заплати остатъка от пълната сума в размер на <span id="pdf-finalPayment"></span>.</p>
+
+            <div class="signatures">
+
+                <span>ЗА ТУРОПЕРАТОРА</span>
+
+                <span>ЗА ПОТРЕБИТЕЛЯ</span>
+
+            </div>
+
+            <div class="signatures" style="margin-top: 80px;">
+
+                <span>.........................</span>
+
+                <span>.........................</span>
+
+            </div>
+
+        </div>
+
+
+
+        <!-- Section 3: General Conditions Part 1 -->
+
+        <div class="pdf-logical-page">
+
+            <p><b>Туристическа програма</b> - означава разглеждане на посещаваното селище пеша и/или с градски транспорт, като обектите се разглеждат отвън, освен ако в програмата не с упоменато изрично „посещение" на туристическия обект или друго. Екскурзоводът от фирмата няма право да води групата в музеи , където това право имат само местни оторизирани екскурзоводи, които при желание от страна на групата могат да бъдат наети срещу допълнително заплащане. В някои от посещаваните градове се налага ползването на обществен транспорт, който Потребителят плаща за своя сметка.</p>
+
+            <p><b>8.2. Панорамна обиколка</b> -означава разглеждане на посещаваното селище с автобуса, като в някои случаи може да се спре и за пешеходно разглеждане по преценка на водача/екскурзовода.</p>
+
+            <p><b>8.3. Свободно време</b> -означава време, косто се дава от водача/екскурзовода на групата обикновено след предварително запознаване със съответното селище и което потребителят сам преценява как да оползотвори. През това време водачът/екскурзоводът на групата и автобусът не са на разположение на туристите.</p>
+
+            <p><b>8.4. Екскурзия по желание</b> -означава допълнителна факултативна екскурзия, алтернативна на свободното време, цената на която не е включена в общата цена, освен ако в програмата не е упоменато друго. Цената на екскурзията по желание се вписва в графа „цената не включва" в съответната програма.</p>
+
+            <p><b>8.5. Екскурзия без нощен преход</b> - означава организирано туристическо пътуване с обща цена по време на което няма предвидени нощувки в използваното превозно средство.</p>
+
+            <p><b>8.6. Екскурзия с нощен преход</b> - означава организирано туристическо пътуване с обща цена по време на което има предвидена поне една нощувка в използваното превозно средство.</p>
+
+            <p><b>8.7. Закуска / вечеря / друг вид хранене на блок маса (шведска маса, открит бюфет)</b> -означава хранене при което храната е поставена на общ плот или маса от която потребителят може да избере и консумира различни храни и питиета по своя преценка. Блок масата обикновено включва: колбас, кашкавал, масло, конфитюр, чай, кафе и др. Разнообразието и богатството на храните и напитките зависи от съответното заведение за хранене и развлечение.</p>
+
+            <p><b>8.8. Посещение на туристически обект</b> означава разглеждане отвътре на посочения обект, като в програмата изрично е посочено понятието „ПОСЕЩЕНИЕ". В повечето случаи посещенията на туристически обекти изискват заплащане на входна такса (закупуване на билет), освен ако в програмата не е упоменато друго.Препоръчваме: потребителят да осигури още в България сумите, които предвижда да похарчи в съответните валути за посещаваните държави. Музейните такси се плащат само в местна валута</p>
+
+        </div>
+
+
+
+        <!-- Section 4: General Conditions Part 2 -->
+
+        <div class="pdf-logical-page">
+
+            <p><b>8.9. Нощувка в</b> - означава, че нощувката е в рамките на обявеното селище.</p>
+
+            <p><b>8.10.Нощувка в района на</b> - означава, че нощувката е в друго селище в близост до обявеното селище.</p>
+
+            <p><b>9. Спорове и рекламации:</b></p>
+
+            <p>9.1. Всички рекламации, свързани с качеството на платените услуги, в т.ч. конкретните условия в хотелите и хотелските вериги, трябва да бъдат предявени от потребителя на място пред доставчика на услугите и представител/екскурзовод на туроператора или пред обслужващата фирма туроператор за отстраняване на слабостите. В случай, че заинтересованите страни не са удовлетворени, предявяването на рекламацията става в писмена или друга подходяща форма, позволяваща то да бъде възпроизведено в срок до 14 календарни дни след крайната дата на организираното пътуване.</p>
+
+            <p>9.2. Туроператорът се задължава в срок от 10 дни след получаване на рекламацията да даде своето писмено становище по нея.</p>
+
+            <p>Забележка: Потребителят не трябва да забравя, че категорията на хотелите и автобусите се определя от оторизираните власти на съответната страна, а не от туроператора.</p>
+
+            <p><b>10. Ред за изменение и прекратяване на договора:</b></p>
+
+            <p>10.1. Настоящият договор може да бъде отменян, изменян и допълван с двустранни писмени анекси и при спазване разпоредбите на 3Т.</p>
+
+            <p>10.2.Всяка от страните има право да поиска изменение или да прекрати Договора във връзка със съществени изменения на обстоятелствата,</p>
+
+            <p>10.3.Споразумение за изменение или уведомление за прекратяване на Договора се извършва в писмена форма.</p>
+
+            <p>10.4. При изменение на Договора задълженията на страните се запазват в изменен вид. При прекратяване на Договора задълженията на страните се прекратяват след уреждане на финансовите взаимоотношения</p>
+
+            <p>10.5. За неуредени в договора выпроси се прилагат разпоредбите на 3Т, 33П, Търговския закон, Закона за задълженията и договорите и останалото действащо законодателство на Р...България.</p>
+
+            <p>10.6. Анекс към Договора за организирано пътуване е подробно описание на туристическата програма.</p>
+
+            <p>10.7. Потребителят декларира с подписа си, че той и записаните от него туристи са запознати с програмата на екскурзията и общите условия на организираното пътуване, описани в настоящия договор и ги приемат.</p>
+
+            <p>10.8. Този договор се изготви в два екземпляра, по един за всяка от страните и се подписа на всяка страница, както следва:</p>
+
+            <div class="signatures">
+
+                <span>ЗА ТУРОПЕРАТОРА</span>
+
+                <span>ЗА ПОТРЕБИТЕЛЯ</span>
+
+            </div>
+
+             <div class="signatures" style="margin-top: 80px;">
+
+                <span>.........................</span>
+
+                <span>.........................</span>
+
+            </div>
+
+        </div>
+
+        
+
+        <!-- Section 5: GDPR Declaration -->
+
+        <div class="pdf-logical-page">
+
+            <h2>ПРИЛОЖЕНИЕ Nº 1 КЪМ ДОГОВОР ЗА ТУРИСТИЧЕСКИ ПАКЕТ</h2>
+
+            <h2 style="margin-top:0;">ДЕКЛАРАЦИЯ - СЪГЛАСИЕ ЗА ОБРАБОТКА НА ЛИЧНИ ДАННИ</h2>
+
+            <p>В качеството си на администратор на лични данни, „ДАЙНАМЕКС ТУР" ЕООД, ЕИК 208193140, следва да е получило и/или ще получи от Вас лични данни, които ще обработва, за да предостави услугите си. В случай, че не предоставите личните си данни, „ДАЙНАМЕКС ТУР" няма да може да предостави услугите си, включително да направи резервация от Ваше име за желания период и място.</p>
+
+            <p>С подписа си по-долу Вие потвърждавате, че:</p>
+
+            <p>- Сте получили на хартиен носител Политиката ни за поверителност с подробна информация за това какви Ваши лични данни събиране и обработваме, за каква цел, за какъв срок и на какво основание ги обработваме, на кого ги представяме и какви са Вашите права във връзка с тази обработка;</p>
+
+            <p>- Сме Ви информирали, че посочената Политика за поверителност е налична и онлайн на интернет адрес http://dynamextour.com;</p>
+
+            <p>- Ако за целите на предоставянето на услугата, която се закупили, сте ни предоставили или ще ни предоставите лични данни на трети лица (например приятели, познати или членове на семейството, които ще пътуват с Вас), Вие декларирате, че ще информирате тези трети лица за това, че сте ни предоставили техните лични данни, както и да им предоставите екземпляр от Политиката за поверителност или да ги насочите към посочения по-горе адрес, на който то е достъпно чрез уеб-страницата;</p>
+
+            <p>- Декларирате истинността на предоставената ни информация, включително актуалността и верността на личните данни.</p>
+
+            <br><br>
+
+            <p>........................................................................</p>
+
+            <p>ТРИ ИМЕНА И ПОДПИС</p>
+
+            <p>ДАТА: <span id="pdf-declarationDate1"></span></p>
+
+        </div>
+
+
+
+        <!-- Section 6: Information Confirmation Declaration -->
+
+        <div class="pdf-logical-page">
+
+            <h2 style="margin-top: 0;">ДЕКЛАРАЦИЯ - ПОТВЪРЖДЕНИЕ ЗА ИНФОРМИРАНОСТ ОТНОСНО УСЛОВИЯТА И ОСНОВНИТЕ ХАРАКТЕРИСТИКИ НА ПАКЕТА</h2>
+
+            <p>Долуподписаният <b id="pdf-declarationName"></b>, ЕГН: <b id="pdf-declarationEGN"></b>, телефон за връзка, <b id="pdf-declarationPhone"></b> в качеството ми на Потребител по Договор Nº <b id="pdf-declarationContractNumber"></b></p>
+
+            <p>ДЕКЛАРИРАМ, ЧЕ:</p>
+
+            <p>Преди да подпиша договора за туристически пакет, от Туроператора и/ или Турагента, в това число и чрез електронния сайт на Дружеството, съм получил цялата съпътстваща информация за условията на пакета, който желая да закупя, съответно и всички данни за моето пътуване и почивка, получил съм подробна и пълна информация на всички поставени от мен вьпроси, предлаганият туристически пакет съм избрал доброволно и съм съгласен изцяло с неговите условия и характеристики, в това число, но не само и с условията за плащане, минималния брой участници, за които ще се осъществи програмата, получил съм информация и за възможността си да сключа договор за доброволна застраховка за покриване на разходи в случай, че прекратя туристическия пакет, като цялата получена от мен преддоговорната информация ме удовлетворява напълно и в знак на съгласие от мое име и от името на записаните от мен лица, полагам подписа си под настоящата Декларация и подписвам Договора за туристически пакет, заедно с всички негови приложения.</p>
+
+            <br><br>
+
+            <p>ДАТА: <span id="pdf-declarationDate2"></span></p>
+
+            <p style="text-align: right; margin-top: 20px;">(подпис) ................................</p>
+
+        </div>
+
+    </div>
+
+
+
+    <script>
+
+        document.addEventListener('DOMContentLoaded', function () {
+
+            // --- UI Elements ---
+
+            const tabNav = document.getElementById('tab-nav');
+
+            const tabContents = document.querySelectorAll('.tab-content');
+
+            const addTouristBtn = document.getElementById('add-tourist-btn');
+
+            const touristsTableBody = document.getElementById('tourists-table-body');
+
+            const startDateInput = document.getElementById('startDate');
+
+            const endDateInput = document.getElementById('endDate');
+
+            const durationInput = document.getElementById('tripDuration');
+
+            const generatePdfBtn = document.getElementById('generate-pdf-btn');
+
+            const loadingModal = document.getElementById('loading-modal');
+
+
+
+            let touristCount = 0;
+
+
+
+            // --- Initial Setup ---
+
+            const today = new Date().toISOString().split('T')[0];
+
+            document.getElementById('signingDate').value = today;
+
+
+
+            // --- Event Listeners ---
+
+            tabNav.addEventListener('click', (e) => {
+
+                if (e.target.tagName === 'BUTTON') {
+
+                    const targetTab = e.target.dataset.tab;
+
+                    tabNav.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+
+                    e.target.classList.add('active');
+
+                    tabContents.forEach(content => {
+
+                        content.classList.toggle('hidden', content.id !== targetTab);
+
+                    });
+
+                }
+
+            });
+
+
+
+            addTouristBtn.addEventListener('click', addTouristRow);
+
+
+
+            touristsTableBody.addEventListener('click', function(e) {
+
+                const removeBtn = e.target.closest('.remove-tourist-btn');
+
+                if (removeBtn) {
+
+                    removeBtn.closest('tr').remove();
+
+                    updateTouristRowNumbers();
+
+                }
+
+            });
+
+
+
+            startDateInput.addEventListener('change', calculateDuration);
+
+            endDateInput.addEventListener('change', calculateDuration);
+
+
+
+            generatePdfBtn.addEventListener('click', handlePdfGeneration);
+
+
+
+            // --- Functions ---
+
+            function addTouristRow() {
+
+                touristCount++;
+
+                const row = document.createElement('tr');
+
+                row.classList.add('bg-white', 'border-b', 'hover:bg-gray-50');
+
+                row.innerHTML = `
+
+                    <td class="px-4 py-3 text-center font-medium text-gray-700"></td>
+
+                    <td class="px-6 py-2"><input type="text" class="form-input w-full rounded-md border-gray-300 text-sm tourist-name" placeholder="Трите имена"></td>
+
+                    <td class="px-6 py-2"><input type="text" class="form-input w-full rounded-md border-gray-300 text-sm tourist-egn" placeholder="ЕГН/ЛНЧ"></td>
+
+                    <td class="px-6 py-2"><input type="text" class="form-input w-full rounded-md border-gray-300 text-sm tourist-id" placeholder="№ паспорт/л.к."></td>
+
+                    <td class="px-4 py-2 text-center">
+
+                        <button type="button" class="text-red-500 hover:text-red-700 remove-tourist-btn p-1 rounded-full hover:bg-red-100 transition-colors">
+
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clip-rule="evenodd" /></svg>
+
+                        </button>
+
+                    </td>
+
+                `;
+
+                touristsTableBody.appendChild(row);
+
+                updateTouristRowNumbers();
+
+            }
+
+
+
+            function updateTouristRowNumbers() {
+
+                const rows = touristsTableBody.querySelectorAll('tr');
+
+                rows.forEach((row, index) => {
+
+                    row.querySelector('td:first-child').textContent = index + 1;
+
+                });
+
+                touristCount = rows.length;
+
+            }
+
+
+
+            function calculateDuration() {
+
+                const startDate = new Date(startDateInput.value);
+
+                const endDate = new Date(endDateInput.value);
+
+                if (startDateInput.value && endDateInput.value && endDate >= startDate) {
+
+                    const diffTime = Math.abs(endDate - startDate);
+
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+
+                    durationInput.value = `${diffDays} дни / ${diffDays - 1} нощувки`;
+
+                } else {
+
+                    durationInput.value = '';
+
+                }
+
+            }
+
+            
+
+            async function handlePdfGeneration() {
+
+                loadingModal.classList.remove('hidden');
+
+                populatePdfContent();
+
+
+
+                const { jsPDF } = window.jspdf;
+
+                const logicalPages = document.querySelectorAll('.pdf-logical-page');
+
+                const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
+
+                const pdfPageWidth = doc.internal.pageSize.getWidth();
+
+                const pdfPageHeight = doc.internal.pageSize.getHeight();
+
+
+
+                try {
+
+                    for (let i = 0; i < logicalPages.length; i++) {
+
+                        const pageContent = logicalPages[i];
+
+                        
+
+                        if (i > 0) {
+
+                            doc.addPage();
+
+                        }
+
+
+
+                        const canvas = await html2canvas(pageContent, {
+
+                            scale: 2, useCORS: true, width: pageContent.offsetWidth,
+
+                        });
+
+
+
+                        const imgData = canvas.toDataURL('image/png');
+
+                        const ratio = canvas.height / canvas.width;
+
+                        const pdfImgHeight = pdfPageWidth * ratio;
+
+                        let heightLeft = pdfImgHeight;
+
+                        let position = 0;
+
+
+
+                        doc.addImage(imgData, 'PNG', 0, position, pdfPageWidth, pdfImgHeight);
+
+                        heightLeft -= pdfPageHeight;
+
+
+
+                        while (heightLeft > 1) {
+
+                            position -= pdfPageHeight;
+
+                            doc.addPage();
+
+                            doc.addImage(imgData, 'PNG', 0, position, pdfPageWidth, pdfImgHeight);
+
+                            heightLeft -= pdfPageHeight;
+
+                        }
+
+                    }
+
+                    
+
+                    const fileName = `Dogovor-${document.getElementById('contractNumber').value || 'XXXX'}.pdf`;
+
+                    doc.save(fileName);
+
+
+
+                } catch (err) {
+
+                    console.error("Error generating PDF:", err);
+
+                    alert("Възникна грешка при генерирането на PDF файла. Моля, проверете конзолата за повече информация.");
+
+                } finally {
+
+                    loadingModal.classList.add('hidden');
+
+                }
+
+            }
+
+
+
+            function populatePdfContent() {
+
+                const formatDate = (dateString) => {
+
+                    if (!dateString) return '..................';
+
+                    const [year, month, day] = dateString.split('-');
+
+                    return `${day}.${month}.${year}г.`;
+
+                };
+
+
+
+                const getValue = (id, suffix = '') => (document.getElementById(id).value || '..................') + suffix;
+
+                const getOptionalValue = (id, fallback = 'Няма.') => document.getElementById(id).value || fallback;
+
+
+
+                // Populate contract data
+
+                document.getElementById('pdf-contractNumber').textContent = getValue('contractNumber').replace('..................', '');
+
+                document.getElementById('pdf-signingDate').textContent = formatDate(document.getElementById('signingDate').value);
+
+                document.getElementById('pdf-mainTouristName').textContent = getValue('mainTouristName');
+
+                document.getElementById('pdf-mainTouristEGN').textContent = getValue('mainTouristEGN');
+
+                document.getElementById('pdf-mainTouristIdCard').textContent = getValue('mainTouristIdCard');
+
+                document.getElementById('pdf-mainTouristAddress').textContent = getValue('mainTouristAddress');
+
+                document.getElementById('pdf-mainTouristPhone').textContent = getValue('mainTouristPhone');
+
+                document.getElementById('pdf-mainTouristEmail').textContent = getValue('mainTouristEmail');
+
+                
+
+                // Populate trip details
+
+                document.getElementById('pdf-startDate').textContent = formatDate(document.getElementById('startDate').value);
+
+                document.getElementById('pdf-endDate').textContent = formatDate(document.getElementById('endDate').value);
+
+                document.getElementById('pdf-tripDuration').textContent = getValue('tripDuration');
+
+                document.getElementById('pdf-transportDesc').textContent = getValue('transportDesc');
+
+                document.getElementById('pdf-departureInfo').textContent = getValue('departureInfo');
+
+                document.getElementById('pdf-returnInfo').textContent = getValue('returnInfo');
+
+                document.getElementById('pdf-accommodationDesc').textContent = getValue('accommodationDesc');
+
+                document.getElementById('pdf-roomType').textContent = getValue('roomType');
+
+                document.getElementById('pdf-mealsDesc').textContent = getValue('mealsDesc');
+
+                document.getElementById('pdf-otherServices').textContent = getOptionalValue('otherServices');
+
+                document.getElementById('pdf-specialReqs').textContent = getOptionalValue('specialReqs');
+
+
+
+                // Populate financials
+
+                document.getElementById('pdf-totalPrice').innerHTML = getValue('totalPrice', ' лв.');
+
+                document.getElementById('pdf-otherPayments').innerHTML = getOptionalValue('otherPayments');
+
+                document.getElementById('pdf-childDiscount').innerHTML = getOptionalValue('childDiscount', 'Не е приложимо.');
+
+                document.getElementById('pdf-adultDiscount').innerHTML = getOptionalValue('adultDiscount', 'Не е приложимо.');
+
+                document.getElementById('pdf-singleRoomFee').innerHTML = getOptionalValue('singleRoomFee', 'Не е приложимо.');
+
+                document.getElementById('pdf-extraExcursion').innerHTML = getOptionalValue('extraExcursion');
+
+                document.getElementById('pdf-insurance').innerHTML = getValue('insurance');
+
+                document.getElementById('pdf-finalAmount').innerHTML = getValue('finalAmount', ' лв.');
+
+                document.getElementById('pdf-paymentTerms').innerHTML = getValue('paymentTerms');
+
+                document.getElementById('pdf-depositAmount').textContent = getValue('depositAmount');
+
+                document.getElementById('pdf-finalPayment').innerHTML = getValue('finalPayment');
+
+
+
+                // Populate declarations
+
+                document.getElementById('pdf-declarationDate1').textContent = formatDate(document.getElementById('signingDate').value);
+
+                document.getElementById('pdf-declarationDate2').textContent = formatDate(document.getElementById('signingDate').value);
+
+                document.getElementById('pdf-declarationName').textContent = getValue('mainTouristName');
+
+                document.getElementById('pdf-declarationEGN').textContent = getValue('mainTouristEGN');
+
+                document.getElementById('pdf-declarationPhone').textContent = getValue('mainTouristPhone');
+
+                document.getElementById('pdf-declarationContractNumber').textContent = getValue('contractNumber').replace('..................', '');
+
+
+
+                // Build and insert the tourist table for the PDF
+
+                const pdfTableContainer = document.getElementById('pdf-tourists-table-container');
+
+                const formRows = touristsTableBody.querySelectorAll('tr');
+
+                let tableHTML = '<table class="tourist-table-pdf"><thead><tr><th>№</th><th>Трите имена по док. за самоличност</th><th>ЕГН/ЛНЧ</th><th>№ паспорт/л.к.</th></tr></thead><tbody>';
+
+                
+
+                let rowsData = [];
+
+                if (formRows.length > 0) {
+
+                    formRows.forEach((row, index) => {
+
+                        const name = row.querySelector('.tourist-name').value || '';
+
+                        const egn = row.querySelector('.tourist-egn').value || '';
+
+                        const id = row.querySelector('.tourist-id').value || '';
+
+                        rowsData.push({index: index + 1, name, egn, id});
+
+                    });
+
+                }
+
+                
+
+                // Always generate 13 rows for the PDF table
+
+                for (let i = 0; i < 13; i++) {
+
+                    const data = rowsData[i];
+
+                    tableHTML += `<tr>
+
+                        <td>${i + 1}</td>
+
+                        <td>${data ? data.name : ''}</td>
+
+                        <td>${data ? data.egn : ''}</td>
+
+                        <td>${data ? data.id : ''}</td>
+
+                    </tr>`;
+
+                }
+
+
+
+                tableHTML += '</tbody></table>';
+
+                pdfTableContainer.innerHTML = tableHTML;
+
+            }
+
+        });
+
+    </script>
+
+</body>
+
+</html>
