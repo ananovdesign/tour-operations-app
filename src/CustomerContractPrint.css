@@ -46,41 +46,42 @@
 }
 
 /* --------------------------------------------------- */
-/* Print-specific styles for the contract content */
+/* Print-specific styles to hide everything except the contract content */
 /* --------------------------------------------------- */
 
-/* Hide elements that should not be printed */
 @media print {
-    body {
-        background-color: #fff;
-        margin: 0;
-        padding: 0;
-        /* Ensure no unwanted margins or padding from the browser */
-    }
-
-    /* Hide everything that is not the .print-only content */
-    .print-preview-container > *:not(.print-only) {
-        display: none !important;
-    }
-
-    /* Make the .print-only container visible and take full page */
-    .print-only {
-        display: block !important;
-        position: static !important; /* Override absolute positioning */
-        left: auto !important;
-        width: 100% !important;
-        height: auto !important;
+    /* Hide everything on the page by default */
+    body * {
+        visibility: hidden !important;
+        height: 0 !important; /* Collapse height to avoid empty space */
+        overflow: hidden !important; /* Hide any overflowing content */
         margin: 0 !important;
         padding: 0 !important;
         box-shadow: none !important;
-        overflow: visible !important;
+        border: none !important;
     }
 
-    .no-print {
-        display: none !important;
+    /* Make the specific print-only container and its children visible */
+    .print-only, .print-only * {
+        visibility: visible !important;
+        height: auto !important; /* Restore auto height */
+        overflow: visible !important; /* Restore visible overflow */
+        margin: 0 !important;
+        padding: 0 !important;
+        box-shadow: none !important;
+        border: none !important;
     }
 
-    /* Styles for the logical pages within the print-only div */
+    /* Position the print-only container to take up the full print area */
+    .print-only {
+        position: absolute !important;
+        left: 0 !important;
+        top: 0 !important;
+        width: 100% !important;
+        /* The height will be controlled by page-break-after on .pdf-logical-page */
+    }
+
+    /* Ensure specific elements inside print-only are formatted for print */
     .pdf-logical-page {
         background: white;
         font-family: 'Times New Roman', Times, serif;
@@ -89,8 +90,8 @@
         padding: 15mm; /* Standard A4 margins */
         box-sizing: border-box;
         page-break-after: always; /* Force new page after each logical page */
-        min-height: 297mm; /* Ensure each page fills A4 height */
         width: 210mm; /* Ensure each page fills A4 width */
+        min-height: 297mm; /* Ensure each page fills A4 height */
     }
 
     .pdf-logical-page:last-child {
@@ -110,13 +111,9 @@
     .pdf-logical-page .tourist-table-pdf { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 9pt; }
     .pdf-logical-page .tourist-table-pdf th,
     .pdf-logical-page .tourist-table-pdf td { border: 1px solid black; padding: 4px; text-align: left; }
-}
 
-/* Hide the print-only content from screen view by default */
-.print-only {
-    position: absolute;
-    left: -9999px; /* Move off-screen */
-    width: 210mm; /* Maintain A4 width for correct rendering when printed */
-    color: black; /* Ensure text is black for printing */
-    overflow: hidden; /* Hide overflow on screen */
+    /* Hide no-print elements even within the main component structure on screen */
+    .no-print {
+        display: none !important;
+    }
 }
