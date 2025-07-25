@@ -1,21 +1,15 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import html2canvas from 'html2canvas'; // Make sure you have html2canvas installed: npm install html2canvas
-import { jsPDF } from 'jspdf'; // Make sure you have jspdf installed: npm install jspdf
-
-// Make sure these are installed:
-// npm install html2canvas jspdf
+import './CustomerContractPrint.css'; // Import the new CSS file
 
 const CustomerContractPrint = ({ reservationData, onPrintFinish }) => {
-    const pdfContentRef = useRef(null); // Ref for the hidden PDF content div
     const formRef = useRef(null); // Ref for the form to interact with its inputs
-    const [loading, setLoading] = useState(false);
     const [tourists, setTourists] = useState([]); // State for additional tourists in the form
+    const [activeTab, setActiveTab] = useState('tab-1'); // State for active tab in the form
 
     // Function to format dates for Bulgarian locale
     const formatDate = useCallback((dateString) => {
         if (!dateString) return '..................';
         const date = new Date(dateString);
-        // Ensure correct day, month, year formatting for Bulgarian display
         const day = String(date.getDate()).padStart(2, '0');
         const month = String(date.getMonth() + 1).padStart(2, '0'); // Months are 0-indexed
         const year = date.getFullYear();
@@ -39,7 +33,6 @@ const CustomerContractPrint = ({ reservationData, onPrintFinish }) => {
             }
 
             // Populate accompanying tourists
-            // Filter out the lead tourist if they exist, or just use all if no specific lead
             const accompanyingTourists = reservationData.tourists ? reservationData.tourists.slice(1) : [];
             setTourists(accompanyingTourists.map(t => ({
                 fullName: `${t.firstName || ''} ${t.fatherName || ''} ${t.familyName || ''}`.trim(),
@@ -49,7 +42,7 @@ const CustomerContractPrint = ({ reservationData, onPrintFinish }) => {
 
             // Populate reservation details
             form.elements.contractNumber.value = reservationData.reservationNumber || '';
-            form.elements.signingDate.value = reservationData.creationDate || new Date().toISOString().split('T')[0]; // Use creationDate for signingDate
+            form.elements.signingDate.value = reservationData.creationDate || new Date().toISOString().split('T')[0];
             form.elements.startDate.value = reservationData.checkIn || '';
             form.elements.endDate.value = reservationData.checkOut || '';
             
@@ -64,7 +57,7 @@ const CustomerContractPrint = ({ reservationData, onPrintFinish }) => {
                 form.elements.tripDuration.value = '';
             }
 
-            // Static or derived values
+            // Static or derived values based on your data connections
             form.elements.transportDesc.value = 'СОБСТВЕН ТРАНСПОРТ - ОСИГУРЕН ОТ ТУРИСТИТЕ';
             form.elements.departureInfo.value = 'СОБСТВЕН ТРАНСПОРТ';
             form.elements.returnInfo.value = 'СОБСТВЕН ТРАНСПОРТ';
@@ -72,11 +65,11 @@ const CustomerContractPrint = ({ reservationData, onPrintFinish }) => {
             form.elements.accommodationDesc.value = `${reservationData.hotel || ''}, ${reservationData.place || ''}, ${reservationData.totalNights || 0} нощувки`;
             form.elements.roomType.value = reservationData.roomType || '';
             form.elements.mealsDesc.value = reservationData.food || '';
-            form.elements.otherServices.value = 'Водач-представител на фирмата по време на цялото пътуване;'; // Default
-            form.elements.specialReqs.value = reservationData.specialReqs || ''; // Assuming you might add this to reservationForm eventually
+            form.elements.otherServices.value = 'Водач-представител на фирмата по време на цялото пътуване;';
+            form.elements.specialReqs.value = reservationData.specialReqs || '';
             
             form.elements.totalPrice.value = (reservationData.finalAmount || 0).toFixed(2);
-            form.elements.insurance.value = 'Медицинска застраховка "Помощ при пътуване" с лимит 5000 евро'; // Default
+            form.elements.insurance.value = 'Медицинска застраховка "Помощ при пътуване" с лимит 5000 евро';
             form.elements.depositAmount.value = (reservationData.depositAmount || 0).toFixed(2);
 
             const remainingAmount = (reservationData.finalAmount || 0) - (reservationData.depositAmount || 0);
@@ -89,210 +82,84 @@ const CustomerContractPrint = ({ reservationData, onPrintFinish }) => {
             form.elements.finalPayment.value = `${remainingAmount.toFixed(2)} лв. до ${formattedFinalPaymentDate}`;
             form.elements.paymentTerms.value = `Плащането е в брой в нашия офис в Ракитово, ул. Христо Ботев 4 или по банков път със следните данни:\nIBAN BG87BPBI79301036586601\nПолучател: ДАЙНАМЕКС ТУР\nОснование: ${reservationData.reservationNumber || ''}`;
 
-            // Make pre-filled fields readonly and grey them out
+            // Set all form fields to read-only and add grey background
             Object.keys(form.elements).forEach(key => {
                 const element = form.elements[key];
-                if (element.id && (
-                    element.id.startsWith('mainTourist') ||
-                    element.id === 'contractNumber' ||
-                    element.id === 'signingDate' ||
-                    element.id === 'startDate' ||
-                    element.id === 'endDate' ||
-                    element.id === 'tripDuration' ||
-                    element.id === 'transportDesc' ||
-                    element.id === 'departureInfo' ||
-                    element.id === 'returnInfo' ||
-                    element.id === 'accommodationDesc' ||
-                    element.id === 'roomType' ||
-                    element.id === 'mealsDesc' ||
-                    element.id === 'totalPrice' ||
-                    element.id === 'insurance' ||
-                    element.id === 'finalAmount' ||
-                    element.id === 'depositAmount' ||
-                    element.id === 'finalPayment' ||
-                    element.id === 'paymentTerms'
-                )) {
+                // Ensure it's an input/textarea/select and not a button
+                if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA' || element.tagName === 'SELECT') {
                     element.readOnly = true;
                     element.classList.add('bg-gray-100', 'cursor-not-allowed');
                 }
             });
-            // Disable 'Add Tourist' button as tourists come from reservation data
-            form.querySelector('#add-tourist-btn').disabled = true;
-            form.querySelector('#add-tourist-btn').classList.add('opacity-50', 'cursor-not-allowed');
-
-        }
-    }, [reservationData, formatDate]); // Re-run effect if reservationData changes
-
-
-    const handlePdfGeneration = async () => {
-        setLoading(true);
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
-        const pdfPageWidth = doc.internal.pageSize.getWidth();
-        const pdfPageHeight = doc.internal.pageSize.getHeight();
-
-        try {
-            // Populate hidden PDF content based on current form values and reservationData
-            populatePdfContentForGeneration();
-
-            const logicalPages = pdfContentRef.current.querySelectorAll('.pdf-logical-page');
-
-            for (let i = 0; i < logicalPages.length; i++) {
-                const pageContent = logicalPages[i];
-                
-                if (i > 0) {
-                    doc.addPage();
-                }
-
-                const canvas = await html2canvas(pageContent, {
-                    scale: 2, // Higher scale for better quality
-                    useCORS: true,
-                    // width: pageContent.offsetWidth, // Let html2canvas determine based on scale and content
-                    windowWidth: pageContent.scrollWidth, // Capture full width
-                    windowHeight: pageContent.scrollHeight // Capture full height
-                });
-
-                const imgData = canvas.toDataURL('image/png');
-                const imgWidth = pdfPageWidth; // Use PDF page width
-                const imgHeight = (canvas.height * imgWidth) / canvas.width; // Calculate height based on aspect ratio
-
-                let heightLeft = imgHeight;
-                let position = 0;
-
-                doc.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-                heightLeft -= pdfPageHeight;
-
-                while (heightLeft > 0) {
-                    position = heightLeft - imgHeight; // Calculate position for subsequent pages
-                    doc.addPage();
-                    doc.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-                    heightLeft -= pdfPageHeight;
-                }
+            // Hide the 'Add Tourist' button as tourists come from reservation data
+            const addTouristBtn = form.querySelector('#add-tourist-btn');
+            if (addTouristBtn) {
+                addTouristBtn.style.display = 'none';
             }
-            
-            const fileName = `Dogovor-${formRef.current.elements.contractNumber.value || 'XXXX'}.pdf`;
-            doc.save(fileName);
+        }
+    }, [reservationData, formatDate]);
 
-        } catch (err) {
-            console.error("Error generating PDF:", err);
-            alert("Възникна грешка при генерирането на PDF файла. Моля, проверете конзолата за повече информация.");
-        } finally {
-            setLoading(false);
-            // Optionally, call onPrintFinish after PDF is generated
-            // This allows the parent component to hide this component
+
+    // Handle native print
+    const handlePrintContract = useCallback(() => {
+        // Use a timeout to ensure React has finished rendering updates before printing
+        const timer = setTimeout(() => {
+            window.print();
+        }, 100); // Small delay to ensure content is fully rendered
+
+        // Call onPrintFinish when the print dialog is closed or print is completed/cancelled
+        window.onafterprint = () => {
             onPrintFinish();
-        }
-    };
-
-    // This function populates the hidden PDF content div right before generation
-    const populatePdfContentForGeneration = () => {
-        const form = formRef.current;
-        const getValue = (name, fallback = '..................', suffix = '') => {
-            const element = form.elements[name];
-            return (element && element.value !== '' ? element.value : fallback) + suffix;
+            window.onafterprint = null; // Clean up the event listener
         };
-        const getOptionalValue = (name, fallback = 'Няма.') => form.elements[name].value || fallback;
 
-        document.getElementById('pdf-contractNumber').textContent = getValue('contractNumber', '').replace('..................', '');
-        document.getElementById('pdf-signingDate').textContent = formatDate(form.elements.signingDate.value);
-        document.getElementById('pdf-mainTouristName').textContent = getValue('mainTouristName');
-        document.getElementById('pdf-mainTouristEGN').textContent = getValue('mainTouristEGN');
-        document.getElementById('pdf-mainTouristIdCard').textContent = getValue('mainTouristIdCard');
-        document.getElementById('pdf-mainTouristAddress').textContent = getValue('mainTouristAddress');
-        document.getElementById('pdf-mainTouristPhone').textContent = getValue('mainTouristPhone');
-        document.getElementById('pdf-mainTouristEmail').textContent = getValue('mainTouristEmail');
-        
-        document.getElementById('pdf-startDate').textContent = formatDate(form.elements.startDate.value);
-        document.getElementById('pdf-endDate').textContent = formatDate(form.elements.endDate.value);
-        document.getElementById('pdf-tripDuration').textContent = getValue('tripDuration');
-        document.getElementById('pdf-transportDesc').textContent = getValue('transportDesc');
-        document.getElementById('pdf-departureInfo').textContent = getValue('departureInfo');
-        document.getElementById('pdf-returnInfo').textContent = getValue('returnInfo');
-        document.getElementById('pdf-accommodationDesc').textContent = getValue('accommodationDesc');
-        document.getElementById('pdf-roomType').textContent = getValue('roomType');
-        document.getElementById('pdf-mealsDesc').textContent = getValue('mealsDesc');
-        document.getElementById('pdf-otherServices').textContent = getOptionalValue('otherServices');
-        document.getElementById('pdf-specialReqs').textContent = getOptionalValue('specialReqs');
+        return () => {
+            clearTimeout(timer);
+            window.onafterprint = null; // Clean up on component unmount
+        };
+    }, [onPrintFinish]);
 
-        document.getElementById('pdf-totalPrice').innerHTML = getValue('totalPrice', '0.00', ' лв.');
-        document.getElementById('pdf-otherPayments').innerHTML = getOptionalValue('otherPayments');
-        document.getElementById('pdf-childDiscount').innerHTML = getOptionalValue('childDiscount', 'Не е приложимо.');
-        document.getElementById('pdf-adultDiscount').innerHTML = getOptionalValue('adultDiscount', 'Не е приложимо.');
-        document.getElementById('pdf-singleRoomFee').innerHTML = getOptionalValue('singleRoomFee', 'Не е приложимо.');
-        document.getElementById('pdf-extraExcursion').innerHTML = getOptionalValue('extraExcursion');
-        document.getElementById('pdf-insurance').innerHTML = getValue('insurance');
-        document.getElementById('pdf-finalAmount').innerHTML = getValue('finalAmount', '0.00', ' лв.');
-        document.getElementById('pdf-paymentTerms').innerHTML = getValue('paymentTerms');
-        document.getElementById('pdf-depositAmount').textContent = getValue('depositAmount');
-        document.getElementById('pdf-finalPayment').innerHTML = getValue('finalPayment');
-
-        document.getElementById('pdf-declarationDate1').textContent = formatDate(form.elements.signingDate.value);
-        document.getElementById('pdf-declarationDate2').textContent = formatDate(form.elements.signingDate.value);
-        document.getElementById('pdf-declarationName').textContent = getValue('mainTouristName');
-        document.getElementById('pdf-declarationEGN').textContent = getValue('mainTouristEGN');
-        document.getElementById('pdf-declarationPhone').textContent = getValue('mainTouristPhone');
-        document.getElementById('pdf-declarationContractNumber').textContent = getValue('contractNumber', '').replace('..................', '');
-
-        // Build and insert the tourist table for the PDF
-        const pdfTableContainer = document.getElementById('pdf-tourists-table-container');
-        let tableHTML = '<h3 style="margin-top: 1em; font-weight: bold; text-align: center;">Данни на всички туристи в пакетното пътуване:</h3><table class="tourist-table-pdf"><thead><tr><th>№</th><th>Трите имена по док. за самоличност</th><th>ЕГН/ЛНЧ</th><th>№ паспорт/л.к.</th></tr></thead><tbody>';
-        
-        let allTouristsData = [];
-        // Add main tourist (from form input, which is pre-filled from reservationData)
-        const mainTouristName = form.elements.mainTouristName.value || '';
-        const mainTouristEGN = form.elements.mainTouristEGN.value || '';
-        const mainTouristIdCard = form.elements.mainTouristIdCard.value || '';
-        if (mainTouristName || mainTouristEGN || mainTouristIdCard) {
-            allTouristsData.push({name: mainTouristName, egn: mainTouristEGN, id: mainTouristIdCard});
-        }
-
-        // Add accompanying tourists from component state (which is pre-filled from reservationData)
-        tourists.forEach((t) => {
-            allTouristsData.push({name: t.fullName, egn: t.realId, id: t.id});
+    const handleTabClick = useCallback((tabId) => {
+        setActiveTab(tabId);
+        const tabContents = formRef.current.querySelectorAll('.tab-content');
+        tabContents.forEach(content => {
+            content.classList.toggle('hidden', content.id !== tabId);
         });
-        
-        // Generate 13 rows for the PDF table, filling with data or leaving blank
-        for (let i = 0; i < 13; i++) {
-            const data = allTouristsData[i];
-            tableHTML += `<tr>
-                <td>${i + 1}</td>
-                <td>${data ? data.name : ''}</td>
-                <td>${data ? data.egn : ''}</td>
-                <td>${data ? data.id : ''}</td>
-            </tr>`;
-        }
-
-        tableHTML += '</tbody></table>';
-        pdfTableContainer.innerHTML = tableHTML;
-    };
-
+        const tabButtons = formRef.current.querySelectorAll('.tab-btn');
+        tabButtons.forEach(btn => {
+            btn.classList.remove('active');
+            if (btn.dataset.tab === tabId) {
+                btn.classList.add('active');
+            }
+        });
+    }, []);
 
     return (
-        <div className="min-h-screen flex items-center justify-center p-4">
-            <div className="max-w-5xl w-full mx-auto bg-white rounded-xl shadow-md overflow-hidden">
+        <div className="print-preview-container">
+            <div className="invoice-output"> {/* Reusing invoice-output class for main container styling */}
                 
                 {/* Header */}
-                <div className="p-8 text-center">
+                <div className="p-8 text-center no-print"> {/* Added no-print class */}
                     <h1 className="text-3xl font-bold text-gray-800">Генератор на договори</h1>
-                    <p className="mt-2 text-gray-600">Попълнете данните, за да създадете вашия договор за туристически пакет.</p>
+                    <p className="mt-2 text-gray-600">Прегледайте и принтирайте договора за туристически пакет.</p>
                 </div>
 
-                {/* Tab Navigation (Simplified - we won't have full tab logic here but keep structure) */}
-                <div className="px-8 border-b border-gray-200">
+                {/* Tab Navigation */}
+                <div className="px-8 border-b border-gray-200 no-print"> {/* Added no-print class */}
                     <nav className="flex flex-wrap -mb-px" id="tab-nav">
-                        <button type="button" data-tab="tab-1" className="tab-btn active py-4 px-4 text-sm font-medium">1. Основна информация</button>
-                        <button type="button" data-tab="tab-2" className="tab-btn py-4 px-4 text-sm font-medium">2. Данни за туристите</button>
-                        <button type="button" data-tab="tab-3" className="tab-btn py-4 px-4 text-sm font-medium">3. Детайли за пътуването</button>
-                        <button type="button" data-tab="tab-4" className="tab-btn py-4 px-4 text-sm font-medium">4. Финансови условия</button>
+                        <button type="button" data-tab="tab-1" className={`tab-btn py-4 px-4 text-sm font-medium ${activeTab === 'tab-1' ? 'active' : ''}`} onClick={() => handleTabClick('tab-1')}>1. Основна информация</button>
+                        <button type="button" data-tab="tab-2" className={`tab-btn py-4 px-4 text-sm font-medium ${activeTab === 'tab-2' ? 'active' : ''}`} onClick={() => handleTabClick('tab-2')}>2. Данни за туристите</button>
+                        <button type="button" data-tab="tab-3" className={`tab-btn py-4 px-4 text-sm font-medium ${activeTab === 'tab-3' ? 'active' : ''}`} onClick={() => handleTabClick('tab-3')}>3. Детайли за пътуването</button>
+                        <button type="button" data-tab="tab-4" className={`tab-btn py-4 px-4 text-sm font-medium ${activeTab === 'tab-4' ? 'active' : ''}`} onClick={() => handleTabClick('tab-4')}>4. Финансови условия</button>
                     </nav>
                 </div>
 
-                {/* Contract Form - using a ref to access elements */}
+                {/* Contract Form */}
                 <div className="p-8">
-                    <form ref={formRef} id="contract-form" onSubmit={(e) => e.preventDefault()}> {/* Prevent default form submission */}
+                    <form ref={formRef} id="contract-form" onSubmit={(e) => e.preventDefault()}>
 
                         {/* Tab 1: General Info */}
-                        <div id="tab-1" className="tab-content">
+                        <div id="tab-1" className={`tab-content ${activeTab === 'tab-1' ? '' : 'hidden'}`}>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
                                     <label htmlFor="contractNumber" className="block text-sm font-medium text-gray-700 mb-1">Номер на договор</label>
@@ -306,7 +173,7 @@ const CustomerContractPrint = ({ reservationData, onPrintFinish }) => {
                         </div>
 
                         {/* Tab 2: Tourist Info */}
-                        <div id="tab-2" className="tab-content hidden">
+                        <div id="tab-2" className={`tab-content ${activeTab === 'tab-2' ? '' : 'hidden'}`}>
                             <h3 className="text-lg font-semibold text-gray-800 mb-4 border-b pb-2">Данни на основен потребител</h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                                 <div>
@@ -336,7 +203,6 @@ const CustomerContractPrint = ({ reservationData, onPrintFinish }) => {
                             </div>
                             <div className="flex justify-between items-center mb-4 border-b pb-2">
                                 <h3 className="text-lg font-semibold text-gray-800">Придружаващи туристи</h3>
-                                {/* This button will be disabled when data is pre-filled */}
                                 <button type="button" id="add-tourist-btn" className="flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-500 hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" /></svg>
                                     Добави
@@ -355,7 +221,7 @@ const CustomerContractPrint = ({ reservationData, onPrintFinish }) => {
                                     </thead>
                                     <tbody id="tourists-table-body">
                                         {tourists.map((t, index) => (
-                                            <tr key={index} className="bg-white border-b hover:bg-gray-50">
+                                            <tr key={index}>
                                                 <td className="px-4 py-3 text-center font-medium text-gray-700">{index + 1}</td>
                                                 <td className="px-6 py-2"><input type="text" className="form-input w-full rounded-md border-gray-300 text-sm bg-gray-100 cursor-not-allowed" value={t.fullName} readOnly /></td>
                                                 <td className="px-6 py-2"><input type="text" className="form-input w-full rounded-md border-gray-300 text-sm bg-gray-100 cursor-not-allowed" value={t.realId} readOnly /></td>
@@ -371,7 +237,7 @@ const CustomerContractPrint = ({ reservationData, onPrintFinish }) => {
                         </div>
 
                         {/* Tab 3: Trip Details */}
-                        <div id="tab-3" className="tab-content hidden">
+                        <div id="tab-3" className={`tab-content ${activeTab === 'tab-3' ? '' : 'hidden'}`}>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                 <div>
                                     <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 mb-1">Начална дата</label>
@@ -421,7 +287,7 @@ const CustomerContractPrint = ({ reservationData, onPrintFinish }) => {
                         </div>
                         
                         {/* Tab 4: Financials */}
-                        <div id="tab-4" className="tab-content hidden">
+                        <div id="tab-4" className={`tab-content ${activeTab === 'tab-4' ? '' : 'hidden'}`}>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
                                     <label htmlFor="totalPrice" className="block text-sm font-medium text-gray-700 mb-1">3.5 Обща цена в лева на пътуването</label>
@@ -474,31 +340,24 @@ const CustomerContractPrint = ({ reservationData, onPrintFinish }) => {
                 </div>
                 
                 {/* Action Buttons */}
-                <div className="px-8 pb-8 flex justify-between items-center">
+                <div className="px-8 pb-8 flex justify-between items-center no-print"> {/* Added no-print class */}
                     <button type="button" onClick={onPrintFinish} className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition duration-200 shadow-sm">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 inline-block mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
                         Назад
                     </button>
                     <button
                         type="button"
-                        onClick={handlePdfGeneration}
+                        onClick={handlePrintContract} // Changed to handlePrintContract
                         className="inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all transform hover:scale-105"
-                        disabled={loading}
                     >
-                        {loading ? (
-                            <svg className="animate-spin h-5 w-5 text-white mr-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                        ) : null}
-                        {loading ? 'Генериране...' : 'Генерирай Договор'}
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v6a2 2 0 002 2h12a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clipRule="evenodd" /></svg> {/* Print icon */}
+                        Принтирай Договор
                     </button>
                 </div>
             </div>
 
-            {/* Hidden content for PDF generation, divided into 6 logical pages */}
-            {/* This div remains hidden but its content is populated just before PDF generation */}
-            <div id="pdf-content" ref={pdfContentRef}>
+            {/* This section will be printed, but hidden from screen view */}
+            <div className="print-only">
                 {/* Section 1: Main Contract Header */}
                 <div className="pdf-logical-page">
                     <h1>ДОГОВОР ЗА ТУРИСТИЧЕСКИ ПАКЕТ № <span id="pdf-contractNumber"></span></h1>
