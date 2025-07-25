@@ -15,6 +15,7 @@ import { collection, doc, addDoc, setDoc, deleteDoc, onSnapshot, query, where, g
 // Import your logo image
 import Logo from './Logo.png'; // Assuming Logo.png is in the same directory as App.jsx
 import InvoicePrint from './InvoicePrint.jsx'; // New component for printing
+import CustomerContractPrint from './CustomerContractPrint.jsx'; // New component for contract generation
 
 // --- Notification Display Component ---
 const NotificationDisplay = ({ notifications, onDismiss }) => {
@@ -96,11 +97,13 @@ const App = () => {
   // State for currently selected product for editing
   const [selectedProduct, setSelectedProduct] = useState(null);
   // New: State for currently selected sales invoice for editing
-  const [selectedSalesInvoice, setSelectedSalesInvoice] = useState(null);
-  // New: Search term states
- // New: Search term states
-  const [searchCustomerTerm, setSearchCustomerTerm] = useState('');
-  const [searchReservationTerm, setSearchReservationTerm] = useState('');
+const [selectedSalesInvoice, setSelectedSalesInvoice] = useState(null);
+  // NEW STATE FOR CONTRACT GENERATION
+  const [reservationToGenerateContract, setReservationToGenerateContract] = useState(null);
+  // New: Search term states
+ // New: Search term states
+  const [searchCustomerTerm, setSearchCustomerTerm] = useState('');
+  const [searchReservationTerm, setSearchReservationTerm] = useState('');
 
   // New: Sort configuration for financial reports
 // Sort configuration for financial reports
@@ -4218,16 +4221,33 @@ case 'makeOffer':
           </div>
         );
 case 'customerContract':
+    // If there's no reservation selected for contract generation,
+    // we might want to redirect or show a message.
+    // For now, let's just show an empty state or redirect.
+    if (!reservationToGenerateContract) {
         return (
-          <div className="p-0 bg-white rounded-xl shadow-lg h-full">
-            <iframe
-              src="/ccontract.html" // Loads ccontract.html from the 'public' folder
-              title="Customer Contract Generator"
-              className="w-full h-full border-0 rounded-xl"
-              style={{ minHeight: '80vh' }}
-            />
-          </div>
+            <div className="p-6 bg-white rounded-xl shadow-lg h-full flex items-center justify-center">
+                <p className="text-gray-600 text-lg">
+                    Please select a reservation to generate a contract.
+                    <button
+                        onClick={() => setActiveTab('reservations')}
+                        className="ml-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition duration-200 shadow-md"
+                    >
+                        Go to Reservations
+                    </button>
+                </p>
+            </div>
         );
+    }
+    return (
+        <CustomerContractPrint
+            reservationData={reservationToGenerateContract}
+            onPrintFinish={() => {
+                setReservationToGenerateContract(null); // Clear the selected reservation
+                setActiveTab('reservations'); // Go back to the reservations list
+            }}
+        />
+    );
       case 'createInvoice':
         return (
           <div className="p-0 bg-white rounded-xl shadow-lg h-full">
