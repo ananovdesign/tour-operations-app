@@ -16,7 +16,96 @@ const CustomerContractPrint = ({ reservationData, onPrintFinish }) => {
         return `${day}.${month}.${year}г.`;
     }, []);
 
-    // Effect to populate the form fields when reservationData changes
+    // Function to populate the HIDDEN print-only content
+    const populatePrintContent = useCallback(() => {
+        if (!formRef.current) return;
+        const form = formRef.current;
+
+        // Helper to get value from form elements and provide fallback or suffix
+        const getValue = (name, fallback = '..................', suffix = '') => {
+            const element = form.elements[name];
+            return (element && element.value !== '' ? element.value : fallback) + suffix;
+        };
+        const getOptionalValue = (name, fallback = 'Няма.') => form.elements[name].value || fallback;
+
+        // Populate contract data in the print-only div
+        document.getElementById('pdf-contractNumber').textContent = getValue('contractNumber', '').replace('..................', '');
+        document.getElementById('pdf-signingDate').textContent = formatDate(form.elements.signingDate.value);
+        document.getElementById('pdf-mainTouristName').textContent = getValue('mainTouristName');
+        document.getElementById('pdf-mainTouristEGN').textContent = getValue('mainTouristEGN');
+        document.getElementById('pdf-mainTouristIdCard').textContent = getValue('mainTouristIdCard');
+        document.getElementById('pdf-mainTouristAddress').textContent = getValue('mainTouristAddress');
+        document.getElementById('pdf-mainTouristPhone').textContent = getValue('mainTouristPhone');
+        document.getElementById('pdf-mainTouristEmail').textContent = getValue('mainTouristEmail');
+        
+        // Populate trip details in the print-only div
+        document.getElementById('pdf-startDate').textContent = formatDate(form.elements.startDate.value);
+        document.getElementById('pdf-endDate').textContent = formatDate(form.elements.endDate.value);
+        document.getElementById('pdf-tripDuration').textContent = getValue('tripDuration');
+        document.getElementById('pdf-transportDesc').textContent = getValue('transportDesc');
+        document.getElementById('pdf-departureInfo').textContent = getValue('departureInfo');
+        document.getElementById('pdf-returnInfo').textContent = getValue('returnInfo');
+        document.getElementById('pdf-accommodationDesc').textContent = getValue('accommodationDesc');
+        document.getElementById('pdf-roomType').textContent = getValue('roomType');
+        document.getElementById('pdf-mealsDesc').textContent = getValue('mealsDesc');
+        document.getElementById('pdf-otherServices').textContent = getOptionalValue('otherServices');
+        document.getElementById('pdf-specialReqs').textContent = getOptionalValue('specialReqs');
+
+        // Populate financials in the print-only div
+        document.getElementById('pdf-totalPrice').innerHTML = getValue('totalPrice', '0.00', ' лв.');
+        document.getElementById('pdf-otherPayments').innerHTML = getOptionalValue('otherPayments');
+        document.getElementById('pdf-childDiscount').innerHTML = getOptionalValue('childDiscount', 'Не е приложимо.');
+        document.getElementById('pdf-adultDiscount').innerHTML = getOptionalValue('adultDiscount', 'Не е приложимо.');
+        document.getElementById('pdf-singleRoomFee').innerHTML = getOptionalValue('singleRoomFee', 'Не е приложимо.');
+        document.getElementById('pdf-extraExcursion').innerHTML = getOptionalValue('extraExcursion');
+        document.getElementById('pdf-insurance').innerHTML = getValue('insurance');
+        document.getElementById('pdf-finalAmount').innerHTML = getValue('finalAmount', '0.00', ' лв.');
+        document.getElementById('pdf-paymentTerms').innerHTML = getValue('paymentTerms');
+        document.getElementById('pdf-depositAmount').textContent = getValue('depositAmount');
+        document.getElementById('pdf-finalPayment').innerHTML = getValue('finalPayment');
+
+        // Populate declarations in the print-only div
+        document.getElementById('pdf-declarationDate1').textContent = formatDate(form.elements.signingDate.value);
+        document.getElementById('pdf-declarationDate2').textContent = formatDate(form.elements.signingDate.value);
+        document.getElementById('pdf-declarationName').textContent = getValue('mainTouristName');
+        document.getElementById('pdf-declarationEGN').textContent = getValue('mainTouristEGN');
+        document.getElementById('pdf-declarationPhone').textContent = getValue('mainTouristPhone');
+        document.getElementById('pdf-declarationContractNumber').textContent = getValue('contractNumber', '').replace('..................', '');
+
+        // Build and insert the tourist table for the PDF (print-only div)
+        const pdfTableContainer = document.getElementById('pdf-tourists-table-container');
+        let tableHTML = '<h3 style="margin-top: 1em; font-weight: bold; text-align: center;">Данни на всички туристи в пакетното пътуване:</h3><table class="tourist-table-pdf"><thead><tr><th>№</th><th>Трите имена по док. за самоличност</th><th>ЕГН/ЛНЧ</th><th>№ паспорт/л.к.</th></tr></thead><tbody>';
+        
+        let allTouristsData = [];
+        // Add main tourist (from form input)
+        const mainTouristName = form.elements.mainTouristName.value || '';
+        const mainTouristEGN = form.elements.mainTouristEGN.value || '';
+        const mainTouristIdCard = form.elements.mainTouristIdCard.value || '';
+        if (mainTouristName || mainTouristEGN || mainTouristIdCard) {
+            allTouristsData.push({name: mainTouristName, egn: mainTouristEGN, id: mainTouristIdCard});
+        }
+
+        // Add accompanying tourists from component state
+        tourists.forEach((t) => {
+            allTouristsData.push({name: t.fullName, egn: t.realId, id: t.id});
+        });
+        
+        // Generate 13 rows for the PDF table, filling with data or leaving blank
+        for (let i = 0; i < 13; i++) {
+            const data = allTouristsData[i];
+            tableHTML += `<tr>
+                <td>${i + 1}</td>
+                <td>${data ? data.name : ''}</td>
+                <td>${data ? data.egn : ''}</td>
+                <td>${data ? data.id : ''}</td>
+            </tr>`;
+        }
+
+        tableHTML += '</tbody></table>';
+        pdfTableContainer.innerHTML = tableHTML;
+    }, [formatDate, tourists]); // Add tourists to dependency array
+
+    // Effect to populate the VISIBLE form fields when reservationData changes
     useEffect(() => {
         if (reservationData && formRef.current) {
             const form = formRef.current;
@@ -32,7 +121,7 @@ const CustomerContractPrint = ({ reservationData, onPrintFinish }) => {
                 form.elements.mainTouristEmail.value = leadTourist.email || '';
             }
 
-            // Populate accompanying tourists
+            // Populate accompanying tourists for the visible form and component state
             const accompanyingTourists = reservationData.tourists ? reservationData.tourists.slice(1) : [];
             setTourists(accompanyingTourists.map(t => ({
                 fullName: `${t.firstName || ''} ${t.fatherName || ''} ${t.familyName || ''}`.trim(),
@@ -85,13 +174,11 @@ const CustomerContractPrint = ({ reservationData, onPrintFinish }) => {
             // Set all form fields to read-only and add grey background
             Object.keys(form.elements).forEach(key => {
                 const element = form.elements[key];
-                // Ensure it's an input/textarea/select and not a button
                 if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA' || element.tagName === 'SELECT') {
                     element.readOnly = true;
                     element.classList.add('bg-gray-100', 'cursor-not-allowed');
                 }
             });
-            // Hide the 'Add Tourist' button as tourists come from reservation data
             const addTouristBtn = form.querySelector('#add-tourist-btn');
             if (addTouristBtn) {
                 addTouristBtn.style.display = 'none';
@@ -102,6 +189,9 @@ const CustomerContractPrint = ({ reservationData, onPrintFinish }) => {
 
     // Handle native print
     const handlePrintContract = useCallback(() => {
+        // IMPORTANT: Populate the hidden print-only content just before printing
+        populatePrintContent();
+
         // Use a timeout to ensure React has finished rendering updates before printing
         const timer = setTimeout(() => {
             window.print();
@@ -117,7 +207,7 @@ const CustomerContractPrint = ({ reservationData, onPrintFinish }) => {
             clearTimeout(timer);
             window.onafterprint = null; // Clean up on component unmount
         };
-    }, [onPrintFinish]);
+    }, [onPrintFinish, populatePrintContent]); // Add populatePrintContent to dependencies
 
     const handleTabClick = useCallback((tabId) => {
         setActiveTab(tabId);
@@ -138,14 +228,14 @@ const CustomerContractPrint = ({ reservationData, onPrintFinish }) => {
         <div className="print-preview-container">
             <div className="invoice-output"> {/* Reusing invoice-output class for main container styling */}
                 
-                {/* Header */}
-                <div className="p-8 text-center no-print"> {/* Added no-print class */}
+                {/* Header - Hidden in print */}
+                <div className="p-8 text-center no-print">
                     <h1 className="text-3xl font-bold text-gray-800">Генератор на договори</h1>
                     <p className="mt-2 text-gray-600">Прегледайте и принтирайте договора за туристически пакет.</p>
                 </div>
 
-                {/* Tab Navigation */}
-                <div className="px-8 border-b border-gray-200 no-print"> {/* Added no-print class */}
+                {/* Tab Navigation - Hidden in print */}
+                <div className="px-8 border-b border-gray-200 no-print">
                     <nav className="flex flex-wrap -mb-px" id="tab-nav">
                         <button type="button" data-tab="tab-1" className={`tab-btn py-4 px-4 text-sm font-medium ${activeTab === 'tab-1' ? 'active' : ''}`} onClick={() => handleTabClick('tab-1')}>1. Основна информация</button>
                         <button type="button" data-tab="tab-2" className={`tab-btn py-4 px-4 text-sm font-medium ${activeTab === 'tab-2' ? 'active' : ''}`} onClick={() => handleTabClick('tab-2')}>2. Данни за туристите</button>
@@ -154,7 +244,7 @@ const CustomerContractPrint = ({ reservationData, onPrintFinish }) => {
                     </nav>
                 </div>
 
-                {/* Contract Form */}
+                {/* Contract Form - Visible on screen, data populated by useEffect */}
                 <div className="p-8">
                     <form ref={formRef} id="contract-form" onSubmit={(e) => e.preventDefault()}>
 
@@ -339,24 +429,24 @@ const CustomerContractPrint = ({ reservationData, onPrintFinish }) => {
                     </form>
                 </div>
                 
-                {/* Action Buttons */}
-                <div className="px-8 pb-8 flex justify-between items-center no-print"> {/* Added no-print class */}
+                {/* Action Buttons - Hidden in print */}
+                <div className="px-8 pb-8 flex justify-between items-center no-print">
                     <button type="button" onClick={onPrintFinish} className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition duration-200 shadow-sm">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 inline-block mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
                         Назад
                     </button>
                     <button
                         type="button"
-                        onClick={handlePrintContract} // Changed to handlePrintContract
+                        onClick={handlePrintContract}
                         className="inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all transform hover:scale-105"
                     >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v6a2 2 0 002 2h12a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clipRule="evenodd" /></svg> {/* Print icon */}
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v6a2 2 0 002 2h12a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clipRule="evenodd" /></svg>
                         Принтирай Договор
                     </button>
                 </div>
             </div>
 
-            {/* This section will be printed, but hidden from screen view */}
+            {/* This section contains the ACTUAL content to be printed. It's hidden on screen by CSS. */}
             <div className="print-only">
                 {/* Section 1: Main Contract Header */}
                 <div className="pdf-logical-page">
@@ -422,7 +512,7 @@ const CustomerContractPrint = ({ reservationData, onPrintFinish }) => {
                     <p><b>8.3. Свободно време</b> -означава време, косто се дава от водача/екскурзовода на групата обикновено след предварително запознаване със съответното селище и което потребителят сам преценява как да оползотвори. През това време водачът/екскурзоводът на групата и автобусът не са на разположение на туристите.</p>
                     <p><b>8.4. Екскурзия по желание</b> -означава допълнителна факултативна екскурзия, алтернативна на свободното време, цената на която не е включена в общата цена, освен ако в програмата не е упоменато друго. Цената на екскурзията по желание се вписва в графа „цената не включва" в съответната програма.</p>
                     <p><b>8.5. Екскурзия без нощен преход</b> - означава организирано туристическо пътуване с обща цена по време на което няма предвидени нощувки в използваното превозно средство.</p>
-                    <p><b>8.6. Екскурзия с нощен преход</b> - означава организирано туристическо пътуване с обща цена по време на което има предвидена поне една нощувка в използваното превозно средство.</p>
+                    <p><b>8.6. Екскурзия с нощен преход</b> - означава организирано туристическо пътуване с обща цена по време на което има предвидена поне една нощувка в използваемото превозно средство.</p>
                     <p><b>8.7. Закуска / вечеря / друг вид хранене на блок маса (шведска маса, открит бюфет)</b> -означава хранене при което храната е поставена на общ плот или маса от която потребителят може да избере и консумира различни храни и питиета по своя преценка. Блок масата обикновено включва: колбас, кашкавал, масло, конфитюр, чай, кафе и др. Разнообразието и богатството на храните и напитките зависи от съответното заведение за хранене и развлечение.</p>
                     <p><b>8.8. Посещение на туристически обект</b> означава разглеждане отвътре на посочения обект, като в програмата изрично е посочено понятието „ПОСЕЩЕНИЕ". В повечето случаи посещенията на туристически обекти изискват заплащане на входна такса (закупуване на билет), освен ако в програмата не е упоменато друго.Препоръчваме: потребителят да осигури още в България сумите, които предвижда да похарчи в съответните валути за посещаваните държави. Музейните такси се плащат само в местна валута</p>
                 </div>
