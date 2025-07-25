@@ -4233,23 +4233,41 @@ case 'makeOffer':
           </div>
         );
 case 'customerContract':
-    // If there's no reservation selected for contract generation,
-    // we might want to redirect or show a message.
-    // For now, let's just show an empty state or redirect.
-    if (!reservationToGenerateContract) {
-        return (
-            <div className="p-6 bg-white rounded-xl shadow-lg h-full flex items-center justify-center">
-                <p className="text-gray-600 text-lg">
-                    Please select a reservation to generate a contract.
-                    <button
-                        onClick={() => setActiveTab('reservations')}
-                        className="ml-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition duration-200 shadow-md"
-                    >
-                        Go to Reservations
-                    </button>
-                </p>
-            </div>
-        );
+    if (reservationToGenerateContract) {
+      // If a reservation was specifically selected from the list for printing
+      // Render the dynamic CustomerContractPrint component
+      return (
+        <CustomerContractPrint
+          reservationData={reservationToGenerateContract}
+          onPrintFinish={() => {
+            setReservationToGenerateContract(null); // Clear the selected reservation
+            setActiveTab('reservations'); // Go back to the reservations list
+          }}
+        />
+      );
+    } else {
+      // If user clicked 'Customer Contract' from sidebar directly (no reservation selected)
+      // Render the original static ccontract.html in an iframe
+      return (
+        <div className="p-0 bg-white rounded-xl shadow-lg h-full relative">
+          <iframe
+            src="/ccontract.html"
+            title="Static Customer Contract Generator"
+            className="w-full h-full border-0 rounded-xl"
+            style={{ minHeight: '80vh' }}
+          />
+          {/* Optional: Add a button to go back to dashboard/reservations from here if desired */}
+          <div className="absolute top-4 right-4 z-10">
+            <button
+                onClick={() => setActiveTab('dashboard')} // Or 'reservations'
+                className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-800 transition duration-200 shadow-md flex items-center"
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+                Назад към Начало
+            </button>
+          </div>
+        </div>
+      );
     }
     return (
         <CustomerContractPrint
