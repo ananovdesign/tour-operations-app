@@ -1,11 +1,10 @@
 /* Import Inter font for a modern look */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
-/* Main container for the on-screen preview (removed body styles from here) */
+/* Main container for the on-screen preview */
 .print-preview-container {
     font-family: 'Inter', sans-serif;
     background-color: #f3f4f6; /* Only for the container itself, not global body */
-    /* Flex properties and padding moved to JSX for direct application to the root div */
 }
 
 .voucher-container {
@@ -13,7 +12,7 @@
     border-radius: 12px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     width: 100%;
-    max-width: 800px; /* Limits the internal content width */
+    max-width: 800px; /* Limits the internal content width on screen */
     overflow: hidden;
 }
 .logo-section {
@@ -148,145 +147,143 @@
     padding-bottom: 10px;
 }
 
-/* Rule to hide print-only content on screen */
+/* Rule to hide print-only content on screen by default */
 .print-only {
-    display: none; /* Hide it by default on the screen */
+    display: none; 
 }
 
 /* Print-specific styles */
 @media print {
-    /* General body/html resets for print */
-    html, body {
-        margin: 0 !important;
-        padding: 0 !important;
-        height: auto !important;
-        overflow: hidden !important; /* Hide scrollbars during print processing */
-        width: 100% !important;
-        font-size: 0.8rem !important; /* Smaller base font size for print */
-        -webkit-print-color-adjust: exact !important; /* Ensures colors print as seen */
-        print-color-adjust: exact !important;
-        background-color: #ffffff !important;
-        display: block !important; /* Override any flex/grid from main app */
-    }
-
-    /* Hide ALL elements within the body when printing, except our .print-only container */
-    body * {
+    /* Hide EVERYTHING *not* the main app wrapper and the print-only div */
+    body > *:not(.app-wrapper) { /* Assuming your main App div has a class like 'app-wrapper' or similar */
+        display: none !important;
         visibility: hidden !important;
-        display: none !important; /* More aggressive hiding than just visibility: hidden */
-        height: 0 !important;
-        overflow: hidden !important;
-        margin: 0 !important;
-        padding: 0 !important;
     }
 
-    /* Make the .print-only content visible and positioned for printing */
-    .print-only, .print-only * {
-        visibility: visible !important;
-        display: block !important; /* Ensure it's rendered as a block */
-        height: auto !important;
-        width: auto !important; /* Allow content to dictate width, within the absolute container */
+    /* Make sure the main app wrapper is visible and full screen for print */
+    .app-wrapper { /* You might need to adjust this selector based on your App.jsx's outermost div class */
+        width: 100vw !important;
+        height: 100vh !important;
+        overflow: hidden !important; /* Hide scrollbars */
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        z-index: 9999 !important;
+        background: white !important;
+        display: block !important; /* Override any flex/grid display for the print context */
+    }
+
+    /* Now, specifically make the .print-only container visible */
+    .print-only {
+        display: block !important; /* Make it visible */
+        position: absolute !important; /* Position it on top */
+        top: 0 !important;
+        left: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
         margin: 0 !important;
         padding: 0 !important;
+        overflow: visible !important; /* Crucial for pagination */
+        background-color: white !important; /* Ensure white background */
+    }
+
+    /* Make all content *inside* .print-only visible */
+    .print-only * {
+        visibility: visible !important;
+        display: block !important; /* Ensure children are block elements unless specified otherwise */
         box-shadow: none !important;
         border: none !important;
-        position: static !important; /* Reset position for print flow within the absolute wrapper */
-        top: auto !important;
-        left: auto !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        position: static !important; /* Reset positioning within the print flow */
+        width: auto !important; /* Allow content to size naturally */
+        height: auto !important;
+        /* Re-apply font and color if they were globally reset */
+        font-family: 'Inter', sans-serif !important;
+        color: #000 !important; /* Default text color to black */
     }
 
-    /* Position the main print-only container to cover the entire print area */
-    .print-only {
-        position: absolute !important; /* Take it out of flow to cover the print page */
-        left: 0 !important;
-        top: 0 !important;
-        width: 100% !important;
-        height: 100% !important; /* Ensure it fills the print viewport */
-        overflow: visible !important; /* Allow content to overflow for pagination */
-        background-color: #ffffff !important; /* Ensure a white background */
-        font-family: 'Inter', sans-serif !important; /* Re-apply font if necessary */
-    }
-    
-    /* Adjust specific elements within the print-only content */
+    /* Specific print formatting for the voucher content within .print-only */
     .voucher-container { 
+        width: 210mm !important; /* Standard A4 width */
+        min-height: 297mm !important; /* Standard A4 height */
         box-shadow: none !important;
         border-radius: 0 !important;
-        max-width: none !important; 
-        margin: 0 auto !important; /* Center content horizontally on page */
-        padding: 0 !important;
-        height: auto !important;
-        /* Explicitly set a width if needed for A4, e.g., width: 210mm; or a percentage that fits */
-        width: 100% !important; /* Allow it to take full width of .print-only wrapper */
-    }
-
-    /* Print button and other UI elements should always be hidden */
-    .print-button, .add-button, .remove-button {
-        display: none !important;
-    }
-
-    /* Maintain table and input print styles */
-    .info-table th, .info-table td {
-        padding: 5px 8px !important;
-        font-size: 0.8rem !important;
-    }
-    .info-table th {
-        width: 50% !important;
-    }
-    .input-field, .select-field, .textarea-field {
-        border: none !important;
-        padding: 0 !important;
-        background-color: transparent !important;
-        font-size: 0.8rem !important;
-    }
-    .input-field:focus, .select-field:focus, .textarea-field:focus {
-        outline: none !important;
-    }
-    .flex-container {
-        display: flex !important;
-        align-items: center !important;
-        gap: 3px !important;
-    }
-    .flex-container span {
-        display: inline-block !important;
-        margin-right: 2px !important;
-        white-space: nowrap !important;
-    }
-    .flex-container input, .flex-container textarea, .flex-container select {
-        display: inline-block !important;
-        width: auto !important;
-        min-width: 50px !important;
-        flex-grow: 1 !important;
-    }
-    .date-time-container, .payment-doc-container {
-        display: flex !important;
-        flex-direction: column !important;
-        gap: 2px !important;
-    }
-    .date-time-container input, .payment-doc-container input {
-        width: auto !important;
-        display: inline-block !important;
-    }
-    .date-range-container {
-        display: inline-flex !important;
-        gap: 2px !important;
-    }
-    .info-table td {
-        word-wrap: break-word !important;
+        margin: 0 auto !important; /* Center the A4 content on the page */
+        padding: 15mm !important; /* A4 margins */
+        box-sizing: border-box !important; /* Include padding in width/height */
+        overflow: hidden !important; /* Do not show scrollbars for the container itself */
+        background-color: white !important;
     }
     .logo-section {
         padding: 10px !important;
     }
     .logo-section img {
         height: 60px !important;
+        width: auto !important;
+    }
+    .info-table {
+        width: 100% !important;
+        font-size: 0.85rem !important;
+    }
+    .info-table th, .info-table td {
+        padding: 5px 8px !important;
+        border: 1px solid black !important; /* Ensure borders print */
+    }
+    .info-table th {
+        background-color: #f3f4f6 !important; /* Print background colors */
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        color: #000 !important; /* Ensure black text */
     }
     .header-row {
-        padding: 8px 12px !important;
-        font-size: 0.9rem !important;
+        background-color: #e0e7ff !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        color: #000 !important;
+    }
+    .input-field, .select-field, .textarea-field {
+        border: none !important;
+        background-color: transparent !important;
+        padding: 0 !important;
+        font-size: 0.85rem !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        color: #000 !important;
+    }
+    /* Ensure text is readable in flex items for print */
+    .flex-container span {
+        white-space: normal !important; /* Allow wrapping */
+        display: inline !important; /* Make labels flow with text */
+        margin-right: 0px !important;
+    }
+    .flex-container input, .flex-container textarea, .flex-container select {
+        display: inline !important; /* Allow inputs to flow in line */
+        width: auto !important;
+        flex-grow: 0 !important;
+        min-width: unset !important;
+    }
+    .date-time-container, .payment-doc-container {
+        display: block !important; /* Stack vertically for print */
+        gap: 0 !important;
+    }
+    .date-range-container {
+        display: inline !important; /* Should still flow inline but compactly */
+        gap: 0 !important;
     }
     .signature-line {
-        margin-top: 10px !important;
+        background-color: black !important; /* Make sure signature lines are visible black */
+        height: 1px !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
     }
     .signature-text {
-        font-size: 0.75rem !important;
-        padding-bottom: 5px !important;
+        color: #000 !important; /* Ensure text is black */
+        font-size: 0.7rem !important;
+    }
+
+    /* Hide the print button for the print version */
+    .print-button, .add-button, .remove-button {
+        display: none !important;
     }
 }
