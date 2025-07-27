@@ -191,13 +191,25 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
 
     // Function to populate the HIDDEN print-only content based on current form values
     const populatePrintContent = useCallback(() => {
+        // Helper to get element safely and log if null
+        const getElementSafe = (id) => {
+            const element = document.getElementById(id);
+            if (!element) {
+                console.error(`ERROR: Element with ID '${id}' not found in the DOM for printing.`);
+                // Return a dummy object with textContent property to prevent further errors,
+                // though the content won't appear.
+                return { textContent: '' };
+            }
+            return element;
+        };
+
         // Populate header fields
-        document.getElementById('pdf-voucherNumber').textContent = getValue(voucherNumber);
-        document.getElementById('pdf-destinationBulgarian').textContent = getValue(destinationBulgarian);
-        document.getElementById('pdf-destinationEnglish').textContent = getValue(destinationEnglish);
+        getElementSafe('pdf-voucherNumber').textContent = getValue(voucherNumber);
+        getElementSafe('pdf-destinationBulgarian').textContent = getValue(destinationBulgarian);
+        getElementSafe('pdf-destinationEnglish').textContent = getValue(destinationEnglish);
 
         // Populate tourist names (dynamic list)
-        const pdfTouristNamesContainer = document.getElementById('pdf-tourist-names-container');
+        const pdfTouristNamesContainer = getElementSafe('pdf-tourist-names-container');
         if (pdfTouristNamesContainer) {
             let touristListHtml = '';
             tourists.forEach(t => {
@@ -207,55 +219,55 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
         }
 
         // Populate counts
-        document.getElementById('pdf-adultsCountBg').textContent = getValue(adultsCountBg);
-        document.getElementById('pdf-adultsCountEn').textContent = getValue(adultsCountEn);
-        document.getElementById('pdf-childrenRegularBedCountBg').textContent = getValue(childrenRegularBedCountBg);
-        document.getElementById('pdf-childrenRegularBedCountEn').textContent = getValue(childrenRegularBedCountEn);
-        document.getElementById('pdf-childrenExtraBedCountBg').textContent = getValue(childrenExtraBedCountBg);
-        document.getElementById('pdf-childrenExtraBedCountEn').textContent = getValue(childrenExtraBedCountEn);
+        getElementSafe('pdf-adultsCountBg').textContent = getValue(adultsCountBg);
+        getElementSafe('pdf-adultsCountEn').textContent = getValue(adultsCountEn);
+        getElementSafe('pdf-childrenRegularBedCountBg').textContent = getValue(childrenRegularBedCountBg);
+        getElementSafe('pdf-childrenRegularBedCountEn').textContent = getValue(childrenRegularBedCountEn);
+        getElementSafe('pdf-childrenExtraBedCountBg').textContent = getValue(childrenExtraBedCountBg);
+        getElementSafe('pdf-childrenExtraBedCountEn').textContent = getValue(childrenExtraBedCountEn);
 
         // Populate itinerary and destination
-        document.getElementById('pdf-itineraryBg').textContent = getValue(itineraryBg);
-        document.getElementById('pdf-itineraryEn').textContent = getValue(itineraryEn);
-        document.getElementById('pdf-destinationPlaceBg').textContent = getValue(destinationPlaceBg);
-        document.getElementById('pdf-destinationPlaceEn').textContent = getValue(destinationPlaceEn);
+        getElementSafe('pdf-itineraryBg').textContent = getValue(itineraryBg);
+        getElementSafe('pdf-itineraryEn').textContent = getValue(itineraryEn);
+        getElementSafe('pdf-destinationPlaceBg').textContent = getValue(destinationPlaceBg);
+        getElementSafe('pdf-destinationPlaceEn').textContent = getValue(destinationPlaceEn);
 
         // Populate dates of itinerary
-        document.getElementById('pdf-dateStartBg').textContent = formatDateForPrint(dateStartBg);
-        document.getElementById('pdf-dateEndBg').textContent = formatDateForPrint(dateEndBg);
-        document.getElementById('pdf-dateStartEn').textContent = formatDateForPrint(dateStartEn);
-        document.getElementById('pdf-dateEndEn').textContent = formatDateForPrint(dateEndEn);
+        getElementSafe('pdf-dateStartBg').textContent = formatDateForPrint(dateStartBg);
+        getElementSafe('pdf-dateEndBg').textContent = formatDateForPrint(dateEndBg);
+        getElementSafe('pdf-dateStartEn').textContent = formatDateForPrint(dateStartEn);
+        getElementSafe('pdf-dateEndEn').textContent = formatDateForPrint(dateEndEn);
 
         // Populate accommodation
-        document.getElementById('pdf-accommodationBg').textContent = getValue(accommodationBg);
-        document.getElementById('pdf-accommodationEn').textContent = getValue(accommodationEn);
-        document.getElementById('pdf-roomCategoryBg').textContent = getValue(roomCategoryBg);
-        document.getElementById('pdf-roomCategoryEn').textContent = getValue(roomCategoryEn);
+        getElementSafe('pdf-accommodationBg').textContent = getValue(accommodationBg);
+        getElementSafe('pdf-accommodationEn').textContent = getValue(accommodationEn);
+        getElementSafe('pdf-roomCategoryBg').textContent = getValue(roomCategoryBg);
+        getElementSafe('pdf-roomCategoryEn').textContent = getValue(roomCategoryEn);
 
         // Populate check-in/out
-        document.getElementById('pdf-checkInBg').textContent = formatDateTimeForPrint(checkInBg);
-        document.getElementById('pdf-checkInEn').textContent = formatDateTimeForPrint(checkInEn);
-        document.getElementById('pdf-checkOutBg').textContent = formatDateTimeForPrint(checkOutBg);
-        document.getElementById('pdf-checkOutEn').textContent = formatDateTimeForPrint(checkOutEn);
+        getElementSafe('pdf-checkInBg').textContent = formatDateTimeForPrint(checkInBg);
+        getElementSafe('pdf-checkInEn').textContent = formatDateTimeForPrint(checkInEn);
+        getElementSafe('pdf-checkOutBg').textContent = formatDateTimeForPrint(checkOutBg);
+        getElementSafe('pdf-checkOutEn').textContent = formatDateTimeForPrint(checkOutEn);
 
         // Populate other details
-        document.getElementById('pdf-excursionsBg').textContent = getValue(excursionsBg);
-        document.getElementById('pdf-excursionsEn').textContent = getValue(excursionsEn);
-        document.getElementById('pdf-otherServicesBg').textContent = getValue(otherServicesBg);
-        document.getElementById('pdf-otherServicesEn').textContent = getValue(otherServicesEn);
-        document.getElementById('pdf-notesBg').textContent = getValue(notesBg);
-        document.getElementById('pdf-notesEn').textContent = getValue(notesEn);
+        getElementSafe('pdf-excursionsBg').textContent = getValue(excursionsBg);
+        getElementSafe('pdf-excursionsEn').textContent = getValue(excursionsEn);
+        getElementSafe('pdf-otherServicesBg').textContent = getValue(otherServicesBg);
+        getElementSafe('pdf-otherServicesEn').textContent = getValue(otherServicesEn);
+        getElementSafe('pdf-notesBg').textContent = getValue(notesBg);
+        getElementSafe('pdf-notesEn').textContent = getValue(notesEn);
 
         // Populate issued date and payment document
-        document.getElementById('pdf-dateIssuedBg').textContent = formatDateForPrint(dateIssuedBg);
-        document.getElementById('pdf-dateIssuedEn').textContent = formatDateForPrint(dateIssuedEn);
-        document.getElementById('pdf-paymentDocNumBg').textContent = getValue(paymentDocNumBg);
-        document.getElementById('pdf-paymentDocDateBg').textContent = formatDateForPrint(paymentDocDateBg);
-        document.getElementById('pdf-paymentDocNumEn').textContent = getValue(paymentDocNumEn);
-        document.getElementById('pdf-paymentDocDateEn').textContent = formatDateForPrint(paymentDocDateEn);
+        getElementSafe('pdf-dateIssuedBg').textContent = formatDateForPrint(dateIssuedBg);
+        getElementSafe('pdf-dateIssuedEn').textContent = formatDateForPrint(dateIssuedEn);
+        getElementSafe('pdf-paymentDocNumBg').textContent = getValue(paymentDocNumBg);
+        getElementSafe('pdf-paymentDocDateBg').textContent = formatDateForPrint(paymentDocDateBg);
+        getElementSafe('pdf-paymentDocNumEn').textContent = getValue(paymentDocNumEn);
+        getElementSafe('pdf-paymentDocDateEn').textContent = formatDateForPrint(paymentDocDateEn);
 
         // Set voucher type text
-        document.getElementById('pdf-voucherTypeText').textContent = voucherType === 'original' ? 'ОРИГИНАЛ / ORIGINAL' : 'КОПИЕ / COPY';
+        getElementSafe('pdf-voucherTypeText').textContent = voucherType === 'original' ? 'ОРИГИНАЛ / ORIGINAL' : 'КОПИЕ / COPY';
 
     }, [
         voucherNumber, voucherType, destinationBulgarian, destinationEnglish, tourists,
