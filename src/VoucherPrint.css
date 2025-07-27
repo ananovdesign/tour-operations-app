@@ -148,130 +148,145 @@
     padding-bottom: 10px;
 }
 
+/* Rule to hide print-only content on screen */
+.print-only {
+    display: none; /* Hide it by default on the screen */
+}
+
 /* Print-specific styles */
 @media print {
-    /* Hide everything on the page by default */
+    /* General body/html resets for print */
+    html, body {
+        margin: 0 !important;
+        padding: 0 !important;
+        height: auto !important;
+        overflow: hidden !important; /* Hide scrollbars during print processing */
+        width: 100% !important;
+        font-size: 0.8rem !important; /* Smaller base font size for print */
+        -webkit-print-color-adjust: exact !important; /* Ensures colors print as seen */
+        print-color-adjust: exact !important;
+        background-color: #ffffff !important;
+        display: block !important; /* Override any flex/grid from main app */
+    }
+
+    /* Hide ALL elements within the body when printing, except our .print-only container */
     body * {
         visibility: hidden !important;
-        height: 0 !important; /* Collapse height to avoid empty space */
-        overflow: hidden !important; /* Hide any overflowing content */
+        display: none !important; /* More aggressive hiding than just visibility: hidden */
+        height: 0 !important;
+        overflow: hidden !important;
         margin: 0 !important;
         padding: 0 !important;
-        box-shadow: none !important;
-        border: none !important;
     }
 
-    /* Make the specific print-only container and its children visible */
+    /* Make the .print-only content visible and positioned for printing */
     .print-only, .print-only * {
         visibility: visible !important;
-        height: auto !important; /* Restore auto height */
-        overflow: visible !important; /* Restore visible overflow */
+        display: block !important; /* Ensure it's rendered as a block */
+        height: auto !important;
+        width: auto !important; /* Allow content to dictate width, within the absolute container */
         margin: 0 !important;
         padding: 0 !important;
         box-shadow: none !important;
         border: none !important;
+        position: static !important; /* Reset position for print flow within the absolute wrapper */
+        top: auto !important;
+        left: auto !important;
     }
 
-    /* Position the print-only container to take up the full print area */
+    /* Position the main print-only container to cover the entire print area */
     .print-only {
-        position: absolute !important;
+        position: absolute !important; /* Take it out of flow to cover the print page */
         left: 0 !important;
         top: 0 !important;
         width: 100% !important;
-        /* The height will be controlled by page-break-after on .pdf-logical-page if you had one, but for voucher, it should fill vertically too */
+        height: 100% !important; /* Ensure it fills the print viewport */
+        overflow: visible !important; /* Allow content to overflow for pagination */
+        background-color: #ffffff !important; /* Ensure a white background */
+        font-family: 'Inter', sans-serif !important; /* Re-apply font if necessary */
     }
-
-    /* General print layout resets for html, body, and the main content area for print */
-    html, body {
-        background-color: #ffffff !important;
-        padding: 0 !important;
-        margin: 0 !important;
-        width: 100% !important;
-        height: auto !important; /* Allow height to adjust */
-        overflow: visible !important;
-        display: block !important; /* Essential for print */
-        font-size: 0.8rem !important;
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
-    }
-
-    .voucher-container { /* This targets the actual content wrapper within print-only */
+    
+    /* Adjust specific elements within the print-only content */
+    .voucher-container { 
         box-shadow: none !important;
         border-radius: 0 !important;
-        max-width: none !important; /* Allow full width */
-        margin: 0 !important;
+        max-width: none !important; 
+        margin: 0 auto !important; /* Center content horizontally on page */
         padding: 0 !important;
-        height: auto !important; /* Ensure content determines height */
+        height: auto !important;
+        /* Explicitly set a width if needed for A4, e.g., width: 210mm; or a percentage that fits */
+        width: 100% !important; /* Allow it to take full width of .print-only wrapper */
     }
 
+    /* Print button and other UI elements should always be hidden */
     .print-button, .add-button, .remove-button {
-        display: none !important; /* Hide buttons when printing */
+        display: none !important;
     }
+
+    /* Maintain table and input print styles */
     .info-table th, .info-table td {
-        padding: 5px 8px !important; /* Reduced padding for table cells */
-        font-size: 0.8rem !important; /* Smaller font size for table content */
+        padding: 5px 8px !important;
+        font-size: 0.8rem !important;
     }
     .info-table th {
-        width: 50% !important; /* Maintain equal width for columns */
+        width: 50% !important;
     }
     .input-field, .select-field, .textarea-field {
-        border: none !important; /* Remove borders from inputs */
-        padding: 0 !important; /* Remove padding for cleaner print */
-        background-color: transparent !important; /* Transparent background */
-        font-size: 0.8rem !important; /* Smaller font size for input values */
+        border: none !important;
+        padding: 0 !important;
+        background-color: transparent !important;
+        font-size: 0.8rem !important;
     }
-    /* Ensure text in inputs is visible and not cut off */
     .input-field:focus, .select-field:focus, .textarea-field:focus {
         outline: none !important;
     }
-    /* Adjust flex containers for print to just show content */
     .flex-container {
-        display: flex !important; /* Keep flex for inline elements */
+        display: flex !important;
         align-items: center !important;
-        gap: 3px !important; /* Smaller gap */
+        gap: 3px !important;
     }
     .flex-container span {
-        display: inline-block !important; /* Keep labels inline */
-        margin-right: 2px !important; /* Smaller space between label and value */
-        white-space: nowrap !important; /* Prevent labels from wrapping */
+        display: inline-block !important;
+        margin-right: 2px !important;
+        white-space: nowrap !important;
     }
     .flex-container input, .flex-container textarea, .flex-container select {
-        display: inline-block !important; /* Make inputs inline with labels */
-        width: auto !important; /* Allow content to dictate width */
-        min-width: 50px !important; /* Ensure enough space for content, adjust as needed */
-        flex-grow: 1 !important; /* Allow inputs to grow */
+        display: inline-block !important;
+        width: auto !important;
+        min-width: 50px !important;
+        flex-grow: 1 !important;
     }
     .date-time-container, .payment-doc-container {
-        display: flex !important; /* Keep these as flex for vertical stacking if needed, but compact */
+        display: flex !important;
         flex-direction: column !important;
-        gap: 2px !important; /* Smaller gap */
+        gap: 2px !important;
     }
     .date-time-container input, .payment-doc-container input {
-        width: auto !important; /* Auto width for inputs within these containers */
+        width: auto !important;
         display: inline-block !important;
     }
     .date-range-container {
-        display: inline-flex !important; /* Keep date range inline */
-        gap: 2px !important; /* Smaller gap */
+        display: inline-flex !important;
+        gap: 2px !important;
     }
     .info-table td {
-        word-wrap: break-word !important; /* Ensure long text wraps */
+        word-wrap: break-word !important;
     }
     .logo-section {
-        padding: 10px !important; /* Reduce logo section padding */
+        padding: 10px !important;
     }
     .logo-section img {
-        height: 60px !important; /* Smaller logo for print */
+        height: 60px !important;
     }
     .header-row {
-        padding: 8px 12px !important; /* Smaller padding for header rows */
-        font-size: 0.9rem !important; /* Slightly smaller header font */
+        padding: 8px 12px !important;
+        font-size: 0.9rem !important;
     }
     .signature-line {
-        margin-top: 10px !important; /* Reduced margin for signature line */
+        margin-top: 10px !important;
     }
     .signature-text {
-        font-size: 0.75rem !important; /* Smaller font for signature text */
-        padding-bottom: 5px !important; /* Reduced padding */
+        font-size: 0.75rem !important;
+        padding-bottom: 5px !important;
     }
 }
