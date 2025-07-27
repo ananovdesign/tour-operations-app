@@ -15,9 +15,9 @@ import { collection, doc, addDoc, setDoc, deleteDoc, onSnapshot, query, where, g
 // Import your logo image
 import Logo from './Logo.png'; // Assuming Logo.png is in the same directory as App.jsx
 import InvoicePrint from './InvoicePrint.jsx'; // New component for printing
-import CustomerContractPrint from './CustomerContractPrint.jsx'; // New component for customer contract generation
-import BusTourContractPrint from './BusTourContractPrint.jsx'; // New component for bus tour contract generation
-import VoucherPrint from './VoucherPrint.jsx'; // New component for Voucher generation
+import CustomerContractPrint from './CustomerContractPrint.jsx'; // New component for contract generation
+import BusTourContractPrint from './BusTourContractPrint.jsx'; // NEW: Import for Bus Tour Contract
+
 // --- Notification Display Component ---
 const NotificationDisplay = ({ notifications, onDismiss }) => {
   return (
@@ -99,9 +99,10 @@ const App = () => {
   const [selectedProduct, setSelectedProduct] = useState(null);
   // New: State for currently selected sales invoice for editing
 const [selectedSalesInvoice, setSelectedSalesInvoice] = useState(null);
-// NEW STATE FOR CONTRACT GENERATION
-  const [reservationToGenerateContract, setReservationToGenerateContract] = useState(null);
-  const [tourToGenerateContract, setTourToGenerateContract] = useState(null); // New state for bus tour contract
+// NEW STATE FOR CONTRACT GENERATION (Customer contract)
+const [reservationToGenerateContract, setReservationToGenerateContract] = useState(null);
+// NEW STATE FOR BUS TOUR CONTRACT GENERATION
+const [tourToGenerateContract, setTourToGenerateContract] = useState(null);
   // New: Search term states
  // New: Search term states
   const [searchCustomerTerm, setSearchCustomerTerm] = useState('');
@@ -113,8 +114,6 @@ const [selectedSalesInvoice, setSelectedSalesInvoice] = useState(null);
 
   // New: State to hold the invoice object for printing
   const [invoiceToPrint, setInvoiceToPrint] = useState(null);
-  const [componentToPrint, setComponentToPrint] = useState(null); // New state to control which component is currently printing
-const [printComponentData, setPrintComponentData] = useState(null); // Data for the component being printed
 
   // Data states - populated from Firestore (user-specific)
   const [reservations, setReservations] = useState([]);
@@ -2155,214 +2154,202 @@ case 'dashboard':
           </div>
         );
 case 'reservations':
-    return (
-        <div className="p-6 bg-white rounded-xl shadow-lg">
+        return (
+          <div className="p-6 bg-white rounded-xl shadow-lg">
             <h2 className="text-3xl font-bold mb-8 text-gray-800 border-b pb-4">Hotel Reservations</h2>
 
             <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4 mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200 shadow-sm">
-                <div>
-                    <label htmlFor="filterReservationStatus" className="block text-sm font-medium text-gray-700">Status</label>
-                    <select name="filterReservationStatus" id="filterReservationStatus" value={filterReservationStatus} onChange={handleReservationFilterChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2">
-                        <option value="All">All</option>
-                        <option value="Pending">Pending</option>
-                        <option value="Confirmed">Confirmed</option>
-                        <option value="Cancelled">Cancelled</option>
-                        <option value="Past">Past</option>
-                    </select>
-                </div>
-                <div>
-                    <label htmlFor="filterReservationHotel" className="block text-sm font-medium text-gray-700">Hotel</label>
-                    <input type="text" name="filterReservationHotel" id="filterReservationHotel" value={filterReservationHotel} onChange={handleReservationFilterChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" placeholder="Filter by hotel name" />
-                </div>
-                <div>
-                    <label htmlFor="filterReservationTourType" className="block text-sm font-medium text-gray-700">Tour Type</label>
-                    <select name="filterReservationTourType" id="filterReservationTourType" value={filterReservationTourType} onChange={handleReservationFilterChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2">
-                        <option value="All">All</option>
-                        <option value="PARTNER">PARTNER</option>
-                        <option value="HOTEL ONLY">HOTEL ONLY</option>
-                    </select>
-                </div>
-                <div>
-                    <label htmlFor="filterReservationCheckInDate" className="block text-sm font-medium text-gray-700">Check-in After</label>
-                    <input type="date" name="filterReservationCheckInDate" id="filterReservationCheckInDate" value={filterReservationCheckInDate} onChange={handleReservationFilterChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
-                </div>
-                <div>
-                    <label htmlFor="filterReservationCheckOutDate" className="block text-sm font-medium text-gray-700">Check-out Before</label>
-                    <input type="date" name="filterReservationCheckOutDate" id="filterReservationCheckOutDate" value={filterReservationCheckOutDate} onChange={handleReservationFilterChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
-                </div>
-                <div className="xl:col-span-2">
-                    <label htmlFor="searchReservationTerm" className="block text-sm font-medium text-gray-700">Search by Lead Guest</label>
-                    <input type="text" name="searchReservationTerm" id="searchReservationTerm" value={searchReservationTerm} onChange={e => setSearchReservationTerm(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" placeholder="Enter first or last name..." />
-                </div>
-                <div className="md:col-span-full xl:col-span-1 flex items-end">
-                    <button type="button" onClick={resetReservationFilters} className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition duration-200 shadow-sm border border-gray-200">
-                        Reset Filters
-                    </button>
-                </div>
+              <div>
+                <label htmlFor="filterReservationStatus" className="block text-sm font-medium text-gray-700">Status</label>
+                <select name="filterReservationStatus" id="filterReservationStatus" value={filterReservationStatus} onChange={handleReservationFilterChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2">
+                  <option value="All">All</option>
+                  <option value="Pending">Pending</option>
+                  <option value="Confirmed">Confirmed</option>
+                  <option value="Cancelled">Cancelled</option>
+                  <option value="Past">Past</option>
+                </select>
+              </div>
+              <div>
+                <label htmlFor="filterReservationHotel" className="block text-sm font-medium text-gray-700">Hotel</label>
+                <input type="text" name="filterReservationHotel" id="filterReservationHotel" value={filterReservationHotel} onChange={handleReservationFilterChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" placeholder="Filter by hotel name" />
+              </div>
+              <div>
+                <label htmlFor="filterReservationTourType" className="block text-sm font-medium text-gray-700">Tour Type</label>
+                <select name="filterReservationTourType" id="filterReservationTourType" value={filterReservationTourType} onChange={handleReservationFilterChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2">
+                  <option value="All">All</option>
+                  <option value="PARTNER">PARTNER</option>
+                  <option value="HOTEL ONLY">HOTEL ONLY</option>
+                </select>
+              </div>
+               <div>
+                <label htmlFor="filterReservationCheckInDate" className="block text-sm font-medium text-gray-700">Check-in After</label>
+                <input type="date" name="filterReservationCheckInDate" id="filterReservationCheckInDate" value={filterReservationCheckInDate} onChange={handleReservationFilterChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
+              </div>
+              <div>
+                <label htmlFor="filterReservationCheckOutDate" className="block text-sm font-medium text-gray-700">Check-out Before</label>
+                <input type="date" name="filterReservationCheckOutDate" id="filterReservationCheckOutDate" value={filterReservationCheckOutDate} onChange={handleReservationFilterChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
+              </div>
+              <div className="xl:col-span-2">
+                <label htmlFor="searchReservationTerm" className="block text-sm font-medium text-gray-700">Search by Lead Guest</label>
+                <input type="text" name="searchReservationTerm" id="searchReservationTerm" value={searchReservationTerm} onChange={e => setSearchReservationTerm(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" placeholder="Enter first or last name..." />
+              </div>
+              <div className="md:col-span-full xl:col-span-1 flex items-end">
+                <button type="button" onClick={resetReservationFilters} className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition duration-200 shadow-sm border border-gray-200">
+                  Reset Filters
+                </button>
+              </div>
             </div>
 
             {filteredReservations.length === 0 ? (
-                <p className="text-gray-600 text-center py-8">No reservations found.</p>
+              <p className="text-gray-600 text-center py-8">No reservations found.</p>
             ) : (
-                <div className="overflow-x-auto rounded-xl shadow-md border border-gray-200">
-                    <table className="min-w-full bg-white">
-                        <thead className="bg-gray-50 text-gray-700 border-b border-gray-200">
-                            <tr>
-                                <th className="py-3 px-4 text-left font-medium">Reservation Number</th>
-                                <th className="py-3 px-4 text-left font-medium">Hotel</th>
-                                <th className="py-3 px-4 text-left font-medium">Lead Guest</th>
-                                <th className="py-3 px-4 text-left font-medium">Dates</th>
-                                <th className="py-3 px-4 text-left font-medium">Status</th>
-                                <th className="py-3 px-4 text-right font-medium">Profit</th>
-                                <th className="py-3 px-4 text-center font-medium">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {filteredReservations.map(res => {
-                                const linkedPayments = financialTransactions.filter(ft => ft.associatedReservationId === res.reservationNumber);
-                                return (
-                                    <React.Fragment key={res.id}>
-                                        <tr onClick={() => setExpandedReservationId(expandedReservationId === res.id ? null : res.id)} className="cursor-pointer hover:bg-gray-100">
-                                            <td className="py-3 px-4">{res.reservationNumber}</td>
-                                            <td className="py-3 px-4">{res.hotel}</td>
-                                            <td className="py-3 px-4">{res.tourists && res.tourists.length > 0 ? `${res.tourists[0].firstName} ${res.tourists[0].familyName}` : 'N/A'}</td>
-                                            <td className="py-3 px-4 text-gray-600">{res.checkIn} - {res.checkOut}</td>
-                                            <td className="py-3 px-4"><span className={`px-3 py-1 rounded-full text-xs font-semibold ${res.status === 'Confirmed' ? 'bg-green-100 text-green-800' : res.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' : res.status === 'Cancelled' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'}`}>{res.status}</span></td>
-                                            <td className="py-3 px-4 font-semibold text-right text-gray-800">BGN {res.profit.toFixed(2)}</td>
-                                            <td className="py-3 px-4 flex justify-center space-x-2">
-                                                <button onClick={(e) => { e.stopPropagation(); setViewingReservation(res); }} className="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-full shadow-md transition duration-200" title="View Details">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-                                                </button>
-                                                <button onClick={(e) => { e.stopPropagation(); handleEditReservation(res); }} className="bg-[#28A745] hover:bg-[#218838] text-white p-2 rounded-full shadow-md transition duration-200" title="Edit">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zm-5.69 5.69L11.586 7.586 14.414 10.414 11.586 13.242 8.758 10.414l2.828-2.828z" /><path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm-4 8a1 1 0 011-1h1a1 1 0 110 2H7a1 1 0 01-1-1zm10 0a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1zM4 14a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm10 0a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1zM3 18a1 1 0 011-1h1a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" /></svg>
-                                                </button>
-                                                {/* --- NEW PRINT CONTRACT BUTTON --- */}
-                                                <button
-                                                  onClick={(e) => {
-                                                      e.stopPropagation();
-                                                      setReservationToGenerateContract(res);
-                                                      setActiveTab('customerContract'); // This will trigger rendering of CustomerContractPrint
-                                                  }}
-                                                  className="bg-purple-500 hover:bg-purple-600 text-white p-2 rounded-full shadow-md transition duration-200"
-                                                  title="Print Contract"
-                                                >
-                                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v6a2 2 0 002 2h12a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clipRule="evenodd" /></svg>
-                                                </button>
-                                                {/* --- NEW PRINT VOUCHER BUTTON --- */}
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setSelectedReservation(res); // Set the reservation to be used for the voucher
-                                                        setActiveTab('voucherPrint'); // This will trigger rendering of VoucherPrint
-                                                    }}
-                                                    className="bg-yellow-500 hover:bg-yellow-600 text-white p-2 rounded-full shadow-md transition duration-200"
-                                                    title="Print Voucher"
-                                                >
-                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                                                </button>
-                                                <button onClick={(e) => { e.stopPropagation(); handleDeleteReservation(res.id); }} className="bg-[#DC3545] hover:bg-[#C82333] text-white p-2 rounded-full shadow-md transition duration-200" title="Delete">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1zm-1 3a1 1 0 011-1h4a1 1 0 110 2H7a1 1 0 01-1-1zm-1 3a1 1 0 011-1h4a1 1 0 110 2H7a1 1 0 01-1-1z" clipRule="evenodd" /></svg>
-                                                </button>
-                                            </td>
+              <div className="overflow-x-auto rounded-xl shadow-md border border-gray-200">
+                <table className="min-w-full bg-white">
+                  <thead className="bg-gray-50 text-gray-700 border-b border-gray-200">
+                    <tr>
+                      <th className="py-3 px-4 text-left font-medium">Reservation Number</th>
+                      <th className="py-3 px-4 text-left font-medium">Hotel</th>
+                      <th className="py-3 px-4 text-left font-medium">Lead Guest</th>
+                      <th className="py-3 px-4 text-left font-medium">Dates</th>
+                      <th className="py-3 px-4 text-left font-medium">Status</th>
+                      <th className="py-3 px-4 text-right font-medium">Profit</th>
+                      <th className="py-3 px-4 text-center font-medium">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredReservations.map(res => {
+                      const linkedPayments = financialTransactions.filter(ft => ft.associatedReservationId === res.reservationNumber);
+                      return (
+                        <React.Fragment key={res.id}>
+                          <tr onClick={() => setExpandedReservationId(expandedReservationId === res.id ? null : res.id)} className="cursor-pointer hover:bg-gray-100">
+                            <td className="py-3 px-4">{res.reservationNumber}</td>
+                            <td className="py-3 px-4">{res.hotel}</td>
+                            <td className="py-3 px-4">{res.tourists && res.tourists.length > 0 ? `${res.tourists[0].firstName} ${res.tourists[0].familyName}` : 'N/A'}</td>
+                            <td className="py-3 px-4 text-gray-600">{res.checkIn} - {res.checkOut}</td>
+                            <td className="py-3 px-4"><span className={`px-3 py-1 rounded-full text-xs font-semibold ${res.status === 'Confirmed' ? 'bg-green-100 text-green-800' : res.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' : res.status === 'Cancelled' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'}`}>{res.status}</span></td>
+                            <td className="py-3 px-4 font-semibold text-right text-gray-800">BGN {res.profit.toFixed(2)}</td>
+                           <td className="py-3 px-4 flex justify-center space-x-2">
+                              <button onClick={(e) => { e.stopPropagation(); setViewingReservation(res); }} className="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-full shadow-md transition duration-200" title="View Details">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                              </button>
+                              <button onClick={(e) => { e.stopPropagation(); handleEditReservation(res); }} className="bg-[#28A745] hover:bg-[#218838] text-white p-2 rounded-full shadow-md transition duration-200" title="Edit">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zm-5.69 5.69L11.586 7.586 14.414 10.414 11.586 13.242 8.758 10.414l2.828-2.828z" /><path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm-4 8a1 1 0 011-1h1a1 1 0 110 2H7a1 1 0 01-1-1zm10 0a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1zM4 14a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm10 0a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1zM3 18a1 1 0 011-1h1a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" /></svg>
+                              </button>
+                              {/* --- NEW PRINT CONTRACT BUTTON --- */}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setReservationToGenerateContract(res);
+                                  setActiveTab('customerContract'); // This will trigger rendering of CustomerContractPrint
+                                }}
+                                className="bg-purple-500 hover:bg-purple-600 text-white p-2 rounded-full shadow-md transition duration-200"
+                                title="Print Contract"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v6a2 2 0 002 2h12a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clipRule="evenodd" /></svg>
+                              </button>
+                              <button onClick={(e) => { e.stopPropagation(); handleDeleteReservation(res.id); }} className="bg-[#DC3545] hover:bg-[#C82333] text-white p-2 rounded-full shadow-md transition duration-200" title="Delete">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1zm-1 3a1 1 0 011-1h4a1 1 0 110 2H7a1 1 0 01-1-1zm-1 3a1 1 0 011-1h4a1 1 0 110 2H7a1 1 0 01-1-1z" clipRule="evenodd" /></svg>
+                              </button>
+                            </td>
+                          </tr>
+                          {expandedReservationId === res.id && (
+                            <tr className="bg-gray-50">
+                              <td colSpan="7" className="p-4">
+                                <h4 className="font-semibold text-gray-700 mb-2">Linked Financial Transactions:</h4>
+                                {linkedPayments.length > 0 ? (
+                                  <table className="min-w-full bg-white text-sm rounded-lg shadow">
+                                    <thead className="bg-gray-200">
+                                      <tr>
+                                        <th className="py-1 px-2 text-left">Date</th>
+                                        <th className="py-1 px-2 text-left">Type</th>
+                                        <th className="py-1 px-2 text-left">Method</th>
+                                        <th className="py-1 px-2 text-right">Amount</th>
+                                        <th className="py-1 px-2 text-left">Linked Tour</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {linkedPayments.map(p => (
+                                        <tr key={p.id} className="border-b">
+                                          <td className="py-1 px-2">{p.date}</td>
+                                          <td className="py-1 px-2"><span className={`px-2 py-0.5 rounded-full text-xs ${p.type === 'income' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{p.type}</span></td>
+                                          <td className="py-1 px-2">{p.method}</td>
+                                          <td className="py-1 px-2 text-right font-medium">BGN {p.amount.toFixed(2)}</td>
+                                          <td className="py-1 px-2">{p.associatedTourId || 'N/A'}</td>
                                         </tr>
-                                        {expandedReservationId === res.id && (
-                                            <tr className="bg-gray-50">
-                                                <td colSpan="7" className="p-4">
-                                                    <h4 className="font-semibold text-gray-700 mb-2">Linked Financial Transactions:</h4>
-                                                    {linkedPayments.length > 0 ? (
-                                                        <table className="min-w-full bg-white text-sm rounded-lg shadow">
-                                                            <thead className="bg-gray-200">
-                                                                <tr>
-                                                                    <th className="py-1 px-2 text-left">Date</th>
-                                                                    <th className="py-1 px-2 text-left">Type</th>
-                                                                    <th className="py-1 px-2 text-left">Method</th>
-                                                                    <th className="py-1 px-2 text-right">Amount</th>
-                                                                    <th className="py-1 px-2 text-left">Linked Tour</th>
-                                                                </tr>
-                                                            </thead>
-                                                            <tbody>
-                                                                {linkedPayments.map(p => (
-                                                                    <tr key={p.id} className="border-b">
-                                                                        <td className="py-1 px-2">{p.date}</td>
-                                                                        <td className="py-1 px-2"><span className={`px-2 py-0.5 rounded-full text-xs ${p.type === 'income' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{p.type}</span></td>
-                                                                        <td className="py-1 px-2">{p.method}</td>
-                                                                        <td className="py-1 px-2 text-right font-medium">BGN {p.amount.toFixed(2)}</td>
-                                                                        <td className="py-1 px-2">{p.associatedTourId || 'N/A'}</td>
-                                                                    </tr>
-                                                                ))}
-                                                            </tbody>
-                                                        </table>
-                                                    ) : (
-                                                        <p className="text-sm text-gray-500">No payments found for this reservation.</p>
-                                                    )}
-                                                </td>
-                                            </tr>
-                                        )}
-                                    </React.Fragment>
-                                )
-                            })}
-                        </tbody>
-                    </table>
-                </div>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                ) : (
+                                  <p className="text-sm text-gray-500">No payments found for this reservation.</p>
+                                )}
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
             )}
             
             {viewingReservation && (
-                <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 z-50">
-                    <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-4xl relative max-h-[90vh] flex flex-col">
-                        <h3 className="text-2xl font-semibold mb-4 text-gray-800 border-b pb-3">Reservation Details: <span className="text-blue-600">{viewingReservation.reservationNumber}</span></h3>
-                        <div className="overflow-y-auto">
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-gray-700 mb-6">
-                                <div><strong>Hotel:</strong> <span className="text-gray-600">{viewingReservation.hotel}</span></div>
-                                <div><strong>Place:</strong> <span className="text-gray-600">{viewingReservation.place}</span></div>
-                                <div><strong>Food:</strong> <span className="text-gray-600">{viewingReservation.food}</span></div>
-                                <div><strong>Check-in:</strong> <span className="text-gray-600">{viewingReservation.checkIn}</span></div>
-                                <div><strong>Check-out:</strong> <span className="text-gray-600">{viewingReservation.checkOut}</span></div>
-                                <div><strong>Nights:</strong> <span className="font-semibold">{viewingReservation.totalNights}</span></div>
-                                <div><strong>Status:</strong> <span className={`font-semibold ${viewingReservation.status === 'Confirmed' ? 'text-green-600' : 'text-yellow-600'}`}>{viewingReservation.status}</span></div>
-                                <div><strong>Tour Operator:</strong> <span className="text-gray-600">{viewingReservation.tourOperator}</span></div>
-                                <div><strong>Linked Tour ID:</strong> <span className="text-gray-600">{viewingReservation.linkedTourId || 'N/A'}</span></div>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-gray-700 mb-6 border-t pt-4">
-                                <div className="text-lg"><strong>Final Amount:</strong> <span className="font-bold text-green-600">BGN {viewingReservation.finalAmount.toFixed(2)}</span></div>
-                                <div className="text-lg"><strong>Owed to Hotel:</strong> <span className="font-bold text-red-600">BGN {viewingReservation.owedToHotel.toFixed(2)}</span></div>
-                                <div className="text-lg"><strong>Profit:</strong> <span className="font-bold text-blue-600">BGN {viewingReservation.profit.toFixed(2)}</span></div>
-                            </div>
-                            <h4 className="text-xl font-semibold mb-3 text-gray-800">Tourists ({viewingReservation.adults} Adults, {viewingReservation.children} Children)</h4>
-                            <div className="overflow-x-auto max-h-60 rounded-lg border">
-                                <table className="min-w-full bg-white">
-                                    <thead className="bg-gray-100 text-gray-700 border-b">
-                                        <tr>
-                                            <th className="py-2 px-3 text-left text-sm font-medium">Name</th>
-                                            <th className="py-2 px-3 text-left text-sm font-medium">ID</th>
-                                            <th className="py-2 px-3 text-left text-sm font-medium">Real ID</th>
-                                            <th className="py-2 px-3 text-left text-sm font-medium">Email</th>
-                                            <th className="py-2 px-3 text-left text-sm font-medium">Phone</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {viewingReservation.tourists.map((t, index) => (
-                                            <tr key={index} className="border-b border-gray-100">
-                                                <td className="py-2 px-3 text-sm">{t.firstName} {t.familyName}</td>
-                                                <td className="py-2 px-3 text-sm">{t.id}</td>
-                                                <td className="py-2 px-3 text-sm">{t.realId}</td>
-                                                <td className="py-2 px-3 text-sm">{t.email}</td>
-                                                <td className="py-2 px-3 text-sm">{t.phone}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                        <div className="flex justify-end mt-6 pt-4 border-t">
-                            <button onClick={() => setViewingReservation(null)} className="px-6 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition duration-200 shadow-md">
-                                Close
-                            </button>
-                        </div>
+              <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 z-50">
+                <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-4xl relative max-h-[90vh] flex flex-col">
+                  <h3 className="text-2xl font-semibold mb-4 text-gray-800 border-b pb-3">Reservation Details: <span className="text-blue-600">{viewingReservation.reservationNumber}</span></h3>
+                  <div className="overflow-y-auto">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-gray-700 mb-6">
+                      <div><strong>Hotel:</strong> <span className="text-gray-600">{viewingReservation.hotel}</span></div>
+                      <div><strong>Place:</strong> <span className="text-gray-600">{viewingReservation.place}</span></div>
+                      <div><strong>Food:</strong> <span className="text-gray-600">{viewingReservation.food}</span></div>
+                      <div><strong>Check-in:</strong> <span className="text-gray-600">{viewingReservation.checkIn}</span></div>
+                      <div><strong>Check-out:</strong> <span className="text-gray-600">{viewingReservation.checkOut}</span></div>
+                      <div><strong>Nights:</strong> <span className="font-semibold">{viewingReservation.totalNights}</span></div>
+                      <div><strong>Status:</strong> <span className={`font-semibold ${viewingReservation.status === 'Confirmed' ? 'text-green-600' : 'text-yellow-600'}`}>{viewingReservation.status}</span></div>
+                      <div><strong>Tour Operator:</strong> <span className="text-gray-600">{viewingReservation.tourOperator}</span></div>
+                      <div><strong>Linked Tour ID:</strong> <span className="text-gray-600">{viewingReservation.linkedTourId || 'N/A'}</span></div>
                     </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-gray-700 mb-6 border-t pt-4">
+                      <div className="text-lg"><strong>Final Amount:</strong> <span className="font-bold text-green-600">BGN {viewingReservation.finalAmount.toFixed(2)}</span></div>
+                      <div className="text-lg"><strong>Owed to Hotel:</strong> <span className="font-bold text-red-600">BGN {viewingReservation.owedToHotel.toFixed(2)}</span></div>
+                      <div className="text-lg"><strong>Profit:</strong> <span className="font-bold text-blue-600">BGN {viewingReservation.profit.toFixed(2)}</span></div>
+                    </div>
+                    <h4 className="text-xl font-semibold mb-3 text-gray-800 border-t pt-4">Tourists ({viewingReservation.adults} Adults, {viewingReservation.children} Children)</h4>
+                    <div className="overflow-x-auto max-h-60 rounded-lg border">
+                      <table className="min-w-full bg-white">
+                        <thead className="bg-gray-100 text-gray-700 border-b">
+                          <tr>
+                            <th className="py-2 px-3 text-left text-sm font-medium">Name</th>
+                            <th className="py-2 px-3 text-left text-sm font-medium">ID</th>
+                            <th className="py-2 px-3 text-left text-sm font-medium">Real ID</th>
+                            <th className="py-2 px-3 text-left text-sm font-medium">Email</th>
+                            <th className="py-2 px-3 text-left text-sm font-medium">Phone</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {viewingReservation.tourists.map((t, index) => (
+                            <tr key={index} className="border-b border-gray-100">
+                              <td className="py-2 px-3 text-sm">{t.firstName} {t.familyName}</td>
+                              <td className="py-2 px-3 text-sm">{t.id}</td>
+                              <td className="py-2 px-3 text-sm">{t.realId}</td>
+                              <td className="py-2 px-3 text-sm">{t.email}</td>
+                              <td className="py-2 px-3 text-sm">{t.phone}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                  <div className="flex justify-end mt-6 pt-4 border-t">
+                    <button onClick={() => setViewingReservation(null)} className="px-6 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition duration-200 shadow-md">
+                      Close
+                    </button>
+                  </div>
                 </div>
+              </div>
             )}
-        </div>
-    );
+          </div>
+        );
       case 'addReservation':
         return (
           <div className="p-6 bg-white rounded-xl shadow-lg">
@@ -3020,43 +3007,35 @@ case 'customers':
                               className="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-full shadow-md transition duration-200" // Blue button for view
                               title="View Tour Details"
                             >
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                <path fillRule="evenodd" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" clipRule="evenodd" />
-                              </svg>
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                             </button>
                             <button
                               onClick={() => handleEditTour(tour)}
                               className="bg-[#28A745] hover:bg-[#218838] text-white p-2 rounded-full shadow-md transition duration-200"
                               title="Edit Tour"
                             >
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zm-5.69 5.69L11.586 7.586 14.414 10.414 11.586 13.242 8.758 10.414l2.828-2.828z" />
-                                <path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm-4 8a1 1 0 011-1h1a1 1 0 110 2H7a1 1 0 01-1-1zm10 0a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1zM4 14a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm10 0a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1zM3 18a1 1 0 011-1h1a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
-                              </svg>
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zm-5.69 5.69L11.586 7.586 14.414 10.414 11.586 13.242 8.758 10.414l2.828-2.828z" /><path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm-4 8a1 1 0 011-1h1a1 1 0 110 2H7a1 1 0 01-1-1zm10 0a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1zM4 14a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm10 0a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1zM3 18a1 1 0 011-1h1a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" /></svg>
                             </button>
-                            {/* --- NEW PRINT TOUR CONTRACT BUTTON --- */}
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setTourToGenerateContract(tour);
-                                  setActiveTab('busTourContract'); // This will trigger rendering of BusTourContractPrint
-                                }}
-                                className="bg-purple-500 hover:bg-purple-600 text-white p-2 rounded-full shadow-md transition duration-200"
-                                title="Print Tour Contract"
-                              >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v6a2 2 0 002 2h12a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clipRule="evenodd" /></svg>
-                              </button>
+                            {/* NEW PRINT CONTRACT BUTTON FOR TOURS */}
                             <button
-                              onClick={() => handleDeleteTour(tour.tourId)}
+                              onClick={(e) => {
+                                e.stopPropagation(); // Prevents row click from expanding/collapsing
+                                setTourToGenerateContract(tour); // Set the selected tour for the contract
+                                setActiveTab('busTourContract'); // Switch to the new tab
+                              }}
+                              className="bg-purple-500 hover:bg-purple-600 text-white p-2 rounded-full shadow-md transition duration-200"
+                              title="Print Bus Tour Contract"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v6a2 2 0 002 2h12a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clipRule="evenodd" /></svg>
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleDeleteTour(tour.tourId); }}
                               className="bg-[#DC3545] hover:bg-[#C82333] text-white p-2 rounded-full shadow-md transition duration-200"
                               title="Delete"
                             >
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1zm-1 3a1 1 0 011-1h4a1 1 0 110 2H7a1 1 0 01-1-1zm-1 3a1 1 0 011-1h4a1 1 0 110 2H7a1 1 0 01-1-1z" clipRule="evenodd" />
-                              </svg>
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1zm-1 3a1 1 0 011-1h4a1 1 0 110 2H7a1 1 0 01-1-1zm-1 3a1 1 0 011-1h4a1 1 0 110 2H7a1 1 0 01-1-1z" clipRule="evenodd" /></svg>
                             </button>
-                          </td>
+                        </td>
                         </tr>
                       );
                       })}
@@ -4398,32 +4377,6 @@ case 'customerContract':
         </div>
       );
     }
-case 'busTourContract': // NEW CASE FOR BUS TOUR CONTRACT
-    if (tourToGenerateContract) {
-      return (
-        <BusTourContractPrint
-          tourData={tourToGenerateContract}
-          allReservations={reservations} // Pass all reservations so the component can filter
-          onPrintFinish={() => {
-            setTourToGenerateContract(null); // Clear the selected tour
-            setActiveTab('tours'); // Go back to the tours list
-          }}
-        />
-      );
-    } else {
-      // If user clicked 'Bus Tour Contract' from sidebar directly (no tour selected), or if tourToGenerateContract is null
-      return (
-        <div className="p-6 bg-white rounded-xl shadow-lg h-full text-center">
-            <p className="text-gray-600 text-lg mb-4">Please select a tour from the "Bus Tours" list to generate a contract.</p>
-            <button
-                onClick={() => setActiveTab('tours')}
-                className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition duration-200 shadow-md"
-            >
-                Go to Bus Tours
-            </button>
-        </div>
-      );
-    }
     return (
         <CustomerContractPrint
             reservationData={reservationToGenerateContract}
@@ -4433,30 +4386,31 @@ case 'busTourContract': // NEW CASE FOR BUS TOUR CONTRACT
             }}
         />
     );
-        case 'voucherPrint': // NEW CASE FOR VOUCHER PRINT
-        if (selectedReservation) {
-          return (
-            <VoucherPrint
-              reservationData={selectedReservation}
-              onPrintFinish={() => {
-                setSelectedReservation(null); // Clear the selected reservation
-                setActiveTab('reservations'); // Go back to the reservations list
-              }}
-            />
-          );
-        } else {
-          return (
-            <div className="p-6 bg-white rounded-xl shadow-lg h-full text-center">
-                <p className="text-gray-600 text-lg mb-4">Please select a reservation from the "Reservations" list to generate a voucher.</p>
-                <button
-                    onClick={() => setActiveTab('reservations')}
-                    className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition duration-200 shadow-md"
-                >
-                    Go to Reservations
-                </button>
-            </div>
-          );
-        }
+        case 'busTourContract': // NEW CASE FOR BUS TOUR CONTRACT
+    if (tourToGenerateContract) {
+        return (
+            <BusTourContractPrint
+                tourData={tourToGenerateContract}
+                allReservations={reservations} // Pass all reservations to the component
+                onPrintFinish={() => {
+                    setTourToGenerateContract(null); // Clear the selected tour
+                    setActiveTab('tours'); // Go back to the tours list
+                }}
+            />
+        );
+    } else {
+        // This case should ideally not be hit if the button is only on the tour list.
+        // But having a fallback is good for direct URL access or unexpected state.
+        return (
+            <div className="p-6 bg-white rounded-xl shadow-lg">
+                <h3 className="text-xl font-semibold text-gray-800 mb-4">Автобусен Тур Договор</h3>
+                <p className="text-gray-700">Моля, изберете тур от списъка "Bus Tours" и натиснете "Принтирай Договор", за да генерирате договор.</p>
+                <button onClick={() => setActiveTab('tours')} className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition duration-200">
+                    Към Автобусни Турове
+                </button>
+            </div>
+        );
+    }
       case 'createInvoice':
         return (
           <div className="p-0 bg-white rounded-xl shadow-lg h-full">
@@ -4468,23 +4422,26 @@ case 'busTourContract': // NEW CASE FOR BUS TOUR CONTRACT
             />
           </div>
         );
-        case 'voucherGenerator':
-        return (
-          <div className="p-0 bg-white rounded-xl shadow-lg h-full">
-            <iframe
-              src="/voucher.html" // Loads voucher.html from the 'public' folder
-              title="Voucher Generator"
-              className="w-full h-full border-0 rounded-xl"
-              style={{ minHeight: '80vh' }}
-            />
-          </div>
-        );
       default:
         return <div>Select a module from the sidebar.</div>;
     }
   };
 
- 
+  const handlePrintFinish = () => {
+    setInvoiceToPrint(null);
+  };
+
+  // If an invoice has been selected for printing, render only the print component.
+  if (invoiceToPrint) {
+    return <InvoicePrint invoiceData={invoiceToPrint} onPrintFinish={handlePrintFinish} />;
+  }
+
+
+
+  if (invoiceToPrint) {
+    return <InvoicePrint invoiceData={invoiceToPrint} onPrintFinish={handlePrintFinish} />;
+  }
+
   return (
     <div className="font-sans antialiased bg-gray-100 min-h-screen text-gray-900" style={{ fontFamily: 'Inter, sans-serif' }}>
       <div className="flex flex-col md:flex-row min-h-screen">
@@ -4611,12 +4568,6 @@ case 'busTourContract': // NEW CASE FOR BUS TOUR CONTRACT
                       Create Invoice
                     </button>
                   </li>
-                  <li className="mb-2">
-                    <button onClick={() => setActiveTab('voucherGenerator')} className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base ${activeTab === 'voucherGenerator' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}`}>
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                      Voucher Generator
-                    </button>
-                  </li>
                   {isEmailPasswordUser && (
                     <li className="mb-2 mt-auto pt-6 border-t border-gray-200">
                       <button onClick={handleLogout} className="flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base hover:bg-red-50 text-[#DC3545]">
