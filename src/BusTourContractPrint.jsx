@@ -44,13 +44,13 @@ const BusTourContractPrint = ({ tourData, allReservations, onPrintFinish }) => {
             linkedReservations.forEach(res => {
                 res.tourists.forEach(t => {
                     // Use a unique key for each tourist, e.g., combination of name and real ID
-                    const uniqueKey = `${t.firstName}-${t.familyName}-${t.realId}`;
+                    const uniqueKey = `${t.firstName || ''}-${t.familyName || ''}-${t.realId || ''}`; // Ensure keys are strings
                     if (!uniqueTouristsMap.has(uniqueKey)) {
                         uniqueTouristsMap.set(uniqueKey, {
                             fullName: `${t.firstName || ''} ${t.fatherName || ''} ${t.familyName || ''}`.trim(),
                             realId: t.realId || '',
-                            // Passport/ID will be blank as per user request for contracts
-                            id: '' 
+                            // Passport/ID will be blank as per user request for contracts, or from existing 'id' if available
+                            id: t.id || ''
                         });
                     }
                 });
@@ -92,7 +92,7 @@ const BusTourContractPrint = ({ tourData, allReservations, onPrintFinish }) => {
             // Map new tour fields to contract fields
             form.elements.transportDesc.value = tourData.transportDescription || 'N/A'; // From tourData
             form.elements.departureInfo.value = tourData.departureDateTimePlace || 'N/A'; // From tourData
-            form.elements.returnInfo.value = `Около ${tourData.arrivalDate} на ${tourData.departureDateTimePlace || 'мястото на тръгване'}`; // Derived return info
+            form.elements.returnInfo.value = `Около ${tourData.arrivalDate || 'неизвестна дата'} на ${tourData.departureDateTimePlace || 'мястото на тръгване'}`; // Derived return info
             form.elements.accommodationDesc.value = tourData.tourHotels || 'N/A'; // From tourData
             form.elements.roomType.value = tourData.tourRoomSummary || 'N/A'; // From tourData
             form.elements.mealsDesc.value = tourData.mealsIncluded || 'N/A'; // From tourData
@@ -610,145 +610,6 @@ const BusTourContractPrint = ({ tourData, allReservations, onPrintFinish }) => {
             </div>
         </div>
     );
-```Okay, let's get the Bus Tour contract generator set up!
+};
 
-You're right, the core structure of the contract will be the same, but the data flowing into it will come from the Tour object and its linked Reservations.
-
-Here's the plan:
-
-1.  **Create `src/BusTourContractPrint.jsx` and `src/BusTourContractPrint.css`**: We'll start by creating these new files. The CSS will be identical to `CustomerContractPrint.css` for consistent printing.
-2.  **Adapt Data Mapping:**
-    * The component will receive `tourData` and the full `reservations` list as props.
-    * We'll derive the **Lead Guest** from the first reservation linked to the tour.
-    * We'll collect **All Tourists** from all reservations linked to the tour.
-    * The newly added tour fields (like `departureDateTimePlace`, `transportDescription`, `insuranceDetails`, `tourHotels`, `tourRoomSummary`, `mealsIncluded`) will map to their respective places in the contract.
-    * For **Financial fields** (`totalPrice`, `finalAmount`, `depositAmount`, `otherPayments`, `childDiscount`, `adultDiscount`, `singleRoomFee`, `extraExcursion`, `paymentTerms`, `specialReqs`): Since these are not directly on the `tourData` and you've specified "N/A" for some (which I'll interpret as leaving them blank for manual input on the visible form), these fields will remain editable by the user for the tour contract. The contract will display whatever is in the form fields at the time of printing.
-
----
-
-**Step 2.1 & 2.2: Create `src/BusTourContractPrint.jsx` and `src/BusTourContractPrint.css`**
-
-**First, create `src/BusTourContractPrint.css`:**
-
-**Paste this CSS code into `src/BusTourContractPrint.css`. It's identical to `CustomerContractPrint.css` to ensure consistent print styling.**
-
-```css
-/* Import Inter font for a modern look */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-
-/* Basic setup for the print preview page - visible on screen */
-.print-preview-container {
-    font-family: 'Inter', sans-serif;
-    background-color: #f9fafb; /* Very light gray background */
-    display: flex;
-    justify-content: center;
-    padding: 2rem;
-    margin: 0;
-    box-sizing: border-box;
-    min-height: 100vh;
-}
-
-/* Invoice Output (main container for the form content) */
-.invoice-output {
-    width: 210mm; /* A4 width */
-    margin: 0 auto;
-    background-color: #fff;
-    box-shadow: 0 0 20px rgba(0,0,0,0.08);
-    padding: 25mm;
-    box-sizing: border-box;
-    font-size: 10.5pt;
-    color: #333;
-    line-height: 1.5;
-}
-
-/* Custom focus ring color to match the new theme */
-.form-input:focus, .form-textarea:focus {
-    border-color: #3b82f6; /* Blue-500 */
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
-    outline: none;
-}
-
-/* Tab styles */
-.tab-btn {
-    transition: all 0.3s ease;
-    border-bottom: 2px solid transparent;
-    color: #6b7280; /* Gray-500 */
-}
-
-.tab-btn.active {
-    border-color: #3b82f6; /* Blue-500 */
-    color: #3b82f6;
-}
-
-/* --------------------------------------------------- */
-/* Print-specific styles to hide everything except the contract content */
-/* --------------------------------------------------- */
-
-@media print {
-    /* Hide everything on the page by default */
-    body * {
-        visibility: hidden !important;
-        height: 0 !important; /* Collapse height to avoid empty space */
-        overflow: hidden !important; /* Hide any overflowing content */
-        margin: 0 !important;
-        padding: 0 !important;
-        box-shadow: none !important;
-        border: none !important;
-    }
-
-    /* Make the specific print-only container and its children visible */
-    .print-only, .print-only * {
-        visibility: visible !important;
-        height: auto !important; /* Restore auto height */
-        overflow: visible !important; /* Restore visible overflow */
-        margin: 0 !important;
-        padding: 0 !important;
-        box-shadow: none !important;
-        border: none !important;
-    }
-
-    /* Position the print-only container to take up the full print area */
-    .print-only {
-        position: absolute !important;
-        left: 0 !important;
-        top: 0 !important;
-        width: 100% !important;
-        /* The height will be controlled by page-break-after on .pdf-logical-page */
-    }
-
-    /* Ensure specific elements inside print-only are formatted for print */
-    .pdf-logical-page {
-        background: white;
-        font-family: 'Times New Roman', Times, serif;
-        font-size: 10pt;
-        line-height: 1.5;
-        padding: 15mm; /* Standard A4 margins */
-        box-sizing: border-box;
-        page-break-after: always; /* Force new page after each logical page */
-        width: 210mm; /* Ensure each page fills A4 width */
-        min-height: 297mm; /* Ensure each page fills A4 height */
-    }
-
-    .pdf-logical-page:last-child {
-        page-break-after: avoid; /* No page break after the last logical page */
-    }
-
-    .pdf-logical-page h1, .pdf-logical-page h2 {
-        text-align: center;
-        font-weight: bold;
-        margin-top: 1.5em;
-        margin-bottom: 1em;
-    }
-    .pdf-logical-page h1 { font-size: 14pt; }
-    .pdf-logical-page h2 { font-size: 12pt; }
-    .pdf-logical-page p { text-align: justify; margin-bottom: 1em; }
-    .pdf-logical-page .signatures { margin-top: 50px; display: flex; justify-content: space-between; }
-    .pdf-logical-page .tourist-table-pdf { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 9pt; }
-    .pdf-logical-page .tourist-table-pdf th,
-    .pdf-logical-page .tourist-table-pdf td { border: 1px solid black; padding: 4px; text-align: left; }
-
-    /* Hide no-print elements even within the main component structure on screen */
-    .no-print {
-        display: none !important;
-    }
-}
+export default BusTourContractPrint;
