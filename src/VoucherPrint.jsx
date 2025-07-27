@@ -174,7 +174,7 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
     }
 
     return (
-        <div className="print-preview-container">
+        <div className="print-preview-container w-full">
             <div className="voucher-container">
                 {/* Logo Section */}
                 <div className="logo-section">
