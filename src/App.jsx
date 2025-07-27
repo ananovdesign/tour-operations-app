@@ -15,7 +15,8 @@ import { collection, doc, addDoc, setDoc, deleteDoc, onSnapshot, query, where, g
 // Import your logo image
 import Logo from './Logo.png'; // Assuming Logo.png is in the same directory as App.jsx
 import InvoicePrint from './InvoicePrint.jsx'; // New component for printing
-import CustomerContractPrint from './CustomerContractPrint.jsx'; // New component for contract generation
+import CustomerContractPrint from './CustomerContractPrint.jsx'; // New component for customer contract generation
+import BusTourContractPrint from './BusTourContractPrint.jsx'; // New component for bus tour contract generation
 
 // --- Notification Display Component ---
 const NotificationDisplay = ({ notifications, onDismiss }) => {
@@ -98,8 +99,9 @@ const App = () => {
   const [selectedProduct, setSelectedProduct] = useState(null);
   // New: State for currently selected sales invoice for editing
 const [selectedSalesInvoice, setSelectedSalesInvoice] = useState(null);
-  // NEW STATE FOR CONTRACT GENERATION
+// NEW STATE FOR CONTRACT GENERATION
   const [reservationToGenerateContract, setReservationToGenerateContract] = useState(null);
+  const [tourToGenerateContract, setTourToGenerateContract] = useState(null); // New state for bus tour contract
   // New: Search term states
  // New: Search term states
   const [searchCustomerTerm, setSearchCustomerTerm] = useState('');
@@ -3019,6 +3021,18 @@ case 'customers':
                                 <path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm-4 8a1 1 0 011-1h1a1 1 0 110 2H7a1 1 0 01-1-1zm10 0a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1zM4 14a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm10 0a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1zM3 18a1 1 0 011-1h1a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
                               </svg>
                             </button>
+                            {/* --- NEW PRINT TOUR CONTRACT BUTTON --- */}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setTourToGenerateContract(tour);
+                                  setActiveTab('busTourContract'); // This will trigger rendering of BusTourContractPrint
+                                }}
+                                className="bg-purple-500 hover:bg-purple-600 text-white p-2 rounded-full shadow-md transition duration-200"
+                                title="Print Tour Contract"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v6a2 2 0 002 2h12a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clipRule="evenodd" /></svg>
+                              </button>
                             <button
                               onClick={() => handleDeleteTour(tour.tourId)}
                               className="bg-[#DC3545] hover:bg-[#C82333] text-white p-2 rounded-full shadow-md transition duration-200"
@@ -4370,6 +4384,39 @@ case 'customerContract':
         </div>
       );
     }
+        case 'busTourContract': // NEW CASE FOR BUS TOUR CONTRACT
+    if (tourToGenerateContract) {
+      return (
+        <BusTourContractPrint
+          tourData={tourToGenerateContract}
+          onPrintFinish={() => {
+            setTourToGenerateContract(null); // Clear the selected tour
+            setActiveTab('tours'); // Go back to the tours list
+          }}
+        />
+      );
+    } else {
+      // If user clicked 'Bus Tour Contract' from sidebar directly (no tour selected)
+      return (
+        <div className="p-0 bg-white rounded-xl shadow-lg h-full relative">
+          <iframe
+            src="/bustourcontract.html" // Assuming you might have a static fallback or template
+            title="Static Bus Tour Contract Generator"
+            className="w-full h-full border-0 rounded-xl"
+            style={{ minHeight: '80vh' }}
+          />
+          <div className="absolute top-4 right-4 z-10">
+            <button
+                onClick={() => setActiveTab('dashboard')}
+                className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-800 transition duration-200 shadow-md flex items-center"
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+                Back to Dashboard
+            </button>
+          </div>
+        </div>
+      );
+    }
     return (
         <CustomerContractPrint
             reservationData={reservationToGenerateContract}
