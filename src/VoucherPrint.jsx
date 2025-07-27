@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import './VoucherPrint.css';
+import './VoucherPrint.css'; // Import the new CSS file
 import Logo from './Logo.png'; // Assuming your logo is in the same directory as App.jsx
 
 // --- Helper functions for date/time formatting (MOVED TO TOP-LEVEL SCOPE) ---
@@ -190,48 +190,26 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
     }, []);
 
 
-    // This useEffect handles triggering the print dialog
-    // It runs whenever critical data or state for the voucher changes.
-    useEffect(() => {
-        // Ensure the component has rendered the print-only content before attempting to print
-        // `printContentRef.current` will be null on first render, but available after
+    // This function is explicitly called by the "Print Voucher" button.
+    const handlePrintButtonClick = useCallback(() => {
         if (printContentRef.current) {
             const timer = setTimeout(() => {
                 window.print();
-                // onPrintFinish is called after the print dialog is closed/canceled
-                // or if the component unmounts before printing.
-                window.onafterprint = onPrintFinish;
+                // Call onPrintFinish when the print dialog is closed or print is completed/cancelled
+                window.onafterprint = () => {
+                    onPrintFinish();
+                    window.onafterprint = null; // Clean up the event listener
+                };
             }, 500); // Small delay to ensure content is fully rendered. Adjust if issues persist.
 
+            // Optional: Cleanup if the component unmounts before timeout/print
             return () => {
                 clearTimeout(timer);
-                window.onafterprint = null; // Clean up on component unmount
+                window.onafterprint = null;
             };
         }
-    }, [
-        // Dependencies for this effect: all the state variables that populate the print content
-        // and onPrintFinish callback.
-        reservationData, voucherNumber, voucherType, destinationBulgarian, destinationEnglish, tourists,
-        adultsCountBg, adultsCountEn, childrenRegularBedCountBg, childrenRegularBedCountEn, childrenExtraBedCountBg, childrenExtraBedCountEn,
-        itineraryBg, itineraryEn, destinationPlaceBg, destinationPlaceEn, dateStartBg, dateEndBg, dateStartEn, dateEndEn,
-        accommodationBg, accommodationEn, roomCategoryBg, roomCategoryEn, checkInBg, checkInEn, checkOutBg, checkOutEn,
-        excursionsBg, excursionsEn, otherServicesBg, otherServicesEn, notesBg, notesEn,
-        dateIssuedBg, dateIssuedEn, paymentDocNumBg, paymentDocDateBg, paymentDocNumEn, paymentDocDateEn,
-        onPrintFinish
-    ]);
+    }, [onPrintFinish]);
 
-    // This function is explicitly called by the "Print Voucher" button.
-    // It exists purely for the onClick handler of the button in the UI.
-    // The actual print trigger logic is in the useEffect above.
-    const handlePrintButtonClick = useCallback(() => {
-        // Since the useEffect above triggers print on mount and data updates,
-        // this button's main purpose might be for scenarios where the user
-        // manually wants to re-trigger print (e.g., after editing data on screen).
-        // If data changes, useEffect will re-fire. No direct print logic needed here.
-        // You could add a dummy state here if you need to force a re-trigger for the useEffect
-        // in case the print button is clicked but no state has changed since last render:
-        // setDummyTrigger(prev => !prev);
-    }, []);
 
     // Helper for input values, to prevent "uncontrolled component" warnings for null/undefined
     const getValueForInput = (val) => (val !== null && val !== undefined ? val : '');
@@ -773,10 +751,10 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
                                     <div className="signature-line"></div>
                                     <div className="signature-text">ПОДПИС И ПЕЧАТ НА ПРИЕМАЩА ФИРМА / RECEIVING COMPANY SIGNATURE AND STAMP</div>
                                 </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
             </div> {/* END OF print-only WRAPPER DIV */}
 
             {/* Print Button - This button is part of the interactive UI, hidden during print */}
