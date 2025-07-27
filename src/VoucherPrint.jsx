@@ -264,26 +264,17 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
     ]);
 
     // Handle print functionality
-    const handlePrintVoucher = useCallback(() => {
-        // IMPORTANT: Populate the hidden print-only content just before printing
-        populatePrintContent();
-
-        // Use a timeout to ensure React has finished rendering updates before printing
+    useEffect(() => { // Changed to useEffect for consistency with InvoicePrint
         const timer = setTimeout(() => {
             window.print();
-        }, 100); // Small delay to ensure content is fully rendered
-
-        // Call onPrintFinish when the print dialog is closed or print is completed/cancelled
-        window.onafterprint = () => {
-            onPrintFinish();
-            window.onafterprint = null; // Clean up the event listener
-        };
+            window.onafterprint = onPrintFinish;
+        }, 500); // Small delay to ensure content is fully rendered
 
         return () => {
             clearTimeout(timer);
             window.onafterprint = null; // Clean up on component unmount
         };
-    }, [onPrintFinish, populatePrintContent]);
+    }, [onPrintFinish, populatePrintContent]); // Dependencies for useEffect
 
     if (!reservationData) {
         return (
@@ -295,338 +286,340 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
 
     return (
         <div className="print-preview-container w-full flex flex-col justify-center items-center min-h-screen p-20">
-            <div className="voucher-container">
-                {/* Logo Section */}
-                <div className="logo-section">
-                    <img src={Logo} alt="Company Logo" className="h-24 object-contain rounded-lg"></img>
-                </div>
+            {/* ADD THIS WRAPPER DIV HERE */}
+            <div className="print-only">
+                <div className="voucher-container">
+                    {/* Logo Section */}
+                    <div className="logo-section">
+                        <img src={Logo} alt="Company Logo" className="h-24 object-contain rounded-lg"></img>
+                    </div>
 
-                {/* Static Information Table */}
-                <table className="info-table">
-                    <thead>
-                        <tr>
-                            <th colSpan="2" className="header-row">
-                                РЕПУБЛИКА БЪЛГАРИЯ / REPUBLIC OF BULGARIA
-                            </th>
-                        </tr>
-                        <tr>
-                            <th colSpan="2" className="header-row">
-                                ВАУЧЕР / VOUCHER:
-                                <input type="text" id="voucherNumber" className="input-field mt-2" placeholder="Enter Voucher Number" value={voucherNumber} onChange={(e) => setVoucherNumber(e.target.value)} />
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>ДАЙНАМЕКС ТУР ЕООД</td>
-                            <td>DYNAMEX TOUR LTD</td>
-                        </tr>
-                        <tr>
-                            <td>ЛИЦЕНЗ ЗА ТУРОПЕРАТОР: РК-01-8569/15.04.2025г.</td>
-                            <td>TUROPERATOR LICENSE: PK-01-8569/15.04.2025.</td>
-                        </tr>
-                        <tr>
-                            <td>ЕИК: 208193140, АДРЕС: БЪЛГАРИЯ, РАКИТОВО, ВАСИЛ КУРТЕВ 12А</td>
-                            <td>ID: 208193140, ADRESS: BULGARIA, RAKITOVO, VASIL KURTEV 12A</td>
-                        </tr>
-                        {/* Dropdown for ORIGINAL / COPY */}
-                        <tr>
-                            <td colSpan="2" className="header-row">
-                                <select id="voucherType" className="select-field" value={voucherType} onChange={(e) => setVoucherType(e.target.value)}>
-                                    <option value="original">ОРИГИНАЛ / ORIGINAL</option>
-                                    <option value="copy">КОПИЕ / COPY</option>
-                                </select>
-                            </td>
-                        </tr>
-                        {/* Combined input fields for "ЗА ПРЕДСТАВЯНЕ В" and "TO" */}
-                        <tr>
-                            <td>
-                                <div className="flex-container">
-                                    <span>ЗА ПРЕДСТАВЯНЕ В:</span>
-                                    <input type="text" id="destinationBulgarian" className="input-field" placeholder="Въведете дестинация" value={destinationBulgarian} onChange={(e) => setDestinationBulgarian(e.target.value)} />
-                                </div>
-                            </td>
-                            <td>
-                                <div className="flex-container">
-                                    <span>TO:</span>
-                                    <input type="text" id="destinationEnglish" className="input-field" placeholder="Enter Destination" value={destinationEnglish} onChange={(e) => setDestinationEnglish(e.target.value)} />
-                                </div>
-                            </td>
-                        </tr>
-                        {/* Tourist Names Section */}
-                        <tr>
-                            <td colSpan="2" className="header-row">
-                                ИМЕ И ФАМИЛИЯ НА ТУРИСТА / NAME AND SURNAME OF TOURIST
-                            </td>
-                        </tr>
-                        <tr>
-                            <td colSpan="2">
-                                <div id="touristInputsContainer" className="space-y-3">
-                                    {tourists.map((tourist, index) => (
-                                        <div key={index} className="flex-container tourist-row">
-                                            <input type="text" className="input-field tourist-name-bg" placeholder="Име и фамилия (Български)" value={tourist.bgName} onChange={(e) => handleTouristChange(index, 'bgName', e.target.value)} />
-                                            <input type="text" className="input-field tourist-name-en" placeholder="Name and Surname (English)" value={tourist.enName} onChange={(e) => handleTouristChange(index, 'enName', e.target.value)} />
-                                            <button type="button" className="remove-button" onClick={() => removeTouristRow(index)}>Remove</button>
+                    {/* Static Information Table */}
+                    <table className="info-table">
+                        <thead>
+                            <tr>
+                                <th colSpan="2" className="header-row">
+                                    РЕПУБЛИКА БЪЛГАРИЯ / REPUBLIC OF BULGARIA
+                                </th>
+                            </tr>
+                            <tr>
+                                <th colSpan="2" className="header-row">
+                                    ВАУЧЕР / VOUCHER:
+                                    <input type="text" id="voucherNumber" className="input-field mt-2" placeholder="Enter Voucher Number" value={voucherNumber} onChange={(e) => setVoucherNumber(e.target.value)} />
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>ДАЙНАМЕКС ТУР ЕООД</td>
+                                <td>DYNAMEX TOUR LTD</td>
+                            </tr>
+                            <tr>
+                                <td>ЛИЦЕНЗ ЗА ТУРОПЕРАТОР: РК-01-8569/15.04.2025г.</td>
+                                <td>TUROPERATOR LICENSE: PK-01-8569/15.04.2025.</td>
+                            </tr>
+                            <tr>
+                                <td>ЕИК: 208193140, АДРЕС: БЪЛГАРИЯ, РАКИТОВО, ВАСИЛ КУРТЕВ 12А</td>
+                                <td>ID: 208193140, ADRESS: BULGARIA, RAKITOVO, VASIL KURTEV 12A</td>
+                            </tr>
+                            {/* Dropdown for ORIGINAL / COPY */}
+                            <tr>
+                                <td colSpan="2" className="header-row">
+                                    <select id="voucherType" className="select-field" value={voucherType} onChange={(e) => setVoucherType(e.target.value)}>
+                                        <option value="original">ОРИГИНАЛ / ORIGINAL</option>
+                                        <option value="copy">КОПИЕ / COPY</option>
+                                    </select>
+                                </td>
+                            </tr>
+                            {/* Combined input fields for "ЗА ПРЕДСТАВЯНЕ В" and "TO" */}
+                            <tr>
+                                <td>
+                                    <div className="flex-container">
+                                        <span>ЗА ПРЕДСТАВЯНЕ В:</span>
+                                        <input type="text" id="destinationBulgarian" className="input-field" placeholder="Въведете дестинация" value={destinationBulgarian} onChange={(e) => setDestinationBulgarian(e.target.value)} />
+                                    </div>
+                                </td>
+                                <td>
+                                    <div className="flex-container">
+                                        <span>TO:</span>
+                                        <input type="text" id="destinationEnglish" className="input-field" placeholder="Enter Destination" value={destinationEnglish} onChange={(e) => setDestinationEnglish(e.target.value)} />
+                                    </div>
+                                </td>
+                            </tr>
+                            {/* Tourist Names Section */}
+                            <tr>
+                                <td colSpan="2" className="header-row">
+                                    ИМЕ И ФАМИЛИЯ НА ТУРИСТА / NAME AND SURNAME OF TOURIST
+                                </td>
+                            </tr>
+                            <tr>
+                                <td colSpan="2">
+                                    <div id="touristInputsContainer" className="space-y-3">
+                                        {tourists.map((tourist, index) => (
+                                            <div key={index} className="flex-container tourist-row">
+                                                <input type="text" className="input-field tourist-name-bg" placeholder="Име и фамилия (Български)" value={tourist.bgName} onChange={(e) => handleTouristChange(index, 'bgName', e.target.value)} />
+                                                <input type="text" className="input-field tourist-name-en" placeholder="Name and Surname (English)" value={tourist.enName} onChange={(e) => handleTouristChange(index, 'enName', e.target.value)} />
+                                                <button type="button" className="remove-button" onClick={() => removeTouristRow(index)}>Remove</button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <button id="addTouristBtn" className="add-button" type="button" onClick={addTouristRow}>Add Another Tourist</button>
+                                </td>
+                            </tr>
+                            {/* Adults and Children Fields */}
+                            <tr>
+                                <td>
+                                    <div className="number-input-container">
+                                        <span>ВЪЗРАСТНИ:</span>
+                                        <input type="number" id="adultsCountBg" className="input-field" value={adultsCountBg} onChange={(e) => { setAdultsCountBg(parseInt(e.target.value) || 0); setAdultsCountEn(parseInt(e.target.value) || 0); }} min="0" />
+                                    </div>
+                                </td>
+                                <td>
+                                    <div className="number-input-container">
+                                        <span>ADULTS:</span>
+                                        <input type="number" id="adultsCountEn" className="input-field" value={adultsCountEn} onChange={(e) => { setAdultsCountEn(parseInt(e.target.value) || 0); setAdultsCountBg(parseInt(e.target.value) || 0); }} min="0" />
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <div className="number-input-container">
+                                        <span>ДЕЦА (РЕДОВНО ЛЕГЛО):</span>
+                                        <input type="number" id="childrenRegularBedCountBg" className="input-field" value={childrenRegularBedCountBg} onChange={(e) => { setChildrenRegularBedCountBg(parseInt(e.target.value) || 0); setChildrenRegularBedCountEn(parseInt(e.target.value) || 0); }} min="0" />
+                                    </div>
+                                </td>
+                                <td>
+                                    <div className="number-input-container">
+                                        <span>CHILDREN (REGULAR BED):</span>
+                                        <input type="number" id="childrenRegularBedCountEn" className="input-field" value={childrenRegularBedCountEn} onChange={(e) => { setChildrenRegularBedCountEn(parseInt(e.target.value) || 0); setChildrenRegularBedCountBg(parseInt(e.target.value) || 0); }} min="0" />
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <div className="number-input-container">
+                                        <span>ДЕЦА (ДОПЪЛНИТЕЛНО ЛЕГЛО):</span>
+                                        <input type="number" id="childrenExtraBedCountBg" className="input-field" value={childrenExtraBedCountBg} onChange={(e) => { setChildrenExtraBedCountBg(parseInt(e.target.value) || 0); setChildrenExtraBedCountEn(parseInt(e.target.value) || 0); }} min="0" />
+                                    </div>
+                                </td>
+                                <td>
+                                    <div className="number-input-container">
+                                        <span>CHILDREN (EXTRA BED):</span>
+                                        <input type="number" id="childrenExtraBedCountEn" className="input-field" value={childrenExtraBedCountEn} onChange={(e) => { setChildrenExtraBedCountEn(parseInt(e.target.value) || 0); setChildrenExtraBedCountBg(parseInt(e.target.value) || 0); }} min="0" />
+                                    </div>
+                                </td>
+                            </tr>
+                            {/* Itinerary, Destination, Dates, Accommodation, Room Category */}
+                            <tr>
+                                <td>
+                                    <div className="flex-container">
+                                        <span>МАРШРУТ:</span>
+                                        <input type="text" id="itineraryBg" className="input-field" placeholder="Въведете маршрут" value={itineraryBg} onChange={(e) => setItineraryBg(e.target.value)} />
+                                    </div>
+                                </td>
+                                <td>
+                                    <div className="flex-container">
+                                        <span>ITINERARY:</span>
+                                        <input type="text" id="itineraryEn" className="input-field" placeholder="Enter Itinerary" value={itineraryEn} onChange={(e) => setItineraryEn(e.target.value)} />
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <div className="flex-container">
+                                        <span>МЯСТО:</span>
+                                        <input type="text" id="destinationBg" className="input-field" placeholder="Въведете място" value={destinationPlaceBg} onChange={(e) => setDestinationPlaceBg(e.target.value)} />
+                                    </div>
+                                </td>
+                                <td>
+                                    <div className="flex-container">
+                                        <span>DESTINATION:</span>
+                                        <input type="text" id="destinationEn" className="input-field" placeholder="Enter Destination" value={destinationPlaceEn} onChange={(e) => setDestinationPlaceEn(e.target.value)} />
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <div className="flex-container">
+                                        <span>СРОК:</span>
+                                        <div className="date-range-container">
+                                            <input type="date" id="dateStartBg" className="input-field" value={dateStartBg} onChange={(e) => setDateStartBg(e.target.value)} />
+                                            <span>-</span>
+                                            <input type="date" id="dateEndBg" className="input-field" value={dateEndBg} onChange={(e) => setDateEndBg(e.target.value)} />
                                         </div>
-                                    ))}
-                                }
-                                </div>
-                                <button id="addTouristBtn" className="add-button" type="button" onClick={addTouristRow}>Add Another Tourist</button>
-                            </td>
-                        </tr>
-                        {/* Adults and Children Fields */}
-                        <tr>
-                            <td>
-                                <div className="number-input-container">
-                                    <span>ВЪЗРАСТНИ:</span>
-                                    <input type="number" id="adultsCountBg" className="input-field" value={adultsCountBg} onChange={(e) => { setAdultsCountBg(parseInt(e.target.value) || 0); setAdultsCountEn(parseInt(e.target.value) || 0); }} min="0" />
-                                </div>
-                            </td>
-                            <td>
-                                <div className="number-input-container">
-                                    <span>ADULTS:</span>
-                                    <input type="number" id="adultsCountEn" className="input-field" value={adultsCountEn} onChange={(e) => { setAdultsCountEn(parseInt(e.target.value) || 0); setAdultsCountBg(parseInt(e.target.value) || 0); }} min="0" />
-                                </div>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>
-                                <div className="number-input-container">
-                                    <span>ДЕЦА (РЕДОВНО ЛЕГЛО):</span>
-                                    <input type="number" id="childrenRegularBedCountBg" className="input-field" value={childrenRegularBedCountBg} onChange={(e) => { setChildrenRegularBedCountBg(parseInt(e.target.value) || 0); setChildrenRegularBedCountEn(parseInt(e.target.value) || 0); }} min="0" />
-                                </div>
-                            </td>
-                            <td>
-                                <div className="number-input-container">
-                                    <span>CHILDREN (REGULAR BED):</span>
-                                    <input type="number" id="childrenRegularBedCountEn" className="input-field" value={childrenRegularBedCountEn} onChange={(e) => { setChildrenRegularBedCountEn(parseInt(e.target.value) || 0); setChildrenRegularBedCountBg(parseInt(e.target.value) || 0); }} min="0" />
-                                </div>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>
-                                <div className="number-input-container">
-                                    <span>ДЕЦА (ДОПЪЛНИТЕЛНО ЛЕГЛО):</span>
-                                    <input type="number" id="childrenExtraBedCountBg" className="input-field" value={childrenExtraBedCountBg} onChange={(e) => { setChildrenExtraBedCountBg(parseInt(e.target.value) || 0); setChildrenExtraBedCountEn(parseInt(e.target.value) || 0); }} min="0" />
-                                </div>
-                            </td>
-                            <td>
-                                <div className="number-input-container">
-                                    <span>CHILDREN (EXTRA BED):</span>
-                                    <input type="number" id="childrenExtraBedCountEn" className="input-field" value={childrenExtraBedCountEn} onChange={(e) => { setChildrenExtraBedCountEn(parseInt(e.target.value) || 0); setChildrenExtraBedCountBg(parseInt(e.target.value) || 0); }} min="0" />
-                                </div>
-                            </td>
-                        </tr>
-                        {/* Itinerary, Destination, Dates, Accommodation, Room Category */}
-                        <tr>
-                            <td>
-                                <div className="flex-container">
-                                    <span>МАРШРУТ:</span>
-                                    <input type="text" id="itineraryBg" className="input-field" placeholder="Въведете маршрут" value={itineraryBg} onChange={(e) => setItineraryBg(e.target.value)} />
-                                </div>
-                            </td>
-                            <td>
-                                <div className="flex-container">
-                                    <span>ITINERARY:</span>
-                                    <input type="text" id="itineraryEn" className="input-field" placeholder="Enter Itinerary" value={itineraryEn} onChange={(e) => setItineraryEn(e.target.value)} />
-                                </div>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>
-                                <div className="flex-container">
-                                    <span>МЯСТО:</span>
-                                    <input type="text" id="destinationBg" className="input-field" placeholder="Въведете място" value={destinationPlaceBg} onChange={(e) => setDestinationPlaceBg(e.target.value)} />
-                                </div>
-                            </td>
-                            <td>
-                                <div className="flex-container">
-                                    <span>DESTINATION:</span>
-                                    <input type="text" id="destinationEn" className="input-field" placeholder="Enter Destination" value={destinationPlaceEn} onChange={(e) => setDestinationPlaceEn(e.target.value)} />
-                                </div>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>
-                                <div className="flex-container">
-                                    <span>СРОК:</span>
-                                    <div className="date-range-container">
-                                        <input type="date" id="dateStartBg" className="input-field" value={dateStartBg} onChange={(e) => setDateStartBg(e.target.value)} />
-                                        <span>-</span>
-                                        <input type="date" id="dateEndBg" className="input-field" value={dateEndBg} onChange={(e) => setDateEndBg(e.target.value)} />
                                     </div>
-                                </div>
-                            </td>
-                            <td>
-                                <div className="flex-container">
-                                    <span>DATES OF ITINERARY:</span>
-                                    <div className="date-range-container">
-                                        <input type="date" id="dateStartEn" className="input-field" value={dateStartEn} onChange={(e) => setDateStartEn(e.target.value)} />
-                                        <span>-</span>
-                                        <input type="date" id="dateEndEn" className="input-field" value={dateEndEn} onChange={(e) => setDateEndEn(e.target.value)} />
+                                </td>
+                                <td>
+                                    <div className="flex-container">
+                                        <span>DATES OF ITINERARY:</span>
+                                        <div className="date-range-container">
+                                            <input type="date" id="dateStartEn" className="input-field" value={dateStartEn} onChange={(e) => setDateStartEn(e.target.value)} />
+                                            <span>-</span>
+                                            <input type="date" id="dateEndEn" className="input-field" value={dateEndEn} onChange={(e) => setDateEndEn(e.target.value)} />
+                                        </div>
                                     </div>
-                                </div>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>
-                                <div className="flex-container">
-                                    <span>НАСТАНЯВАНЕ В:</span>
-                                    <input type="text" id="accommodationBg" className="input-field" placeholder="Въведете място на настаняване" value={accommodationBg} onChange={(e) => setAccommodationBg(e.target.value)} />
-                                </div>
-                            </td>
-                            <td>
-                                <div className="flex-container">
-                                    <span>ACCOMMODATION AT:</span>
-                                    <input type="text" id="accommodationEn" className="input-field" placeholder="Enter Accommodation" value={accommodationEn} onChange={(e) => setAccommodationEn(e.target.value)} />
-                                </div>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>
-                                <div className="flex-container">
-                                    <span>КАТЕГОРИЯ И БРОЙ СТАИ:</span>
-                                    <input type="text" id="roomCategoryBg" className="input-field" placeholder="Въведете категория и брой стаи" value={roomCategoryBg} onChange={(e) => setRoomCategoryBg(e.target.value)} />
-                                </div>
-                            </td>
-                            <td>
-                                <div className="flex-container">
-                                    <span>CATEGORY AND NUMBER OF ROOMS:</span>
-                                    <input type="text" id="roomCategoryEn" className="input-field" placeholder="Enter Category and Number of Rooms" value={roomCategoryEn} onChange={(e) => setRoomCategoryEn(e.target.value)} />
-                                </div>
-                            </td>
-                        </tr>
-                        {/* Check-in/out, Excursions, Other Services, Notes, Date, Payment Doc */}
-                        <tr>
-                            <td>
-                                <div className="flex-container">
-                                    <span>ДАТА И ЧАС НА ПРИСТИГАНЕ:</span>
-                                    <div className="date-time-container">
-                                        <input type="datetime-local" id="checkInBg" className="input-field" value={checkInBg} onChange={(e) => setCheckInBg(e.target.value)} />
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <div className="flex-container">
+                                        <span>НАСТАНЯВАНЕ В:</span>
+                                        <input type="text" id="accommodationBg" className="input-field" placeholder="Въведете място на настаняване" value={accommodationBg} onChange={(e) => setAccommodationBg(e.target.value)} />
                                     </div>
-                                </div>
-                            </td>
-                            <td>
-                                <div className="flex-container">
-                                    <span>CHECK IN:</span>
-                                    <div className="date-time-container">
-                                        <input type="datetime-local" id="checkInEn" className="input-field" value={checkInEn} onChange={(e) => setCheckInEn(e.target.value)} />
+                                </td>
+                                <td>
+                                    <div className="flex-container">
+                                        <span>ACCOMMODATION AT:</span>
+                                        <input type="text" id="accommodationEn" className="input-field" placeholder="Enter Accommodation" value={accommodationEn} onChange={(e) => setAccommodationEn(e.target.value)} />
                                     </div>
-                                </div>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>
-                                <div className="flex-container">
-                                    <span>ДАТА И ЧАС НА ЗАМИНАВАНЕ:</span>
-                                    <div className="date-time-container">
-                                        <input type="datetime-local" id="checkOutBg" className="input-field" value={checkOutBg} onChange={(e) => setCheckOutBg(e.target.value)} />
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <div className="flex-container">
+                                        <span>КАТЕГОРИЯ И БРОЙ СТАИ:</span>
+                                        <input type="text" id="roomCategoryBg" className="input-field" placeholder="Въведете категория и брой стаи" value={roomCategoryBg} onChange={(e) => setRoomCategoryBg(e.target.value)} />
                                     </div>
-                                </div>
-                            </td>
-                            <td>
-                                <div className="flex-container">
-                                    <span>CHECK OUT:</span>
-                                    <div className="date-time-container">
-                                        <input type="datetime-local" id="checkOutEn" className="input-field" value={checkOutEn} onChange={(e) => setCheckOutEn(e.target.value)} />
+                                </td>
+                                <td>
+                                    <div className="flex-container">
+                                        <span>CATEGORY AND NUMBER OF ROOMS:</span>
+                                        <input type="text" id="roomCategoryEn" className="input-field" placeholder="Enter Category and Number of Rooms" value={roomCategoryEn} onChange={(e) => setRoomCategoryEn(e.target.value)} />
                                     </div>
-                                </div>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>
-                                <div className="flex-container">
-                                    <span>ЕКСКУРЗИОННА ПРОГРАМА:</span>
-                                    <textarea id="excursionsBg" className="textarea-field" rows="3" placeholder="Въведете екскурзионна програма" value={excursionsBg} onChange={(e) => setExcursionsBg(e.target.value)}></textarea>
-                                </div>
-                            </td>
-                            <td>
-                                <div className="flex-container">
-                                    <span>EXCURSIONS:</span>
-                                    <textarea id="excursionsEn" className="textarea-field" rows="3" placeholder="Enter excursions" value={excursionsEn} onChange={(e) => setExcursionsEn(e.target.value)}></textarea>
-                                </div>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>
-                                <div className="flex-container">
-                                    <span>ДРУГИ УСЛУГИ:</span>
-                                    <textarea id="otherServicesBg" className="textarea-field" rows="3" placeholder="Въведете други услуги" value={otherServicesBg} onChange={(e) => setOtherServicesBg(e.target.value)}></textarea>
-                                </div>
-                            </td>
-                            <td>
-                                <div className="flex-container">
-                                    <span>OTHER SERVICES:</span>
-                                    <textarea id="otherServicesEn" className="textarea-field" rows="3" placeholder="Enter other services" value={otherServicesEn} onChange={(e) => setOtherServicesEn(e.target.value)}></textarea>
-                                </div>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>
-                                <div className="flex-container">
-                                    <span>ЗАБЕЛЕЖКИ:</span>
-                                    <textarea id="notesBg" className="textarea-field" rows="3" placeholder="Въведете забележки" value={notesBg} onChange={(e) => setNotesBg(e.target.value)}></textarea>
-                                </div>
-                            </td>
-                            <td>
-                                <div className="flex-container">
-                                    <span>NOTES:</span>
-                                    <textarea id="notesEn" className="textarea-field" rows="3" placeholder="Enter notes" value={notesEn} onChange={(e) => setNotesEn(e.target.value)}></textarea>
-                                </div>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>
-                                <div className="flex-container">
-                                    <span>ДАТА:</span>
-                                    <input type="date" id="dateIssuedBg" class="input-field" value={dateIssuedBg} onChange={(e) => setDateIssuedBg(e.target.value)} />
-                                </div>
-                            </td>
-                            <td>
-                                <div className="flex-container">
-                                    <span>DATE:</span>
-                                    <input type="date" id="dateIssuedEn" class="input-field" value={dateIssuedEn} onChange={(e) => setDateIssuedEn(e.target.value)} />
-                                </div>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>
-                                <div class="flex-container">
-                                    <span>НОМЕР И ДАТА НА ДОКУМЕНТА ЗА ПЛАЩАНЕ:</span>
-                                    <div class="payment-doc-container">
-                                        <input type="text" id="paymentDocNumBg" class="input-field" placeholder="Номер на документ" value={paymentDocNumBg} onChange={(e) => setPaymentDocNumBg(e.target.value)} />
-                                        <input type="date" id="paymentDocDateBg" class="input-field" value={paymentDocDateBg} onChange={(e) => setPaymentDocDateBg(e.target.value)} />
+                                </td>
+                            </tr>
+                            {/* Check-in/out, Excursions, Other Services, Notes, Date, Payment Doc */}
+                            <tr>
+                                <td>
+                                    <div className="flex-container">
+                                        <span>ДАТА И ЧАС НА ПРИСТИГАНЕ:</span>
+                                        <div className="date-time-container">
+                                            <input type="datetime-local" id="checkInBg" className="input-field" value={checkInBg} onChange={(e) => setCheckInBg(e.target.value)} />
+                                        </div>
                                     </div>
-                                </div>
-                            </td>
-                            <td>
-                                <div class="flex-container">
-                                    <span>PAYMENT DOCUMENT NUMBER AND DATE OF PAYMENT:</span>
-                                    <div class="payment-doc-container">
-                                        <input type="text" id="paymentDocNumEn" class="input-field" placeholder="Document Number" value={paymentDocNumEn} onChange={(e) => setPaymentDocNumEn(e.target.value)} />
-                                        <input type="date" id="paymentDocDateEn" class="input-field" placeholder="Date of Payment" value={paymentDocDateEn} onChange={(e) => setPaymentDocDateEn(e.target.value)} />
+                                </td>
+                                <td>
+                                    <div className="flex-container">
+                                        <span>CHECK IN:</span>
+                                        <div className="date-time-container">
+                                            <input type="datetime-local" id="checkInEn" className="input-field" value={checkInEn} onChange={(e) => setCheckInEn(e.target.value)} />
+                                        </div>
                                     </div>
-                                </div>
-                            </td>
-                        </tr>
-                        {/* Signature Lines */}
-                        <tr>
-                            <td colSpan="2" className="text-center">
-                                <div className="signature-line"></div>
-                                <div className="signature-text">ПОДПИС И ПЕЧАТ НА ФИРМА ИЗПРАЩАЧ / SENDER COMPANY SIGNATURE AND STAMP</div>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td colSpan="2" className="text-center">
-                                <div className="signature-line"></div>
-                                <div className="signature-text">ПОДПИС И ПЕЧАТ НА ПРИЕМАЩА ФИРМА / RECEIVING COMPANY SIGNATURE AND STAMP</div>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <div className="flex-container">
+                                        <span>ДАТА И ЧАС НА ЗАМИНАВАНЕ:</span>
+                                        <div className="date-time-container">
+                                            <input type="datetime-local" id="checkOutBg" className="input-field" value={checkOutBg} onChange={(e) => setCheckOutBg(e.target.value)} />
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div className="flex-container">
+                                        <span>CHECK OUT:</span>
+                                        <div className="date-time-container">
+                                            <input type="datetime-local" id="checkOutEn" className="input-field" value={checkOutEn} onChange={(e) => setCheckOutEn(e.target.value)} />
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <div className="flex-container">
+                                        <span>ЕКСКУРЗИОННА ПРОГРАМА:</span>
+                                        <textarea id="excursionsBg" className="textarea-field" rows="3" placeholder="Въведете екскурзионна програма" value={excursionsBg} onChange={(e) => setExcursionsBg(e.target.value)}></textarea>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div className="flex-container">
+                                        <span>EXCURSIONS:</span>
+                                        <textarea id="excursionsEn" className="textarea-field" rows="3" placeholder="Enter excursions" value={excursionsEn} onChange={(e) => setExcursionsEn(e.target.value)}></textarea>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <div className="flex-container">
+                                        <span>ДРУГИ УСЛУГИ:</span>
+                                        <textarea id="otherServicesBg" className="textarea-field" rows="3" placeholder="Въведете други услуги" value={otherServicesBg} onChange={(e) => setOtherServicesBg(e.target.value)}></textarea>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div className="flex-container">
+                                        <span>OTHER SERVICES:</span>
+                                        <textarea id="otherServicesEn" className="textarea-field" rows="3" placeholder="Enter other services" value={otherServicesEn} onChange={(e) => setOtherServicesEn(e.target.value)}></textarea>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <div className="flex-container">
+                                        <span>ЗАБЕЛЕЖКИ:</span>
+                                        <textarea id="notesBg" className="textarea-field" rows="3" placeholder="Въведете забележки" value={notesBg} onChange={(e) => setNotesBg(e.target.value)}></textarea>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div className="flex-container">
+                                        <span>NOTES:</span>
+                                        <textarea id="notesEn" className="textarea-field" rows="3" placeholder="Enter notes" value={notesEn} onChange={(e) => setNotesEn(e.target.value)}></textarea>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <div className="flex-container">
+                                        <span>ДАТА:</span>
+                                        <input type="date" id="dateIssuedBg" className="input-field" value={dateIssuedBg} onChange={(e) => setDateIssuedBg(e.target.value)} />
+                                    </div>
+                                </td>
+                                <td>
+                                    <div className="flex-container">
+                                        <span>DATE:</span>
+                                        <input type="date" id="dateIssuedEn" className="input-field" value={dateIssuedEn} onChange={(e) => setDateIssuedEn(e.target.value)} />
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <div className="flex-container">
+                                        <span>НОМЕР И ДАТА НА ДОКУМЕНТА ЗА ПЛАЩАНЕ:</span>
+                                        <div className="payment-doc-container">
+                                            <input type="text" id="paymentDocNumBg" className="input-field" placeholder="Номер на документ" value={paymentDocNumBg} onChange={(e) => setPaymentDocNumBg(e.target.value)} />
+                                            <input type="date" id="paymentDocDateBg" className="input-field" value={paymentDocDateBg} onChange={(e) => setPaymentDocDateBg(e.target.value)} />
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div className="flex-container">
+                                        <span>PAYMENT DOCUMENT NUMBER AND DATE OF PAYMENT:</span>
+                                        <div className="payment-doc-container">
+                                            <input type="text" id="paymentDocNumEn" className="input-field" placeholder="Document Number" value={paymentDocNumEn} onChange={(e) => setPaymentDocNumEn(e.target.value)} />
+                                            <input type="date" id="paymentDocDateEn" className="input-field" placeholder="Date of Payment" value={paymentDocDateEn} onChange={(e) => setPaymentDocDateEn(e.target.value)} />
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            {/* Signature Lines */}
+                            <tr>
+                                <td colSpan="2" className="text-center">
+                                    <div className="signature-line"></div>
+                                    <div className="signature-text">ПОДПИС И ПЕЧАТ НА ФИРМА ИЗПРАЩАЧ / SENDER COMPANY SIGNATURE AND STAMP</div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td colSpan="2" className="text-center">
+                                    <div className="signature-line"></div>
+                                    <div className="signature-text">ПОДПИС И ПЕЧАТ НА ПРИЕМАЩА ФИРМА / RECEIVING COMPANY SIGNATURE AND STAMP</div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div> {/* END OF THE NEW WRAPPER DIV */}
 
-            {/* Print Button */}
+            {/* Print Button - Keep this outside the print-only div */}
             <button id="printVoucherBtn" className="print-button add-button mt-8 mb-8" onClick={handlePrintVoucher}>Print Voucher</button>
         </div>
     );
