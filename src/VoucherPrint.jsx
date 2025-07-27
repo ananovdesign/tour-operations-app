@@ -167,7 +167,7 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
             setPaymentDocNumEn(''); // Blank for manual entry
             setPaymentDocDateEn(''); // Blank for manual entry
         }
-    }, [reservationData, formatDateTimeLocal, formatDateLocal, getValue]); // Added getValue to dependencies
+    }, [reservationData, formatDateTimeLocal, formatDateLocal, getValue]);
 
 
     // Function to handle adding a new tourist row
@@ -632,7 +632,6 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
             {/* Print Button */}
             <button id="printVoucherBtn" className="print-button add-button mt-8 mb-8" onClick={handlePrintVoucher}>Print Voucher</button>
         </div>
-        // --- IMPORTANT: These closing tags were missing in the previous response ---
     );
 };
 
