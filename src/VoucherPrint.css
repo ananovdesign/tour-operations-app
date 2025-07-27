@@ -1,69 +1,53 @@
-/* src/VoucherPrint.css */
-
 /* Import Inter font for a modern look */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
-/* Basic setup for the main component container (visible on screen) */
+/* Main container for the on-screen preview (removed body styles from here) */
 .print-preview-container {
     font-family: 'Inter', sans-serif;
-    background-color: #f9fafb;
-    display: flex;
-    justify-content: center;
-    padding: 2rem;
-    margin: 0;
-    box-sizing: border-box;
-    min-height: 100vh;
+    background-color: #f3f4f6; /* Only for the container itself, not global body */
+    /* Flex properties and padding moved to JSX for direct application to the root div */
 }
 
-/* Styles for the interactive form part (visible on screen) */
-.voucher-form-container {
+.voucher-container {
     background-color: #ffffff;
     border-radius: 12px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     width: 100%;
-    max-width: 800px; /* Max width for readability on wide screens */
+    max-width: 800px; /* Limits the internal content width */
     overflow: hidden;
-    padding: 20px; /* Add some padding around the form */
 }
-.voucher-form-container .logo-section {
-    padding: 10px;
+.logo-section {
+    padding: 20px;
     display: flex;
     justify-content: center;
     align-items: center;
-    background-color: #f9fafb; /* Light background for logo area */
-    margin-bottom: 20px;
+    background-color: #f9fafb;
 }
-.voucher-form-container .logo-section img {
-    height: 90px; /* Larger logo for screen view */
-    width: auto;
-}
-
-/* Styles for table within the form */
-.voucher-form-container .info-table {
+.info-table {
     width: 100%;
     border-collapse: collapse;
 }
-.voucher-form-container .info-table th, 
-.voucher-form-container .info-table td {
+.info-table th, .info-table td {
     border: 1px solid #e5e7eb;
     padding: 12px;
     text-align: left;
     font-size: 0.95rem;
     color: #374151;
 }
-.voucher-form-container .info-table th {
+.info-table th {
     background-color: #f3f4f6;
     font-weight: 600;
-    width: 50%;
+    width: 50%; /* Equal width for Bulgarian and English columns */
 }
-.voucher-form-container .header-row {
-    background-color: #e0e7ff;
+.info-table td {
+    background-color: #ffffff;
+}
+.header-row {
+    background-color: #e0e7ff; /* Light blue background for header rows */
     font-weight: 700;
     text-align: center !important;
     color: #1f2937;
 }
-
-/* Input field styles for the form */
 .input-field, .select-field, .textarea-field {
     width: 100%;
     padding: 8px;
@@ -76,7 +60,6 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    width: 100%;
 }
 .flex-container input, .flex-container textarea {
     flex-grow: 1;
@@ -96,14 +79,14 @@
     background-color: #4338ca;
 }
 .remove-button {
-    background-color: #ef4444;
+    background-color: #ef4444; /* Red color for remove */
     color: white;
     padding: 8px 12px;
     border-radius: 6px;
     cursor: pointer;
     transition: background-color 0.2s;
     font-size: 0.85rem;
-    flex-shrink: 0;
+    flex-shrink: 0; /* Prevent button from shrinking */
 }
 .remove-button:hover {
     background-color: #dc2626;
@@ -115,10 +98,11 @@
     width: 100%;
 }
 .number-input-container input[type="number"] {
-    width: 60px;
+    width: 60px; /* Smaller width for number inputs */
     text-align: center;
-    -moz-appearance: textfield;
+    -moz-appearance: textfield; /* Firefox */
 }
+/* Hide arrows for Chrome, Safari, Edge */
 .number-input-container input::-webkit-outer-spin-button,
 .number-input-container input::-webkit-inner-spin-button {
     -webkit-appearance: none;
@@ -126,7 +110,7 @@
 }
 .date-time-container {
     display: flex;
-    flex-direction: column;
+    flex-direction: column; /* Stack date and time vertically */
     gap: 5px;
     width: 100%;
 }
@@ -164,85 +148,96 @@
     padding-bottom: 10px;
 }
 
-/* Styles for the print-only content (hidden on screen) */
-.voucher-print-content { /* Renamed from .print-only for clarity and to avoid conflicts */
-    display: none; /* Hidden on screen by default */
-
-    /* Basic print-specific styling for content when it *is* displayed (in print media) */
-    background-color: #ffffff;
-    box-shadow: none; /* No shadow on print */
-    border-radius: 0; /* No rounded corners on print */
-    width: 210mm; /* A4 width */
-    min-height: 297mm; /* A4 height */
-    margin: 0 auto; /* Center on page */
-    padding: 15mm; /* A4 margins */
-    box-sizing: border-box;
-    font-size: 10pt;
-    line-height: 1.5;
-    color: #000;
-}
-
-.voucher-print-content .logo-section img {
-    height: 60px; /* Smaller logo for print */
-    width: auto;
-}
-
-/* Force table borders and correct alignment for print */
-.voucher-print-content .info-table th,
-.voucher-print-content .info-table td {
-    border: 1px solid black !important;
-    text-align: left !important;
-    padding: 5px 8px !important;
-}
-.voucher-print-content .info-table th {
-    background-color: #f3f4f6 !important;
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-}
-.voucher-print-content .header-row {
-    background-color: #e0e7ff !important;
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-}
-.voucher-print-content .signature-line {
-    background-color: black !important;
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-}
-.voucher-print-content .signature-text {
-    color: #000 !important;
-}
-
-
-/* --------------------------------------------------- */
-/* Print-specific media queries to toggle visibility */
-/* --------------------------------------------------- */
+/* Print-specific styles */
 @media print {
-    /* Hide the interactive form container */
-    .voucher-form-container {
-        display: none !important;
-    }
-
-    /* Show the print-only content */
-    .voucher-print-content {
-        display: block !important;
-    }
-
-    /* General print overrides for the whole page */
-    body, html {
-        margin: 0 !important;
+    html, body { /* Now applies only in print context and won't affect live app body */
+        background-color: #ffffff !important; /* White background for print */
         padding: 0 !important;
-        width: 100% !important;
-        height: auto !important;
-        overflow: visible !important;
-        background-color: white !important;
-        -webkit-print-color-adjust: exact !important;
+        margin: 0 !important;
+        width: 100% !important; /* Ensure full width for printing */
+        height: auto !important; /* Allow content to dictate height */
+        overflow: visible !important; /* Ensure content is not cut off */
+        display: block !important; /* Revert flex for print layout */
+        font-size: 0.8rem !important; /* Smaller base font size for print */
+        -webkit-print-color-adjust: exact !important; /* Crucial for background colors to print */
         print-color-adjust: exact !important;
     }
 
-    /* Ensure backgrounds and colors are printed */
-    * {
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
+    .voucher-container {
+        box-shadow: none !important; /* Remove shadow for print */
+        border-radius: 0 !important; /* Remove border-radius for print */
+        max-width: none !important; /* Allow full width for the voucher content */
+        margin: 0 !important; /* Remove any container margins */
+        padding: 0 !important; /* Remove padding if it was added */
+    }
+    .print-button, .add-button, .remove-button {
+        display: none !important; /* Hide buttons when printing */
+    }
+    .info-table th, .info-table td {
+        padding: 5px 8px !important; /* Reduced padding for table cells */
+        font-size: 0.8rem !important; /* Smaller font size for table content */
+    }
+    .info-table th {
+        width: 50% !important; /* Maintain equal width for columns */
+    }
+    .input-field, .select-field, .textarea-field {
+        border: none !important; /* Remove borders from inputs */
+        padding: 0 !important; /* Remove padding for cleaner print */
+        background-color: transparent !important; /* Transparent background */
+        font-size: 0.8rem !important; /* Smaller font size for input values */
+    }
+    /* Ensure text in inputs is visible and not cut off */
+    .input-field:focus, .select-field:focus, .textarea-field:focus {
+        outline: none !important;
+    }
+    /* Adjust flex containers for print to just show content */
+    .flex-container {
+        display: flex !important; /* Keep flex for inline elements */
+        align-items: center !important;
+        gap: 3px !important; /* Smaller gap */
+    }
+    .flex-container span {
+        display: inline-block !important; /* Keep labels inline */
+        margin-right: 2px !important; /* Smaller space between label and value */
+        white-space: nowrap !important; /* Prevent labels from wrapping */
+    }
+    .flex-container input, .flex-container textarea, .flex-container select {
+        display: inline-block !important; /* Make inputs inline with labels */
+        width: auto !important; /* Allow content to dictate width */
+        min-width: 50px !important; /* Ensure enough space for content, adjust as needed */
+        flex-grow: 1 !important; /* Allow inputs to grow */
+    }
+    .date-time-container, .payment-doc-container {
+        display: flex !important; /* Keep these as flex for vertical stacking if needed, but compact */
+        flex-direction: column !important;
+        gap: 2px !important; /* Smaller gap */
+    }
+    .date-time-container input, .payment-doc-container input {
+        width: auto !important; /* Auto width for inputs within these containers */
+        display: inline-block !important;
+    }
+    .date-range-container {
+        display: inline-flex !important; /* Keep date range inline */
+        gap: 2px !important; /* Smaller gap */
+    }
+    .info-table td {
+        word-wrap: break-word !important; /* Ensure long text wraps */
+    }
+    .logo-section {
+        padding: 10px !important; /* Reduce logo section padding */
+    }
+    .logo-section img {
+        height: 60px !important; /* Smaller logo for print */
+    }
+    .header-row {
+        padding: 8px 12px !important; /* Smaller padding for header rows */
+        font-size: 0.9rem !important; /* Slightly smaller header font */
+    }
+    .signature-line {
+        margin-top: 10px !important; /* Reduced margin for signature line */
+    }
+    .signature-text {
+        font-size: 0.75rem !important; /* Smaller font for signature text */
+        padding-bottom: 5px !important; /* Reduced padding */
     }
 }
