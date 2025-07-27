@@ -154,36 +154,46 @@
 
 /* Print-specific styles */
 @media print {
-    /* Hide EVERYTHING *not* the main app wrapper and the print-only div */
-    body > *:not(.app-wrapper) { /* Assuming your main App div has a class like 'app-wrapper' or similar */
+    /* Step 1: Hide the entire app structure *except* for the main #app-root and its print-specific child */
+    body > *:not(#app-root) {
         display: none !important;
         visibility: hidden !important;
     }
 
-    /* Make sure the main app wrapper is visible and full screen for print */
-    .app-wrapper { /* You might need to adjust this selector based on your App.jsx's outermost div class */
-        width: 100vw !important;
-        height: 100vh !important;
-        overflow: hidden !important; /* Hide scrollbars */
-        position: fixed !important;
+    /* Step 2: Ensure the main #app-root takes over the entire page for printing */
+    #app-root {
+        position: fixed !important; /* Fixed positioning ensures it covers the viewport */
         top: 0 !important;
         left: 0 !important;
-        z-index: 9999 !important;
-        background: white !important;
-        display: block !important; /* Override any flex/grid display for the print context */
-    }
-
-    /* Now, specifically make the .print-only container visible */
-    .print-only {
-        display: block !important; /* Make it visible */
-        position: absolute !important; /* Position it on top */
-        top: 0 !important;
-        left: 0 !important;
-        width: 100% !important;
-        height: 100% !important;
+        width: 100vw !important; /* Full viewport width */
+        height: 100vh !important; /* Full viewport height */
         margin: 0 !important;
         padding: 0 !important;
-        overflow: visible !important; /* Crucial for pagination */
+        overflow: hidden !important; /* Temporarily hide scrollbars during transition */
+        display: block !important; /* Override any flex/grid display for print context */
+        background-color: white !important; /* Ensure white background for the whole page */
+        box-shadow: none !important;
+        border: none !important;
+    }
+
+    /* Step 3: Within the VoucherPrint component, hide the interactive form part (the .voucher-container that's visible on screen) */
+    .print-preview-container > .voucher-container:first-child { /* Target the first .voucher-container which holds the form */
+        display: none !important;
+        visibility: hidden !important;
+    }
+
+    /* Step 4: Make the .print-only section visible and positioned for print */
+    .print-only {
+        display: block !important; /* Make it visible */
+        visibility: visible !important;
+        position: absolute !important; /* Position it absolutely within the print viewport */
+        top: 0 !important;
+        left: 0 !important;
+        width: 100% !important; /* Take full width of the print viewport */
+        height: 100% !important; /* Take full height of the print viewport */
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow: visible !important; /* Allow content to flow for pagination */
         background-color: white !important; /* Ensure white background */
     }
 
@@ -204,7 +214,7 @@
     }
 
     /* Specific print formatting for the voucher content within .print-only */
-    .voucher-container { 
+    .voucher-container { /* This targets the actual content wrapper inside .print-only */
         width: 210mm !important; /* Standard A4 width */
         min-height: 297mm !important; /* Standard A4 height */
         box-shadow: none !important;
