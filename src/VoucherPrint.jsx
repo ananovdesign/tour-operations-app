@@ -751,10 +751,10 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
                                     <div className="signature-line"></div>
                                     <div className="signature-text">ПОДПИС И ПЕЧАТ НА ПРИЕМАЩА ФИРМА / RECEIVING COMPANY SIGNATURE AND STAMP</div>
                                 </td>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div> {/* END OF print-only WRAPPER DIV */}
 
             {/* Print Button - This button is part of the interactive UI, hidden during print */}
