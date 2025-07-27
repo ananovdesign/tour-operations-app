@@ -18,7 +18,7 @@ import InvoicePrint from './InvoicePrint.jsx'; // New component for printing
 import CustomerContractPrint from './CustomerContractPrint.jsx'; // New component for contract generation
 import BusTourContractPrint from './BusTourContractPrint.jsx'; // NEW: Import for Bus Tour Contract
 import VoucherPrint from './VoucherPrint.jsx'; // NEW: Import for Voucher Print
-
+import MarketingHubModule from './MarketingHubModule.jsx'; // NEW: Import the Marketing Hub module
 // --- Notification Display Component ---
 const NotificationDisplay = ({ notifications, onDismiss }) => {
   return (
@@ -126,6 +126,7 @@ const [tourToGenerateContract, setTourToGenerateContract] = useState(null);
   const [salesInvoices, setSalesInvoices] = useState([]);
   const [expenseInvoices, setExpenseInvoices] = useState([]);
   const [products, setProducts] = useState([]);
+  const [campaigns, setCampaigns] = useState([]); // NEW: State for campaigns data
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -403,6 +404,7 @@ const [tourForm, setTourForm] = useState({
       setSalesInvoices([]);
       setExpenseInvoices([]);
       setProducts([]);
+      setCampaigns([]);
       setActiveTab('dashboard'); // Redirect to dashboard or login
     } catch (err) {
       console.error("Logout error:", err);
@@ -577,6 +579,39 @@ const [tourForm, setTourForm] = useState({
       if (unsubscribe) unsubscribe();
     };
   }, [isAuthReady, userId]);
+
+  // NEW: Firestore listener for Campaigns
+useEffect(() => {
+  let unsubscribe;
+  if (isAuthReady && userId) {
+      // Ensure db is initialized before trying to use it
+      if (!db) {
+          console.warn("Firestore instance not available for campaigns yet.");
+          return;
+      }
+      setLoading(true);
+      // Use the appId from this App.jsx context
+      const campaignsCollectionRef = collection(db, `artifacts/${appId}/public/data/campaigns`);
+      // Order campaigns by creation date (newest first)
+      const q = query(campaignsCollectionRef, orderBy('createdAt', 'desc')); 
+
+      unsubscribe = onSnapshot(q, (snapshot) => {
+          const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+          setCampaigns(data);
+          setLoading(false);
+      }, (err) => {
+          console.error("Error fetching campaigns:", err);
+          setError("Failed to load campaigns. Please try again.");
+          setLoading(false);
+      });
+  } else if (isAuthReady && !userId) {
+      setCampaigns([]); // Clear campaigns if not authenticated
+      setLoading(false);
+  }
+  return () => {
+      if (unsubscribe) unsubscribe();
+  };
+}, [isAuthReady, userId, appId, db]); // Added 'db' to dependencies for robustness
 
 
   // --- Helper Functions ---
@@ -4456,6 +4491,11 @@ case 'customerContract':
             />
           </div>
         );
+        case 'marketingHub': // NEW: Render Marketing Hub module
+  return <MarketingHubModule db={db} userId={userId} isAuthReady={isAuthReady} campaigns={campaigns} appId={appId} />;
+default:
+  return <div>Select a module from the sidebar.</div>;
+}
       default:
         return <div>Select a module from the sidebar.</div>;
     }
@@ -4600,6 +4640,17 @@ if (tourToGenerateContract) {
                       Product Management
                     </button>
                   </li>
+                  <li className="mb-2">
+  <button onClick={() => setActiveTab('marketingHub')} className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base ${activeTab === 'marketingHub' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}`}>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 mr-3">
+      <path d="M11.47 3.84a.75.75 0 0 1 1.06 0l8.69 8.69a1.5 1.5 0 0 1 0 2.12l-5.54 5.54a.75.75 0 0 1-1.06-1.06l5.54-5.54a.75.75 0 0 0 0-1.06l-8.69-8.69Z" />
+      <path d="M12.75 12.75a.75.75 0 0 1-.75.75H7.5a.75.75 0 0 1 0-1.5h4.5a.75.75 0 0 1 .75.75Z" />
+      <path fillRule="evenodd" d="M19.5 21a.75.75 0 0 0 .75-.75V8.791c0-.409-.115-.81-.344-1.157L15.371 3.66a2.25 2.25 0 0 0-1.612-.66h-1.365a.75.75 0 0 0 0 1.5h1.365c.102 0 .2-.037.29-.105l3.96-3.959a.75.75 0 0 1 1.06 0l.75.75Z" clipRule="evenodd" />
+      <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25Zm-4.29 4.71c.105.105.228.188.359.245L4.015 9.5a.75.75 0 0 1-.75-.75Zm7.89 4.89a.75.75 0 0 0-1.06 0l-3.375 3.375a.75.75 0 0 0 0 1.06l1.25 1.25a.75.75 0 0 0 1.06 0l3.375-3.375a.75.75 0 0 0 0-1.06l-1.25-1.25Z" clipRule="evenodd" />
+    </svg>
+    Marketing Hub
+  </button>
+</li>
                   <li className="mb-2">
                     <button onClick={() => setActiveTab('transportContract')} className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base ${activeTab === 'transportContract' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}`}>
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" viewBox="0 0 20 20" fill="currentColor"><path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" /><path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" /></svg>
