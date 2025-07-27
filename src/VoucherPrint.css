@@ -1,19 +1,25 @@
 /* Import Inter font for a modern look */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
-/* Main container for the on-screen preview */
+/* Basic setup for the print preview page - visible on screen */
 .print-preview-container {
     font-family: 'Inter', sans-serif;
-    background-color: #f3f4f6; /* Only for the container itself, not global body */
-    /* Flex properties and padding moved to JSX for direct application to the root div */
+    background-color: #f9fafb; /* Very light gray background */
+    display: flex; /* Added flex to match original BusTourContractPrint */
+    justify-content: center; /* Added justify-content to match original */
+    padding: 2rem; /* Added padding to match original */
+    margin: 0;
+    box-sizing: border-box;
+    min-height: 100vh;
 }
 
+/* Voucher Output (main container for the form content) */
 .voucher-container {
     background-color: #ffffff;
     border-radius: 12px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     width: 100%;
-    max-width: 800px; /* Limits the internal content width on screen */
+    max-width: 800px;
     overflow: hidden;
 }
 .logo-section {
@@ -150,10 +156,10 @@
 
 /* Rule to hide print-only content on screen by default */
 .print-only {
-    display: none;
+    display: none; 
 }
 
-/* Print-specific styles (unified strategy with BusTourContractPrint.css) */
+/* Print-specific styles (now unified to match working BusTourContractPrint.css) */
 @media print {
     /* Hide everything on the page by default */
     body * {
@@ -185,21 +191,26 @@
         width: 100% !important;
     }
 
-    /* General print layout resets for html, body */
+    /* Ensure specific elements inside print-only are formatted for print */
+    /* These rules are copied from your BusTourContractPrint.css and adapted for VoucherPrint.css */
+    /* General document styling for print */
     html, body {
+        background-color: white !important; /* Force white background for printing */
         margin: 0 !important;
         padding: 0 !important;
+        width: 100% !important;
         height: auto !important;
         overflow: visible !important;
-        width: 100% !important;
+        display: block !important;
+        font-family: 'Inter', sans-serif !important; /* Use Inter for print */
         font-size: 0.8rem !important;
+        line-height: 1.5 !important;
+        color: #000 !important; /* Default text to black for print */
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
-        background-color: #ffffff !important;
-        display: block !important; /* Ensure it's a block for printing */
     }
-
-    /* Specific print formatting for the voucher content within .print-only */
+    
+    /* Specific styling for the voucher content within .print-only */
     .voucher-container { /* This targets the actual content wrapper inside .print-only */
         width: 210mm !important; /* Standard A4 width */
         min-height: 297mm !important; /* Standard A4 height */
