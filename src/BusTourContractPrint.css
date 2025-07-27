@@ -1,10 +1,12 @@
-/* Import Inter font for a modern look */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+/* src/BusTourContractPrint.css */
 
-/* Basic setup for the print preview page - visible on screen */
+/* Import Inter font for a modern look */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+/* Basic setup for the main component container (visible on screen) */
 .print-preview-container {
     font-family: 'Inter', sans-serif;
-    background-color: #f9fafb; /* Very light gray background */
+    background-color: #f9fafb;
     display: flex;
     justify-content: center;
     padding: 2rem;
@@ -13,107 +15,130 @@
     min-height: 100vh;
 }
 
-/* Invoice Output (main container for the form content) */
-.invoice-output {
-    width: 210mm; /* A4 width */
-    margin: 0 auto;
-    background-color: #fff;
-    box-shadow: 0 0 20px rgba(0,0,0,0.08);
-    padding: 25mm;
+/* Styles for the interactive form part (visible on screen) */
+.bus-tour-form-container {
+    background-color: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    max-width: 800px; /* Max width for readability on wide screens */
+    overflow: hidden;
+    padding: 20px; /* Add some padding around the form */
+}
+.bus-tour-form-container .logo-section {
+    padding: 10px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: #f9fafb; /* Light background for logo area */
+    margin-bottom: 20px;
+}
+.bus-tour-form-container .logo-section img {
+    height: 90px; /* Larger logo for screen view */
+    width: auto;
+}
+
+/* Input field styles for the form */
+.bus-tour-form-container input,
+.bus-tour-form-container textarea,
+.bus-tour-form-container select {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
     box-sizing: border-box;
-    font-size: 10.5pt;
-    color: #333;
+    font-size: 0.95rem;
+}
+
+/* Styles for the print-only content (hidden on screen) */
+.bus-tour-print-content { /* New class for print content */
+    display: none; /* Hidden on screen by default */
+
+    /* Basic print-specific styling for content when it *is* displayed (in print media) */
+    background-color: #ffffff;
+    box-shadow: none; /* No shadow on print */
+    border-radius: 0; /* No rounded corners on print */
+    width: 210mm; /* A4 width */
+    min-height: 297mm; /* A4 height */
+    margin: 0 auto; /* Center on page */
+    padding: 15mm; /* A4 margins */
+    box-sizing: border-box;
+    font-size: 10pt; /* Adjusted font size for print legibility */
     line-height: 1.5;
+    color: #000; /* Default text color to black for print */
 }
 
-/* Custom focus ring color to match the new theme */
-.form-input:focus, .form-textarea:focus {
-    border-color: #3b82f6; /* Blue-500 */
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
-    outline: none;
+.bus-tour-print-content .logo-section {
+    padding: 10px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: #f9fafb; /* Light background for logo area */
+}
+.bus-tour-print-content .logo-section img {
+    height: 60px; /* Smaller logo for print */
+    width: auto;
 }
 
-/* Tab styles */
-.tab-btn {
-    transition: all 0.3s ease;
-    border-bottom: 2px solid transparent;
-    color: #6b7280; /* Gray-500 */
+/* Common text styles for print */
+.bus-tour-print-content h1, 
+.bus-tour-print-content h2 {
+    text-align: center;
+    font-weight: bold;
+    margin-top: 1.5em;
+    margin-bottom: 1em;
 }
+.bus-tour-print-content h1 { font-size: 14pt; }
+.bus-tour-print-content h2 { font-size: 12pt; }
+.bus-tour-print-content p { text-align: justify; margin-bottom: 0.8em; }
 
-.tab-btn.active {
-    border-color: #3b82f6; /* Blue-500 */
-    color: #3b82f6;
+.bus-tour-print-content .signatures {
+    margin-top: 50px;
+    display: flex;
+    justify-content: space-between;
+    font-weight: bold;
+}
+.bus-tour-print-content .signatures span {
+    width: 48%; /* Adjust for spacing */
+    text-align: center;
+}
+.bus-tour-print-content .general-conditions {
+    margin-top: 2em;
+    page-break-before: always; /* Ensure these start on a new page */
+}
+.bus-tour-print-content .general-conditions h2 {
+    margin-top: 0; /* Override default h2 margin for first h2 on new page */
 }
 
 /* --------------------------------------------------- */
-/* Print-specific styles to hide everything except the contract content */
+/* Print-specific media queries to toggle visibility */
 /* --------------------------------------------------- */
-
 @media print {
-    /* Hide everything on the page by default */
-    body * {
-        visibility: hidden !important;
-        height: 0 !important; /* Collapse height to avoid empty space */
-        overflow: hidden !important; /* Hide any overflowing content */
-        margin: 0 !important;
-        padding: 0 !important;
-        box-shadow: none !important;
-        border: none !important;
-    }
-
-    /* Make the specific print-only container and its children visible */
-    .print-only, .print-only * {
-        visibility: visible !important;
-        height: auto !important; /* Restore auto height */
-        overflow: visible !important; /* Restore visible overflow */
-        margin: 0 !important;
-        padding: 0 !important;
-        box-shadow: none !important;
-        border: none !important;
-    }
-
-    /* Position the print-only container to take up the full print area */
-    .print-only {
-        position: absolute !important;
-        left: 0 !important;
-        top: 0 !important;
-        width: 100% !important;
-        /* The height will be controlled by page-break-after on .pdf-logical-page */
-    }
-
-    /* Ensure specific elements inside print-only are formatted for print */
-    .pdf-logical-page {
-        background: white;
-        font-family: 'Times New Roman', Times, serif;
-        font-size: 10pt;
-        line-height: 1.5;
-        padding: 15mm; /* Standard A4 margins */
-        box-sizing: border-box;
-        page-break-after: always; /* Force new page after each logical page */
-        width: 210mm; /* Ensure each page fills A4 width */
-        min-height: 297mm; /* Ensure each page fills A4 height */
-    }
-
-    .pdf-logical-page:last-child {
-        page-break-after: avoid; /* No page break after the last logical page */
-    }
-
-    .pdf-logical-page h1, .pdf-logical-page h2 {
-        text-align: center;
-        font-weight: bold;
-        margin-top: 1.5em;
-        margin-bottom: 1em;
-    }
-    .pdf-logical-page h1 { font-size: 14pt; }
-    .pdf-logical-page h2 { font-size: 12pt; }
-    .pdf-logical-page p { text-align: justify; margin-bottom: 1em; }
-    .pdf-logical-page .signatures { margin-top: 50px; display: flex; justify-content: space-between; }
-    .pdf-logical-page .tourist-table-pdf { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 9pt; }
-    .pdf-logical-page .tourist-table-pdf th,
-    .pdf-logical-page .tourist-table-pdf td { border: 1px solid black; padding: 4px; text-align: left; }
-
-    /* Hide no-print elements even within the main component structure on screen */
-    .no-print {
+    /* Hide the interactive form container */
+    .bus-tour-form-container {
         display: none !important;
+    }
+
+    /* Show the print-only content */
+    .bus-tour-print-content {
+        display: block !important;
+    }
+
+    /* General print overrides for the whole page */
+    body, html {
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+        height: auto !important;
+        overflow: visible !important;
+        background-color: white !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    /* Ensure backgrounds and colors are printed */
+    * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
     }
 }
