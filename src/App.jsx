@@ -16,6 +16,7 @@ import { collection, doc, addDoc, setDoc, deleteDoc, onSnapshot, query, where, g
 import Logo from './Logo.png'; // Assuming Logo.png is in the same directory as App.jsx
 import InvoicePrint from './InvoicePrint.jsx'; // New component for printing
 import CustomerContractPrint from './CustomerContractPrint.jsx'; // New component for contract generation
+import BusTourContractPrint from './BusTourContractPrint.jsx'; // NEW: Import for Bus Tour Contract
 
 // --- Notification Display Component ---
 const NotificationDisplay = ({ notifications, onDismiss }) => {
@@ -98,8 +99,10 @@ const App = () => {
   const [selectedProduct, setSelectedProduct] = useState(null);
   // New: State for currently selected sales invoice for editing
 const [selectedSalesInvoice, setSelectedSalesInvoice] = useState(null);
-  // NEW STATE FOR CONTRACT GENERATION
-  const [reservationToGenerateContract, setReservationToGenerateContract] = useState(null);
+// NEW STATE FOR CONTRACT GENERATION (Customer contract)
+const [reservationToGenerateContract, setReservationToGenerateContract] = useState(null);
+// NEW STATE FOR BUS TOUR CONTRACT GENERATION
+const [tourToGenerateContract, setTourToGenerateContract] = useState(null);
   // New: Search term states
  // New: Search term states
   const [searchCustomerTerm, setSearchCustomerTerm] = useState('');
@@ -3019,12 +3022,25 @@ case 'customers':
                                 <path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm-4 8a1 1 0 011-1h1a1 1 0 110 2H7a1 1 0 01-1-1zm10 0a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1zM4 14a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm10 0a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1zM3 18a1 1 0 011-1h1a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
                               </svg>
                             </button>
-                            <button
-                              onClick={() => handleDeleteTour(tour.tourId)}
-                              className="bg-[#DC3545] hover:bg-[#C82333] text-white p-2 rounded-full shadow-md transition duration-200"
-                              title="Delete"
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+{/* NEW PRINT CONTRACT BUTTON FOR TOURS */}
+      <button
+        onClick={(e) => {
+          e.stopPropagation(); // Prevents row click from expanding/collapsing
+          setTourToGenerateContract(tour); // Set the selected tour for the contract
+          setActiveTab('busTourContract'); // Switch to the new tab
+        }}
+        className="bg-purple-500 hover:bg-purple-600 text-white p-2 rounded-full shadow-md transition duration-200"
+        title="Print Bus Tour Contract"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v6a2 2 0 002 2h12a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clipRule="evenodd" /></svg>
+      </button>
+      <button
+        onClick={(e) => { e.stopPropagation(); handleDeleteTour(tour.tourId); }}
+        className="bg-[#DC3545] hover:bg-[#C82333] text-white p-2 rounded-full shadow-md transition duration-200"
+        title="Delete"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1zm-1 3a1 1 0 011-1h4a1 1 0 110 2H7a1 1 0 01-1-1zm-1 3a1 1 0 011-1h4a1 1 0 110 2H7a1 1 0 01-1-1z" clipRule="evenodd" /></svg>
+      </button>
                                 <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1zm-1 3a1 1 0 011-1h4a1 1 0 110 2H7a1 1 0 01-1-1zm-1 3a1 1 0 011-1h4a1 1 0 110 2H7a1 1 0 01-1-1z" clipRule="evenodd" />
                               </svg>
                             </button>
@@ -4379,6 +4395,31 @@ case 'customerContract':
             }}
         />
     );
+        case 'busTourContract': // NEW CASE FOR BUS TOUR CONTRACT
+    if (tourToGenerateContract) {
+        return (
+            <BusTourContractPrint
+                tourData={tourToGenerateContract}
+                allReservations={reservations} // Pass all reservations to the component
+                onPrintFinish={() => {
+                    setTourToGenerateContract(null); // Clear the selected tour
+                    setActiveTab('tours'); // Go back to the tours list
+                }}
+            />
+        );
+    } else {
+        // This case should ideally not be hit if the button is only on the tour list.
+        // But having a fallback is good for direct URL access or unexpected state.
+        return (
+            <div className="p-6 bg-white rounded-xl shadow-lg">
+                <h3 className="text-xl font-semibold text-gray-800 mb-4">Автобусен Тур Договор</h3>
+                <p className="text-gray-700">Моля, изберете тур от списъка "Bus Tours" и натиснете "Принтирай Договор", за да генерирате договор.</p>
+                <button onClick={() => setActiveTab('tours')} className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition duration-200">
+                    Към Автобусни Турове
+                </button>
+            </div>
+        );
+    }
       case 'createInvoice':
         return (
           <div className="p-0 bg-white rounded-xl shadow-lg h-full">
