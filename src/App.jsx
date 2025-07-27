@@ -113,6 +113,8 @@ const [selectedSalesInvoice, setSelectedSalesInvoice] = useState(null);
 
   // New: State to hold the invoice object for printing
   const [invoiceToPrint, setInvoiceToPrint] = useState(null);
+  const [componentToPrint, setComponentToPrint] = useState(null); // New state to control which component is currently printing
+const [printComponentData, setPrintComponentData] = useState(null); // Data for the component being printed
 
   // Data states - populated from Firestore (user-specific)
   const [reservations, setReservations] = useState([]);
@@ -4482,21 +4484,7 @@ case 'busTourContract': // NEW CASE FOR BUS TOUR CONTRACT
     }
   };
 
-  const handlePrintFinish = () => {
-    setInvoiceToPrint(null);
-  };
-
-  // If an invoice has been selected for printing, render only the print component.
-  if (invoiceToPrint) {
-    return <InvoicePrint invoiceData={invoiceToPrint} onPrintFinish={handlePrintFinish} />;
-  }
-
-
-
-  if (invoiceToPrint) {
-    return <InvoicePrint invoiceData={invoiceToPrint} onPrintFinish={handlePrintFinish} />;
-  }
-
+ 
   return (
     <div className="font-sans antialiased bg-gray-100 min-h-screen text-gray-900" style={{ fontFamily: 'Inter, sans-serif' }}>
       <div className="flex flex-col md:flex-row min-h-screen">
