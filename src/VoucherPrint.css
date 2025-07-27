@@ -1,0 +1,242 @@
+/* Import Inter font for a modern look */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: #f3f4f6;
+    display: flex;
+    flex-direction: column; /* Allow content to stack vertically */
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: 20px;
+}
+.voucher-container {
+    background-color: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    max-width: 800px;
+    overflow: hidden;
+}
+.logo-section {
+    padding: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: #f9fafb;
+}
+.info-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+.info-table th, .info-table td {
+    border: 1px solid #e5e7eb;
+    padding: 12px;
+    text-align: left;
+    font-size: 0.95rem;
+    color: #374151;
+}
+.info-table th {
+    background-color: #f3f4f6;
+    font-weight: 600;
+    width: 50%; /* Equal width for Bulgarian and English columns */
+}
+.info-table td {
+    background-color: #ffffff;
+}
+.header-row {
+    background-color: #e0e7ff; /* Light blue background for header rows */
+    font-weight: 700;
+    text-align: center !important;
+    color: #1f2937;
+}
+.input-field, .select-field, .textarea-field {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    box-sizing: border-box;
+    font-size: 0.95rem;
+}
+.flex-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.flex-container input, .flex-container textarea {
+    flex-grow: 1;
+}
+.add-button {
+    background-color: #4f46e5;
+    color: white;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    font-size: 0.9rem;
+    margin-top: 10px;
+    display: inline-block;
+}
+.add-button:hover {
+    background-color: #4338ca;
+}
+.remove-button {
+    background-color: #ef4444; /* Red color for remove */
+    color: white;
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    font-size: 0.85rem;
+    flex-shrink: 0; /* Prevent button from shrinking */
+}
+.remove-button:hover {
+    background-color: #dc2626;
+}
+.number-input-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+}
+.number-input-container input[type="number"] {
+    width: 60px; /* Smaller width for number inputs */
+    text-align: center;
+    -moz-appearance: textfield; /* Firefox */
+}
+/* Hide arrows for Chrome, Safari, Edge */
+.number-input-container input::-webkit-outer-spin-button,
+.number-input-container input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+.date-time-container {
+    display: flex;
+    flex-direction: column; /* Stack date and time vertically */
+    gap: 5px;
+    width: 100%;
+}
+.date-time-container input {
+    width: 100%;
+}
+.date-range-container {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    width: 100%;
+}
+.date-range-container input[type="date"] {
+    flex-grow: 1;
+}
+.payment-doc-container {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    width: 100%;
+}
+.payment-doc-container input {
+    width: 100%;
+}
+.signature-line {
+    height: 1px;
+    background-color: #e5e7eb;
+    margin-top: 20px;
+    margin-bottom: 5px;
+}
+.signature-text {
+    text-align: center;
+    font-size: 0.85rem;
+    color: #6b7280;
+    padding-bottom: 10px;
+}
+
+/* Print-specific styles */
+@media print {
+    body {
+        background-color: #ffffff; /* White background for print */
+        padding: 0;
+        margin: 0;
+        display: block; /* Revert flex for print layout */
+        font-size: 0.8rem; /* Smaller base font size for print */
+    }
+    .voucher-container {
+        box-shadow: none; /* Remove shadow for print */
+        border-radius: 0; /* Remove border-radius for print */
+        width: 100%;
+        max-width: none; /* Allow full width */
+        margin: 0; /* Remove any container margins */
+    }
+    .print-button, .add-button, .remove-button {
+        display: none !important; /* Hide buttons when printing */
+    }
+    .info-table th, .info-table td {
+        padding: 5px 8px; /* Reduced padding for table cells */
+        font-size: 0.8rem; /* Smaller font size for table content */
+    }
+    .info-table th {
+        width: 50%; /* Maintain equal width for columns */
+    }
+    .input-field, .select-field, .textarea-field {
+        border: none !important; /* Remove borders from inputs */
+        padding: 0 !important; /* Remove padding for cleaner print */
+        background-color: transparent !important; /* Transparent background */
+        -webkit-print-color-adjust: exact; /* Ensure background color is printed if needed */
+        print-color-adjust: exact;
+        font-size: 0.8rem; /* Smaller font size for input values */
+    }
+    /* Ensure text in inputs is visible and not cut off */
+    .input-field:focus, .select-field:focus, .textarea-field:focus {
+        outline: none !important;
+    }
+    /* Adjust flex containers for print to just show content */
+    .flex-container {
+        display: flex; /* Keep flex for inline elements */
+        align-items: center;
+        gap: 3px; /* Smaller gap */
+    }
+    .flex-container span {
+        display: inline-block; /* Keep labels inline */
+        margin-right: 2px; /* Smaller space between label and value */
+        white-space: nowrap; /* Prevent labels from wrapping */
+    }
+    .flex-container input, .flex-container textarea, .flex-container select {
+        display: inline-block; /* Make inputs inline with labels */
+        width: auto; /* Allow content to dictate width */
+        min-width: 50px; /* Ensure enough space for content, adjust as needed */
+        flex-grow: 1; /* Allow inputs to grow */
+    }
+    .date-time-container, .payment-doc-container {
+        display: flex; /* Keep these as flex for vertical stacking if needed, but compact */
+        flex-direction: column;
+        gap: 2px; /* Smaller gap */
+    }
+    .date-time-container input, .payment-doc-container input {
+        width: auto; /* Auto width for inputs within these containers */
+        display: inline-block;
+    }
+    .date-range-container {
+        display: inline-flex; /* Keep date range inline */
+        gap: 2px; /* Smaller gap */
+    }
+    .info-table td {
+        word-wrap: break-word; /* Ensure long text wraps */
+    }
+    .logo-section {
+        padding: 10px; /* Reduce logo section padding */
+    }
+    .logo-section img {
+        height: 60px; /* Smaller logo for print */
+    }
+    .header-row {
+        padding: 8px 12px !important; /* Smaller padding for header rows */
+        font-size: 0.9rem !important; /* Slightly smaller header font */
+    }
+    .signature-line {
+        margin-top: 10px; /* Reduced margin for signature line */
+    }
+    .signature-text {
+        font-size: 0.75rem; /* Smaller font for signature text */
+        padding-bottom: 5px; /* Reduced padding */
+    }
+}
