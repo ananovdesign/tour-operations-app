@@ -150,17 +150,43 @@
 
 /* Print-specific styles */
 @media print {
-    html, body { /* Now applies only in print context and won't affect live app body */
-        background-color: #ffffff !important; /* White background for print */
-        padding: 0 !important;
+    /* Hide everything on the page by default */
+    body * {
+        visibility: hidden !important;
+        height: 0 !important; /* Collapse height to avoid empty space */
+        overflow: hidden !important; /* Hide any overflowing content */
         margin: 0 !important;
-        width: 100% !important; /* Ensure full width for printing */
+        padding: 0 !important;
+        box-shadow: none !important;
+        border: none !important;
+    }
+
+    /* Make the specific print-only container and its children visible */
+    .print-only, .print-only * {
+        visibility: visible !important;
+        height: auto !important; /* Restore auto height */
+        overflow: visible !important; /* Restore visible overflow */
+        margin: 0 !important;
+        padding: 0 !important;
+        box-shadow: none !important;
+        border: none !important;
+    }
+
+    /* Position the print-only container to take up the full print area */
+    .print-only {
+        position: absolute !important; /* Keep absolute to take over the viewport */
+        left: 0 !important;
+        top: 0 !important;
+        width: 100% !important;
+        /* A4 page setup. You can use @page rule for margins */
         height: auto !important; /* Allow content to dictate height */
-        overflow: visible !important; /* Ensure content is not cut off */
-        display: block !important; /* Revert flex for print layout */
-        font-size: 0.8rem !important; /* Smaller base font size for print */
-        -webkit-print-color-adjust: exact !important; /* Crucial for background colors to print */
-        print-color-adjust: exact !important;
+        box-sizing: border-box; /* Include padding/border in element's total width and height */
+    }
+
+    /* Optional: A4 page margins if not handled by .invoice-output */
+    @page {
+        size: A4;
+        margin: 15mm; /* Apply standard A4 margins to the page */
     }
 
     .voucher-container {
@@ -168,10 +194,13 @@
         border-radius: 0 !important; /* Remove border-radius for print */
         max-width: none !important; /* Allow full width for the voucher content */
         margin: 0 !important; /* Remove any container margins */
-        padding: 0 !important; /* Remove padding if it was added */
+        padding: 0 !important; /* Remove padding if it was added, controlled by @page margin */
     }
     .print-button, .add-button, .remove-button {
         display: none !important; /* Hide buttons when printing */
+    }
+    .info-table {
+        width: 100% !important; /* Ensure table takes full width */
     }
     .info-table th, .info-table td {
         padding: 5px 8px !important; /* Reduced padding for table cells */
@@ -185,6 +214,7 @@
         padding: 0 !important; /* Remove padding for cleaner print */
         background-color: transparent !important; /* Transparent background */
         font-size: 0.8rem !important; /* Smaller font size for input values */
+        color: #000 !important; /* Ensure text color is black for print */
     }
     /* Ensure text in inputs is visible and not cut off */
     .input-field:focus, .select-field:focus, .textarea-field:focus {
@@ -200,6 +230,7 @@
         display: inline-block !important; /* Keep labels inline */
         margin-right: 2px !important; /* Smaller space between label and value */
         white-space: nowrap !important; /* Prevent labels from wrapping */
+        color: #374151 !important; /* Ensure label color is consistent */
     }
     .flex-container input, .flex-container textarea, .flex-container select {
         display: inline-block !important; /* Make inputs inline with labels */
