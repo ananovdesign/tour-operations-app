@@ -269,18 +269,25 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
     ]);
 
     // Handle print functionality
-    useEffect(() => { // Changed to useEffect for consistency with InvoicePrint
-        const timer = setTimeout(() => {
-            window.print();
-            window.onafterprint = onPrintFinish;
-        }, 500); // Small delay to ensure content is fully rendered
+  // Handle print functionality (renamed from original useEffect to a named function)
+const handlePrintVoucher = useCallback(() => {
+    populatePrintContent(); // Ensure content is populated just before print
 
-        return () => {
-            clearTimeout(timer);
-            window.onafterprint = null; // Clean up on component unmount
-        };
-    }, [onPrintFinish, populatePrintContent]); // Dependencies for useEffect
+    const timer = setTimeout(() => {
+        window.print();
+        window.onafterprint = onPrintFinish;
+    }, 500); // Small delay to ensure content is fully rendered
 
+    return () => {
+        clearTimeout(timer);
+        window.onafterprint = null; // Clean up on component unmount
+    };
+}, [onPrintFinish, populatePrintContent]); // Dependencies for useCallback
+
+// Trigger the print immediately when the component mounts
+useEffect(() => {
+    handlePrintVoucher();
+}, [handlePrintVoucher]); // Dependency on the memoized function itself
     if (!reservationData) {
         return (
             <div className="flex justify-center items-center h-full min-h-[calc(100vh-100px)]">
