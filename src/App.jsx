@@ -4498,7 +4498,7 @@ case 'busTourContract': // NEW CASE FOR BUS TOUR CONTRACT
   }
 
   return (
-  <div id="app-root" className="font-sans antialiased bg-gray-100 min-h-screen text-gray-900" style={{ fontFamily: 'Inter, sans-serif' }}>
+    <div className="font-sans antialiased bg-gray-100 min-h-screen text-gray-900" style={{ fontFamily: 'Inter, sans-serif' }}>
       <div className="flex flex-col md:flex-row min-h-screen">
         {/* Sidebar Navigation */}
         <aside className="w-full md:w-64 bg-white text-gray-800 p-4 rounded-b-xl md:rounded-r-xl md:rounded-b-none shadow-lg border-r border-gray-100">
