@@ -16,6 +16,8 @@ import { collection, doc, addDoc, setDoc, deleteDoc, onSnapshot, query, where, g
 import Logo from './Logo.png'; // Assuming Logo.png is in the same directory as App.jsx
 import InvoicePrint from './InvoicePrint.jsx'; // New component for printing
 import CustomerContractPrint from './CustomerContractPrint.jsx'; // New component for contract generation
+import BusTourContractPrint from './BusTourContractPrint.jsx'; // NEW: Import for Bus Tour Contract
+ 
 
 // --- Notification Display Component ---
 const NotificationDisplay = ({ notifications, onDismiss }) => {
@@ -100,6 +102,8 @@ const App = () => {
 const [selectedSalesInvoice, setSelectedSalesInvoice] = useState(null);
   // NEW STATE FOR CONTRACT GENERATION
   const [reservationToGenerateContract, setReservationToGenerateContract] = useState(null);
+  // NEW STATE FOR BUS TOUR CONTRACT GENERATION
+ const [tourToGenerateContract, setTourToGenerateContract] = useState(null);
   // New: Search term states
  // New: Search term states
   const [searchCustomerTerm, setSearchCustomerTerm] = useState('');
@@ -3019,6 +3023,18 @@ case 'customers':
                                 <path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm-4 8a1 1 0 011-1h1a1 1 0 110 2H7a1 1 0 01-1-1zm10 0a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1zM4 14a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm10 0a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1zM3 18a1 1 0 011-1h1a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
                               </svg>
                             </button>
+                               {/* NEW PRINT CONTRACT BUTTON FOR TOURS */}
+                        
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setTourToGenerateContract(tour); // Set the selected tour for the contract
+                                  setActiveTab('busTourContract'); // Switch to the new tab
+                                }}
+                                className="bg-purple-500 hover:bg-purple-600 text-white p-2 rounded-full shadow-md transition duration-200"
+                               title="Print Bus Tour Contract"
+                             >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v6a2 2 0 002 2h12a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clipRule="evenodd" /></svg>
+                              </button>
                             <button
                               onClick={() => handleDeleteTour(tour.tourId)}
                               className="bg-[#DC3545] hover:bg-[#C82333] text-white p-2 rounded-full shadow-md transition duration-200"
@@ -3300,7 +3316,33 @@ case 'customers':
             </form>
           </div>
         );
-
+        
+case 'busTourContract':
+        if (tourToGenerateContract) {
+          // If a tour was specifically selected from the list for printing
+          // Render the dynamic BusTourContractPrint component
+          return (
+            <BusTourContractPrint
+              tourData={tourToGenerateContract}
+              allReservations={reservations} // Pass all reservations to help the component find linked ones
+              onPrintFinish={() => {
+                setTourToGenerateContract(null); // Clear the selected tour
+                setActiveTab('tours'); // Go back to the tours list
+              }}
+            />
+          );
+        } else {
+          // If user clicked 'Bus Tour Contract' from sidebar directly (no tour selected)
+          return (
+            <div className="p-6 bg-white rounded-xl shadow-lg">
+              <h3 className="text-xl font-semibold text-gray-800 mb-4">Автобусен Тур Договор</h3>
+              <p className="text-gray-700">Моля, изберете тур от списъка "Bus Tours" за да генерирате договор, или използвайте бутона "Принтирай Договор" оттам.</p>
+              <button onClick={() => setActiveTab('tours')} className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition duration-200">
+                Към Автобусни Турове
+              </button>
+            </div>
+          );
+        }
       case 'payments':
         return (
           <div className="p-6 bg-white rounded-xl shadow-lg">
