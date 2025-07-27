@@ -4430,6 +4430,17 @@ case 'busTourContract': // NEW CASE FOR BUS TOUR CONTRACT
             />
           </div>
         );
+        case 'voucherGenerator':
+        return (
+          <div className="p-0 bg-white rounded-xl shadow-lg h-full">
+            <iframe
+              src="/voucher.html" // Loads voucher.html from the 'public' folder
+              title="Voucher Generator"
+              className="w-full h-full border-0 rounded-xl"
+              style={{ minHeight: '80vh' }}
+            />
+          </div>
+        );
       default:
         return <div>Select a module from the sidebar.</div>;
     }
@@ -4576,6 +4587,12 @@ case 'busTourContract': // NEW CASE FOR BUS TOUR CONTRACT
                       Create Invoice
                     </button>
                   </li>
+                  <li className="mb-2">
+                    <button onClick={() => setActiveTab('voucherGenerator')} className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base ${activeTab === 'voucherGenerator' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}`}>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                      Voucher Generator
+                    </button>
+                  </li>
                   {isEmailPasswordUser && (
                     <li className="mb-2 mt-auto pt-6 border-t border-gray-200">
                       <button onClick={handleLogout} className="flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base hover:bg-red-50 text-[#DC3545]">
