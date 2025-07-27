@@ -2,6 +2,41 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import './VoucherPrint.css'; // Import the new CSS file
 import Logo from './Logo.png'; // Assuming your logo is in the same directory as App.jsx
 
+// --- Helper functions for date/time formatting (MOVED TO TOP-LEVEL SCOPE) ---
+const formatDateForPrint = (dateString) => {
+    if (!dateString) return '..................';
+    try {
+        const date = new Date(dateString);
+        if (isNaN(date)) return 'Invalid Date'; // Handle invalid date strings
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear();
+        return `${day}.${month}.${year}`;
+    } catch (error) {
+        console.error("Error formatting date for print:", error);
+        return 'Date Error';
+    }
+};
+
+const formatDateTimeForPrint = (dateTimeLocalString) => {
+    if (!dateTimeLocalString) return '..................';
+    try {
+        const date = new Date(dateTimeLocalString);
+        if (isNaN(date)) return 'Invalid DateTime';
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear();
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        return `${day}.${month}.${year} ${hours}:${minutes}`;
+    } catch (error) {
+        console.error("Error formatting datetime for print:", error);
+        return 'DateTime Error';
+    }
+};
+// --- END of Helper functions ---
+
+
 const VoucherPrint = ({ reservationData, onPrintFinish }) => {
     const voucherRef = useRef(null); // Ref for the main voucher container
     const [voucherNumber, setVoucherNumber] = useState('');
@@ -48,7 +83,7 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
     const [paymentDocNumEn, setPaymentDocNumEn] = useState('');
     const [paymentDocDateEn, setPaymentDocDateEn] = useState('');
 
-    // Helper to format date-time for local input types
+    // Helper to format date-time for local input types (NOT formatDateTimeForPrint, different purpose)
     const formatDateTimeLocal = useCallback((dateString) => {
         if (!dateString) return '';
         const date = new Date(dateString);
@@ -61,7 +96,7 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
         return `${year}-${month}-${day}T${hours}:${minutes}`;
     }, []);
 
-    // Helper to format date for local input types
+    // Helper to format date for local input types (NOT formatDateForPrint, different purpose)
     const formatDateLocal = useCallback((dateString) => {
         if (!dateString) return '';
         const date = new Date(dateString);
@@ -155,37 +190,7 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
     const populatePrintContent = useCallback(() => {
         // Helper to get a value, with fallback if blank
         const getValue = (val, fallback = '') => (val !== null && val !== undefined && val !== '' ? val : fallback);
-        // Helper for date formatting
-        const formatDateForPrint = (dateString) => {
-            if (!dateString) return '..................';
-            try {
-                const date = new Date(dateString);
-                if (isNaN(date)) return 'Invalid Date'; // Handle invalid date strings
-                const day = String(date.getDate()).padStart(2, '0');
-                const month = String(date.getMonth() + 1).padStart(2, '0');
-                const year = date.getFullYear();
-                return `${day}.${month}.${year}`;
-            } catch (error) {
-                console.error("Error formatting date for print:", error);
-                return 'Date Error';
-            }
-        };
-        const formatDateTimeForPrint = (dateTimeLocalString) => {
-            if (!dateTimeLocalString) return '..................';
-            try {
-                const date = new Date(dateTimeLocalString);
-                if (isNaN(date)) return 'Invalid DateTime';
-                const day = String(date.getDate()).padStart(2, '0');
-                const month = String(date.getMonth() + 1).padStart(2, '0');
-                const year = date.getFullYear();
-                const hours = String(date.getHours()).padStart(2, '0');
-                const minutes = String(date.getMinutes()).padStart(2, '0');
-                return `${day}.${month}.${year} ${hours}:${minutes}`;
-            } catch (error) {
-                console.error("Error formatting datetime for print:", error);
-                return 'DateTime Error';
-            }
-        };
+        // Date formatting helpers are now in the top-level scope of this file.
 
         // Populate header fields
         document.getElementById('pdf-voucherNumber').textContent = getValue(voucherNumber);
@@ -260,7 +265,7 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
         accommodationBg, accommodationEn, roomCategoryBg, roomCategoryEn, checkInBg, checkInEn, checkOutBg, checkOutEn,
         excursionsBg, excursionsEn, otherServicesBg, otherServicesEn, notesBg, notesEn,
         dateIssuedBg, dateIssuedEn, paymentDocNumBg, paymentDocDateBg, paymentDocNumEn, paymentDocDateEn,
-        formatDateForPrint, formatDateTimeForPrint // Add helper functions to dependency array
+        // Removed formatDateForPrint, formatDateTimeForPrint from dependencies here as they are now outside this scope
     ]);
 
     // Handle print functionality
