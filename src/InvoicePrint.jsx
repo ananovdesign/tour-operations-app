@@ -74,7 +74,7 @@ const InvoicePrint = ({ invoiceData, onPrintFinish }) => {
       window.print();
       // Ensure onPrintFinish is called after print dialog is closed/canceled
       window.onafterprint = onPrintFinish; 
-    }, 500); // Using 500ms as it was previously working. Adjust if needed.
+    }, 500); // Using 500ms. If you experience issues, try 100ms.
 
     // Cleanup function for useEffect
     return () => {
