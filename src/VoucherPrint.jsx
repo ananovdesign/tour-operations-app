@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import './VoucherPrint.css'; // Import the new CSS file
+import './VoucherPrint.css';
 import Logo from './Logo.png'; // Assuming your logo is in the same directory as App.jsx
 
 // --- Helper functions for date/time formatting (MOVED TO TOP-LEVEL SCOPE) ---
@@ -11,7 +11,7 @@ const formatDateForPrint = (dateString) => {
         const date = new Date(dateString);
         if (isNaN(date.getTime())) return 'Invalid Date'; // Use .getTime() for robust NaN check
         const day = String(date.getDate()).padStart(2, '0');
-        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0'); // Months are 0-indexed
         const year = date.getFullYear();
         return `${day}.${month}.${year}`;
     } catch (error) {
@@ -41,7 +41,7 @@ const formatDateTimeForPrint = (dateTimeLocalString) => {
 
 const VoucherPrint = ({ reservationData, onPrintFinish }) => {
     // Ref for the actual content that gets sent to print
-    const printContentRef = useRef(null); 
+    const printContentRef = useRef(null);
 
     const [voucherNumber, setVoucherNumber] = useState('');
     const [voucherType, setVoucherType] = useState('original');
@@ -160,7 +160,7 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
 
             setDateIssuedBg(formatDateLocal(new Date().toISOString().split('T')[0])); // Current date for issuance
             setDateIssuedEn(formatDateLocal(new Date().toISOString().split('T')[0]));
-            
+
             // Payment document details usually come from financial transactions, not directly from reservation
             setPaymentDocNumBg('');
             setPaymentDocDateBg('');
@@ -217,7 +217,7 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
         accommodationBg, accommodationEn, roomCategoryBg, roomCategoryEn, checkInBg, checkInEn, checkOutBg, checkOutEn,
         excursionsBg, excursionsEn, otherServicesBg, otherServicesEn, notesBg, notesEn,
         dateIssuedBg, dateIssuedEn, paymentDocNumBg, paymentDocDateBg, paymentDocNumEn, paymentDocDateEn,
-        onPrintFinish 
+        onPrintFinish
     ]);
 
     // This function is explicitly called by the "Print Voucher" button.
@@ -409,15 +409,16 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
                                         <span>-</span>
                                         <input type="date" id="dateEndEnInput" className="input-field" value={getValueForInput(dateEndEn)} onChange={(e) => setDateEndEn(e.target.value)} />
                                     </div>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>
-                                    <div className="flex-container">
-                                        <span>НАСТАНЯВАНЕ В:</span>
-                                        <input type="text" id="accommodationBgInput" className="input-field" placeholder="Въведете място на настаняване" value={getValueForInput(accommodationBg)} onChange={(e) => setAccommodationBg(e.target.value)} />
-                                    </div>
-                                </td>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <div className="flex-container">
+                                    <span>НАСТАНЯВАНЕ В:</span>
+                                    <input type="text" id="accommodationBgInput" className="input-field" placeholder="Въведете място на настаняване" value={getValueForInput(accommodationBg)} onChange={(e) => setAccommodationBg(e.target.value)} />
+                                </div>
+                            </td>
                             <td>
                                 <div className="flex-container">
                                     <span>ACCOMMODATION AT:</span>
@@ -776,11 +777,11 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
                         </tbody>
                     </table>
                 </div>
-            </div> {/* This is the div that was missing a closing tag, now correctly closed */}
+            </div> {/* END OF print-only WRAPPER DIV */}
 
             {/* Print Button - This button is part of the interactive UI, hidden during print */}
             <button id="printVoucherBtn" className="print-button add-button mt-8 mb-8" onClick={handlePrintButtonClick}>
-                 Print Voucher
+                Print Voucher
             </button>
         </div> // This is the final closing div for print-preview-container
     );
