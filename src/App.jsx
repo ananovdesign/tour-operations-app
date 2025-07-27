@@ -4464,20 +4464,44 @@ case 'customerContract':
     }
   };
 
-  const handlePrintFinish = () => {
+ const handlePrintFinish = () => {
     setInvoiceToPrint(null);
-  };
+    // Note: For other contracts/vouchers, their onPrintFinish callbacks
+    // already handle setting null and navigating back to their lists.
+};
 
-  // If an invoice has been selected for printing, render only the print component.
-  if (invoiceToPrint) {
+// TOP-LEVEL CONDITIONAL RENDERING FOR PRINT COMPONENTS
+// These must be checked first, so only the print component renders
+// when a print action is active.
+if (invoiceToPrint) {
     return <InvoicePrint invoiceData={invoiceToPrint} onPrintFinish={handlePrintFinish} />;
-  }
-
-
-
-  if (invoiceToPrint) {
-    return <InvoicePrint invoiceData={invoiceToPrint} onPrintFinish={handlePrintFinish} />;
-  }
+}
+if (reservationToPrintVoucher) { // NEW: VoucherPrint check
+    return <VoucherPrint reservationData={reservationToPrintVoucher} onPrintFinish={handlePrintVoucherFinish} />;
+}
+if (reservationToGenerateContract) {
+    return (
+        <CustomerContractPrint
+            reservationData={reservationToGenerateContract}
+            onPrintFinish={() => {
+                setReservationToGenerateContract(null);
+                setActiveTab('reservations');
+            }}
+        />
+    );
+}
+if (tourToGenerateContract) {
+    return (
+        <BusTourContractPrint
+            tourData={tourToGenerateContract}
+            allReservations={reservations}
+            onPrintFinish={() => {
+                setTourToGenerateContract(null);
+                setActiveTab('tours');
+            }}
+        />
+    );
+}
 
   return (
     <div className="font-sans antialiased bg-gray-100 min-h-screen text-gray-900" style={{ fontFamily: 'Inter, sans-serif' }}>
