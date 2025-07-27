@@ -17,6 +17,7 @@ import Logo from './Logo.png'; // Assuming Logo.png is in the same directory as 
 import InvoicePrint from './InvoicePrint.jsx'; // New component for printing
 import CustomerContractPrint from './CustomerContractPrint.jsx'; // New component for contract generation
 import BusTourContractPrint from './BusTourContractPrint.jsx'; // NEW: Import for Bus Tour Contract
+import VoucherPrint from './VoucherPrint.jsx'; // NEW: Import for Voucher Print
 
 // --- Notification Display Component ---
 const NotificationDisplay = ({ notifications, onDismiss }) => {
