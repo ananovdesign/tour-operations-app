@@ -785,7 +785,5 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
         </div> // This is the final closing div for print-preview-container
     );
 };
-    );
-};
 
 export default VoucherPrint;
