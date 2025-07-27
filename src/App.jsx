@@ -107,6 +107,7 @@ const [tourToGenerateContract, setTourToGenerateContract] = useState(null);
  // New: Search term states
   const [searchCustomerTerm, setSearchCustomerTerm] = useState('');
   const [searchReservationTerm, setSearchReservationTerm] = useState('');
+  const [reservationToPrintVoucher, setReservationToPrintVoucher] = useState(null); 
 
   // New: Sort configuration for financial reports
 // Sort configuration for financial reports
@@ -408,6 +409,10 @@ const [tourForm, setTourForm] = useState({
     } finally {
       setLoading(false);
     }
+    const handlePrintVoucherFinish = useCallback(() => {
+    setReservationToPrintVoucher(null); // Clear the selected reservation for voucher
+    setActiveTab('reservations'); // Go back to the reservations list
+}, []);
   };
 
   // --- Firestore Data Listeners (user-specific) ---
@@ -2250,6 +2255,17 @@ case 'reservations':
                               <button onClick={(e) => { e.stopPropagation(); handleDeleteReservation(res.id); }} className="bg-[#DC3545] hover:bg-[#C82333] text-white p-2 rounded-full shadow-md transition duration-200" title="Delete">
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1zm-1 3a1 1 0 011-1h4a1 1 0 110 2H7a1 1 0 01-1-1zm-1 3a1 1 0 011-1h4a1 1 0 110 2H7a1 1 0 01-1-1z" clipRule="evenodd" /></svg>
                               </button>
+                             <button
+  onClick={(e) => {
+    e.stopPropagation(); // Prevents row click from expanding/collapsing
+    setReservationToPrintVoucher(res); // Set the selected reservation for the voucher
+    setActiveTab('printVoucher'); // Switch to the new tab
+  }}
+  className="bg-yellow-500 hover:bg-yellow-600 text-white p-2 rounded-full shadow-md transition duration-200"
+  title="Print Voucher"
+>
+  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y2="17" x2="8" y2="17"/><polyline points="10 9 9 9 9 5"/></svg>
+</button>
                             </td>
                           </tr>
                           {expandedReservationId === res.id && (
@@ -4411,6 +4427,26 @@ case 'customerContract':
             </div>
         );
     }
+        case 'printVoucher': // NEW CASE for Voucher Print
+  if (reservationToPrintVoucher) {
+    return (
+      <VoucherPrint
+        reservationData={reservationToPrintVoucher}
+        onPrintFinish={handlePrintVoucherFinish}
+      />
+    );
+  } else {
+    // Fallback if no reservation is selected (e.g., direct navigation)
+    return (
+      <div className="p-6 bg-white rounded-xl shadow-lg">
+        <h3 className="text-xl font-semibold text-gray-800 mb-4">Генератор на Ваучери</h3>
+        <p className="text-gray-700">Моля, изберете резервация от списъка "Reservations" и натиснете бутона "Принтирай Ваучер", за да генерирате ваучер.</p>
+        <button onClick={() => setActiveTab('reservations')} className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition duration-200">
+          Към Резервации
+        </button>
+      </div>
+    );
+  }
       case 'createInvoice':
         return (
           <div className="p-0 bg-white rounded-xl shadow-lg h-full">
