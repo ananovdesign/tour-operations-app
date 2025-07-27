@@ -151,19 +151,139 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
         });
     }, []);
 
+    // Function to populate the HIDDEN print-only content based on current form values
+    const populatePrintContent = useCallback(() => {
+        // Helper to get a value, with fallback if blank
+        const getValue = (val, fallback = '') => (val !== null && val !== undefined && val !== '' ? val : fallback);
+        // Helper for date formatting
+        const formatDateForPrint = (dateString) => {
+            if (!dateString) return '..................';
+            try {
+                const date = new Date(dateString);
+                if (isNaN(date)) return 'Invalid Date'; // Handle invalid date strings
+                const day = String(date.getDate()).padStart(2, '0');
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const year = date.getFullYear();
+                return `${day}.${month}.${year}`;
+            } catch (error) {
+                console.error("Error formatting date for print:", error);
+                return 'Date Error';
+            }
+        };
+        const formatDateTimeForPrint = (dateTimeLocalString) => {
+            if (!dateTimeLocalString) return '..................';
+            try {
+                const date = new Date(dateTimeLocalString);
+                if (isNaN(date)) return 'Invalid DateTime';
+                const day = String(date.getDate()).padStart(2, '0');
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const year = date.getFullYear();
+                const hours = String(date.getHours()).padStart(2, '0');
+                const minutes = String(date.getMinutes()).padStart(2, '0');
+                return `${day}.${month}.${year} ${hours}:${minutes}`;
+            } catch (error) {
+                console.error("Error formatting datetime for print:", error);
+                return 'DateTime Error';
+            }
+        };
+
+        // Populate header fields
+        document.getElementById('pdf-voucherNumber').textContent = getValue(voucherNumber);
+        document.getElementById('pdf-destinationBulgarian').textContent = getValue(destinationBulgarian);
+        document.getElementById('pdf-destinationEnglish').textContent = getValue(destinationEnglish);
+
+        // Populate tourist names (dynamic list)
+        const pdfTouristNamesContainer = document.getElementById('pdf-tourist-names-container');
+        if (pdfTouristNamesContainer) {
+            let touristListHtml = '';
+            tourists.forEach(t => {
+                touristListHtml += `<div>${getValue(t.bgName)} / ${getValue(t.enName)}</div>`;
+            });
+            pdfTouristNamesContainer.innerHTML = touristListHtml;
+        }
+
+        // Populate counts
+        document.getElementById('pdf-adultsCountBg').textContent = getValue(adultsCountBg);
+        document.getElementById('pdf-adultsCountEn').textContent = getValue(adultsCountEn);
+        document.getElementById('pdf-childrenRegularBedCountBg').textContent = getValue(childrenRegularBedCountBg);
+        document.getElementById('pdf-childrenRegularBedCountEn').textContent = getValue(childrenRegularBedCountEn);
+        document.getElementById('pdf-childrenExtraBedCountBg').textContent = getValue(childrenExtraBedCountBg);
+        document.getElementById('pdf-childrenExtraBedCountEn').textContent = getValue(childrenExtraBedCountEn);
+
+        // Populate itinerary and destination
+        document.getElementById('pdf-itineraryBg').textContent = getValue(itineraryBg);
+        document.getElementById('pdf-itineraryEn').textContent = getValue(itineraryEn);
+        document.getElementById('pdf-destinationPlaceBg').textContent = getValue(destinationPlaceBg);
+        document.getElementById('pdf-destinationPlaceEn').textContent = getValue(destinationPlaceEn);
+
+        // Populate dates of itinerary
+        document.getElementById('pdf-dateStartBg').textContent = formatDateForPrint(dateStartBg);
+        document.getElementById('pdf-dateEndBg').textContent = formatDateForPrint(dateEndBg);
+        document.getElementById('pdf-dateStartEn').textContent = formatDateForPrint(dateStartEn);
+        document.getElementById('pdf-dateEndEn').textContent = formatDateForPrint(dateEndEn);
+
+        // Populate accommodation
+        document.getElementById('pdf-accommodationBg').textContent = getValue(accommodationBg);
+        document.getElementById('pdf-accommodationEn').textContent = getValue(accommodationEn);
+        document.getElementById('pdf-roomCategoryBg').textContent = getValue(roomCategoryBg);
+        document.getElementById('pdf-roomCategoryEn').textContent = getValue(roomCategoryEn);
+
+        // Populate check-in/out
+        document.getElementById('pdf-checkInBg').textContent = formatDateTimeForPrint(checkInBg);
+        document.getElementById('pdf-checkInEn').textContent = formatDateTimeForPrint(checkInEn);
+        document.getElementById('pdf-checkOutBg').textContent = formatDateTimeForPrint(checkOutBg);
+        document.getElementById('pdf-checkOutEn').textContent = formatDateTimeForPrint(checkOutEn);
+
+        // Populate other details
+        document.getElementById('pdf-excursionsBg').textContent = getValue(excursionsBg);
+        document.getElementById('pdf-excursionsEn').textContent = getValue(excursionsEn);
+        document.getElementById('pdf-otherServicesBg').textContent = getValue(otherServicesBg);
+        document.getElementById('pdf-otherServicesEn').textContent = getValue(otherServicesEn);
+        document.getElementById('pdf-notesBg').textContent = getValue(notesBg);
+        document.getElementById('pdf-notesEn').textContent = getValue(notesEn);
+
+        // Populate issued date and payment document
+        document.getElementById('pdf-dateIssuedBg').textContent = formatDateForPrint(dateIssuedBg);
+        document.getElementById('pdf-dateIssuedEn').textContent = formatDateForPrint(dateIssuedEn);
+        document.getElementById('pdf-paymentDocNumBg').textContent = getValue(paymentDocNumBg);
+        document.getElementById('pdf-paymentDocDateBg').textContent = formatDateForPrint(paymentDocDateBg);
+        document.getElementById('pdf-paymentDocNumEn').textContent = getValue(paymentDocNumEn);
+        document.getElementById('pdf-paymentDocDateEn').textContent = formatDateForPrint(paymentDocDateEn);
+
+        // Set voucher type text
+        document.getElementById('pdf-voucherTypeText').textContent = voucherType === 'original' ? 'ОРИГИНАЛ / ORIGINAL' : 'КОПИЕ / COPY';
+
+    }, [
+        voucherNumber, voucherType, destinationBulgarian, destinationEnglish, tourists,
+        adultsCountBg, adultsCountEn, childrenRegularBedCountBg, childrenRegularBedCountEn, childrenExtraBedCountBg, childrenExtraBedCountEn,
+        itineraryBg, itineraryEn, destinationPlaceBg, destinationPlaceEn, dateStartBg, dateEndBg, dateStartEn, dateEndEn,
+        accommodationBg, accommodationEn, roomCategoryBg, roomCategoryEn, checkInBg, checkInEn, checkOutBg, checkOutEn,
+        excursionsBg, excursionsEn, otherServicesBg, otherServicesEn, notesBg, notesEn,
+        dateIssuedBg, dateIssuedEn, paymentDocNumBg, paymentDocDateBg, paymentDocNumEn, paymentDocDateEn,
+        formatDateForPrint, formatDateTimeForPrint // Add helper functions to dependency array
+    ]);
+
     // Handle print functionality
     const handlePrintVoucher = useCallback(() => {
-        window.print();
+        // IMPORTANT: Populate the hidden print-only content just before printing
+        populatePrintContent();
+
+        // Use a timeout to ensure React has finished rendering updates before printing
+        const timer = setTimeout(() => {
+            window.print();
+        }, 100); // Small delay to ensure content is fully rendered
+
         // Call onPrintFinish when the print dialog is closed or print is completed/cancelled
         window.onafterprint = () => {
             onPrintFinish();
             window.onafterprint = null; // Clean up the event listener
         };
-        // Also clear on component unmount
+
         return () => {
-            window.onafterprint = null;
+            clearTimeout(timer);
+            window.onafterprint = null; // Clean up on component unmount
         };
-    }, [onPrintFinish]);
+    }, [onPrintFinish, populatePrintContent]);
 
     if (!reservationData) {
         return (
@@ -174,7 +294,7 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
     }
 
     return (
-        <div className="print-preview-container w-full flex flex-col justify-center items-center min-h-screen p-20"> {/* Added flex classes and padding here */}
+        <div className="print-preview-container w-full flex flex-col justify-center items-center min-h-screen p-20">
             <div className="voucher-container">
                 {/* Logo Section */}
                 <div className="logo-section">
@@ -249,6 +369,7 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
                                             <button type="button" className="remove-button" onClick={() => removeTouristRow(index)}>Remove</button>
                                         </div>
                                     ))}
+                                }
                                 </div>
                                 <button id="addTouristBtn" className="add-button" type="button" onClick={addTouristRow}>Add Another Tourist</button>
                             </td>
