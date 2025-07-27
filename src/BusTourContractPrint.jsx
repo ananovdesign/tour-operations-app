@@ -1,13 +1,30 @@
 // src/BusTourContractPrint.jsx
-import React, { useMemo, useCallback } from 'react';
-import './BusTourContractPrint.css'; // Assuming you'll adapt this CSS similarly to VoucherPrint.css
-import Logo from './Logo.png'; // Assuming your logo is in the same directory as App.jsx
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import './BusTourContractPrint.css'; // Will also need updates
+import Logo from './Logo.png'; // Assuming Logo.png is accessible
 
-const BusTourContractPrint = ({ tourData, allReservations }) => {
+const BusTourContractPrint = ({ tourData, allReservations, onPrintFinish }) => {
+    // State for form fields (re-introducing them for interactive editing)
+    const [tourId, setTourId] = useState('');
+    const [departureDate, setDepartureDate] = useState('');
+    const [arrivalDate, setArrivalDate] = useState('');
+    const [nights, setNights] = useState(0);
+    const [daysInclTravel, setDaysInclTravel] = useState(0);
+    const [transportCompany, setTransportCompany] = useState('');
+    const [departureDateTimePlace, setDepartureDateTimePlace] = useState('');
+    const [transportDescription, setTransportDescription] = useState('');
+    const [insuranceDetails, setInsuranceDetails] = useState('');
+    const [tourHotels, setTourHotels] = useState('');
+    const [tourRoomSummary, setTourRoomSummary] = useState('');
+    const [mealsIncluded, setMealsIncluded] = useState('');
+    const [hotel, setHotel] = useState('');
+    const [maxPassengers, setMaxPassengers] = useState(0);
 
-    const formatDate = useCallback((dateString) => {
-        if (!dateString) return '..................';
+    // Helper functions for formatting (re-used from your original code)
+    const formatDate = useCallback((dateString, fallback = '..................') => {
+        if (!dateString) return fallback;
         const date = new Date(dateString);
+        if (isNaN(date.getTime())) return 'Invalid Date';
         const day = String(date.getDate()).padStart(2, '0');
         const month = String(date.getMonth() + 1).padStart(2, '0');
         const year = date.getFullYear();
@@ -18,13 +35,36 @@ const BusTourContractPrint = ({ tourData, allReservations }) => {
         if (val === null || val === undefined || val === '') {
             return fallback;
         }
+        if (typeof val === 'number' && val === 0 && fallback === '..................') {
+            return '0';
+        }
         return val;
     }, []);
 
-    const printContentData = useMemo(() => {
-        if (!tourData) return {};
+    // Effect to populate form fields from tourData when prop changes
+    useEffect(() => {
+        if (tourData) {
+            setTourId(getValue(tourData.tourId, ''));
+            setDepartureDate(getValue(tourData.departureDate, ''));
+            setArrivalDate(getValue(tourData.arrivalDate, ''));
+            setNights(getValue(tourData.nights, 0));
+            setDaysInclTravel(getValue(tourData.daysInclTravel, 0));
+            setTransportCompany(getValue(tourData.transportCompany, ''));
+            setDepartureDateTimePlace(getValue(tourData.departureDateTimePlace, ''));
+            setTransportDescription(getValue(tourData.transportDescription, ''));
+            setInsuranceDetails(getValue(tourData.insuranceDetails, ''));
+            setTourHotels(getValue(tourData.tourHotels, ''));
+            setTourRoomSummary(getValue(tourData.tourRoomSummary, ''));
+            setMealsIncluded(getValue(tourData.mealsIncluded, ''));
+            setHotel(getValue(tourData.hotel, ''));
+            setMaxPassengers(getValue(tourData.maxPassengers, 0));
+        }
+    }, [tourData, getValue]);
 
-        const linkedReservations = allReservations.filter(res => res.linkedTourId === tourData.tourId);
+
+    // Data prepared for the PRINT version (uses the component's state, not directly the prop)
+    const printContentData = useMemo(() => {
+        const linkedReservations = allReservations.filter(res => res.linkedTourId === tourId);
 
         const allTouristsData = [];
         linkedReservations.forEach(res => {
@@ -32,147 +72,334 @@ const BusTourContractPrint = ({ tourData, allReservations }) => {
                 allTouristsData.push({
                     name: getValue(`${t.firstName || ''} ${t.fatherName || ''} ${t.familyName || ''}`.trim(), 'Неизвестен'),
                     egn: getValue(t.realId, 'N/A'),
-                    idCard: getValue(t.id, 'N/A') // Use ID from reservation here, not blank
+                    idCard: getValue(t.id, 'N/A')
                 });
             });
         });
 
-        // Calculate total booked passengers
         const totalBookedPassengers = linkedReservations.reduce((sum, res) => sum + (res.adults || 0) + (res.children || 0), 0);
-        const fulfillmentPercentage = tourData.maxPassengers > 0 
-            ? ((totalBookedPassengers / tourData.maxPassengers) * 100).toFixed(1) 
+        const fulfillmentPercentage = maxPassengers > 0
+            ? ((totalBookedPassengers / maxPassengers) * 100).toFixed(1)
             : '0.0';
 
         return {
-            tourId: getValue(tourData.tourId, ''),
-            departureDate: formatDate(tourData.departureDate),
-            arrivalDate: formatDate(tourData.arrivalDate),
-            nights: getValue(tourData.nights, 0),
-            daysInclTravel: getValue(tourData.daysInclTravel, 0),
-            transportCompany: getValue(tourData.transportCompany, 'N/A'),
-            departureDateTimePlace: getValue(tourData.departureDateTimePlace, 'N/A'),
-            transportDescription: getValue(tourData.transportDescription, 'N/A'),
-            insuranceDetails: getValue(tourData.insuranceDetails, 'N/A'),
-            tourHotels: getValue(tourData.tourHotels, 'N/A'),
-            tourRoomSummary: getValue(tourData.tourRoomSummary, 'N/A'),
-            mealsIncluded: getValue(tourData.mealsIncluded, 'N/A'),
-            hotel: getValue(tourData.hotel, 'N/A'),
-            maxPassengers: getValue(tourData.maxPassengers, 0),
+            tourId: getValue(tourId, 'N/A'),
+            departureDate: formatDate(departureDate),
+            arrivalDate: formatDate(arrivalDate),
+            nights: getValue(nights, 0),
+            daysInclTravel: getValue(daysInclTravel, 0),
+            transportCompany: getValue(transportCompany, 'N/A'),
+            departureDateTimePlace: getValue(departureDateTimePlace, 'N/A'),
+            transportDescription: getValue(transportDescription, 'N/A'),
+            insuranceDetails: getValue(insuranceDetails, 'N/A'),
+            tourHotels: getValue(tourHotels, 'N/A'),
+            tourRoomSummary: getValue(tourRoomSummary, 'N/A'),
+            mealsIncluded: getValue(mealsIncluded, 'N/A'),
+            hotel: getValue(hotel, 'N/A'),
+            maxPassengers: getValue(maxPassengers, 0),
             bookedPassengers: totalBookedPassengers,
             fulfillmentPercentage: fulfillmentPercentage,
             allTouristsData: allTouristsData,
         };
-    }, [tourData, allReservations, formatDate, getValue]);
+    }, [tourId, departureDate, arrivalDate, nights, daysInclTravel, transportCompany, departureDateTimePlace,
+        transportDescription, insuranceDetails, tourHotels, tourRoomSummary, mealsIncluded, hotel,
+        maxPassengers, allReservations, formatDate, getValue]);
 
+
+    // Handle print functionality for this component
+    const handlePrintBusTourContract = useCallback(() => {
+        // This small delay gives the browser a moment to ensure all DOM updates
+        // from React are flushed before the print dialog is opened.
+        setTimeout(() => {
+            window.print();
+        }, 100);
+
+        // This callback notifies the parent component (App.jsx) that printing is done.
+        window.onafterprint = () => {
+            onPrintFinish(); // This will trigger the reset of selectedTour in App.jsx
+            window.onafterprint = null; // Clean up the event listener
+        };
+
+        // Cleanup in case the component unmounts before onafterprint fires
+        return () => {
+            window.onafterprint = null;
+        };
+    }, [onPrintFinish]);
 
     if (!tourData) {
-        return null; // This component should only render if tourData is provided
+        return (
+            <div className="flex justify-center items-center h-full min-h-[calc(100vh-100px)]">
+                <div className="text-gray-600 text-lg animate-pulse">Loading bus tour data...</div>
+            </div>
+        );
     }
 
     return (
-        // This is the ONLY content that will be rendered for printing.
-        // It should NOT contain any UI elements you don't want on the physical paper.
-        <div className="bus-tour-contract-container print-content-styling">
-            <div className="logo-section">
-                <img src={Logo} alt="Company Logo" style={{height: '60px', width: 'auto'}}></img>
-            </div>
-            
-            <h1 style={{textAlign: 'center', fontSize: '14pt', fontWeight: 'bold', marginTop: '1.5em', marginBottom: '1em'}}>
-                ДОГОВОР ЗА ОРГАНИЗИРАНО ТУРИСТИЧЕСКО ПЪТУВАНЕ (АВТОБУСНА ЕКСКУРЗИЯ)
-            </h1>
-            <p style={{textAlign: 'center', marginBottom: '1em'}}>
-                №: {printContentData.tourId} / Дата: {printContentData.departureDate}
-            </p>
+        <div className="print-preview-container w-full flex flex-col justify-center items-center min-h-screen p-20">
+            {/* THIS IS THE INTERACTIVE FORM FOR EDITING (VISIBLE ON SCREEN) */}
+            <div className="bus-tour-form-container"> {/* New class for the form part */}
+                <div className="logo-section">
+                    <img src={Logo} alt="Company Logo" className="h-24 object-contain rounded-lg"></img>
+                </div>
+                <h2 className="text-3xl font-bold mb-8 text-gray-800 border-b pb-4">
+                    Edit Bus Tour Contract
+                </h2>
+                <form onSubmit={(e) => e.preventDefault()} className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                    {/* Form fields based on state variables */}
+                    <div>
+                        <label htmlFor="tourId" className="block text-sm font-medium text-gray-700">Tour ID</label>
+                        <input
+                            type="text"
+                            name="tourId"
+                            id="tourId"
+                            value={tourId}
+                            onChange={(e) => setTourId(e.target.value)}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
+                            placeholder="Auto-generated or editable"
+                            readOnly={!!tourData.id} // Make it read-only if loading existing tour
+                        />
+                    </div>
+                    <div>
+                        <label htmlFor="departureDate" className="block text-sm font-medium text-gray-700">Departure Date</label>
+                        <input
+                            type="date"
+                            name="departureDate"
+                            id="departureDate"
+                            value={departureDate}
+                            onChange={(e) => setDepartureDate(e.target.value)}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
+                            required
+                        />
+                    </div>
+                    <div>
+                        <label htmlFor="arrivalDate" className="block text-sm font-medium text-gray-700">Arrival Date</label>
+                        <input
+                            type="date"
+                            name="arrivalDate"
+                            id="arrivalDate"
+                            value={arrivalDate}
+                            onChange={(e) => setArrivalDate(e.target.value)}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
+                            required
+                        />
+                    </div>
+                    <div>
+                        <label htmlFor="nights" className="block text-sm font-medium text-gray-700">Nights</label>
+                        <input
+                            type="number"
+                            name="nights"
+                            id="nights"
+                            value={nights}
+                            onChange={(e) => setNights(parseInt(e.target.value) || 0)}
+                            min="0"
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
+                        />
+                    </div>
+                    <div>
+                        <label htmlFor="daysInclTravel" className="block text-sm font-medium text-gray-700">Days (incl. Travel)</label>
+                        <input
+                            type="number"
+                            name="daysInclTravel"
+                            id="daysInclTravel"
+                            value={daysInclTravel}
+                            readOnly
+                            className="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm px-3 py-2"
+                        />
+                    </div>
+                    <div>
+                        <label htmlFor="transportCompany" className="block text-sm font-medium text-gray-700">Transport Company</label>
+                        <input
+                            type="text"
+                            name="transportCompany"
+                            id="transportCompany"
+                            value={transportCompany}
+                            onChange={(e) => setTransportCompany(e.target.value)}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
+                        />
+                    </div>
+                    <div className="md:col-span-2">
+                        <label htmlFor="departureDateTimePlace" className="block text-sm font-medium text-gray-700">Час и място на тръгване</label>
+                        <input
+                            type="text"
+                            name="departureDateTimePlace"
+                            id="departureDateTimePlace"
+                            value={departureDateTimePlace}
+                            onChange={(e) => setDepartureDateTimePlace(e.target.value)}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
+                            placeholder="Напр. 06:00, гр. София, пл. Ал. Невски"
+                        />
+                    </div>
+                    <div className="md:col-span-2">
+                        <label htmlFor="transportDescription" className="block text-sm font-medium text-gray-700">2. Транспорт</label>
+                        <textarea
+                            name="transportDescription"
+                            id="transportDescription"
+                            rows="2"
+                            value={transportDescription}
+                            onChange={(e) => setTransportDescription(e.target.value)}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
+                            placeholder="Напр. Комфортен туристически автобус"
+                        ></textarea>
+                    </div>
+                    <div className="md:col-span-2">
+                        <label htmlFor="insuranceDetails" className="block text-sm font-medium text-gray-700">Застраховка (описание)</label>
+                        <textarea
+                            name="insuranceDetails"
+                            id="insuranceDetails"
+                            rows="2"
+                            value={insuranceDetails}
+                            onChange={(e) => setInsuranceDetails(e.target.value)}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
+                            placeholder="Напр. Медицинска застраховка 'Помощ при пътуване'"
+                        ></textarea>
+                    </div>
+                    <div className="md:col-span-2">
+                        <label htmlFor="tourHotels" className="block text-sm font-medium text-gray-700">Хотели (множество)</label>
+                        <textarea
+                            name="tourHotels"
+                            id="tourHotels"
+                            rows="2"
+                            value={tourHotels}
+                            onChange={(e) => setTourHotels(e.target.value)}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
+                            placeholder="Напр. Хотел 'Планина', Хотел 'Изгрев'"
+                        ></textarea>
+                    </div>
+                    <div className="md:col-span-2">
+                        <label htmlFor="tourRoomSummary" className="block text-sm font-medium text-gray-700">Брой и вид стаи (общо за тура)</label>
+                        <textarea
+                            name="tourRoomSummary"
+                            id="tourRoomSummary"
+                            rows="2"
+                            value={tourRoomSummary}
+                            onChange={(e) => setTourRoomSummary(e.target.value)}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
+                            placeholder="Напр. 10 двойни стаи, 5 тройни стаи"
+                        ></textarea>
+                    </div>
+                    <div className="md:col-span-2">
+                        <label htmlFor="mealsIncluded" className="block text-sm font-medium text-gray-700">Брой и вид на храненията, включени в пакетната цена</label>
+                        <textarea
+                            name="mealsIncluded"
+                            id="mealsIncluded"
+                            rows="2"
+                            value={mealsIncluded}
+                            onChange={(e) => setMealsIncluded(e.target.value)}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
+                            placeholder="Напр. 2 закуски и 2 вечери"
+                        ></textarea>
+                    </div>
+                    <div>
+                        <label htmlFor="hotelTour" className="block text-sm font-medium text-gray-700">Hotel (Primary for Tour)</label>
+                        <input
+                            type="text"
+                            name="hotel"
+                            id="hotelTour"
+                            value={hotel}
+                            onChange={(e) => setHotel(e.target.value)}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
+                        />
+                    </div>
+                    <div>
+                        <label htmlFor="maxPassengers" className="block text-sm font-medium text-gray-700">Max Passengers</label>
+                        <input
+                            type="number"
+                            name="maxPassengers"
+                            id="maxPassengers"
+                            value={maxPassengers}
+                            onChange={(e) => setMaxPassengers(parseInt(e.target.value) || 0)}
+                            min="0"
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
+                            required
+                        />
+                    </div>
 
-            <p>Днес, {printContentData.departureDate} в гр. Ракитово, се подписа настоящия договор за пътуване между:</p>
-            <p>
-                <b>“ДАЙНАМЕКС ТУР” ЕООД</b> с удостоверение за туроператор № РК-01-8569/15.04.2025г., с адрес на управление гр. Ракитово, ул. "Васил Куртев" №12А, тел. 0879976446, Булстат № BG208193140 , представлявана и управлявана от КРАСИМИР ЕМИЛОВ АНАНОВ, наричан по-долу за краткост <b>ТУРОПЕРАТОР</b> от една страна.
-            </p>
-            {/* The "ПОТРЕБИТЕЛ" (Consumer) section will be filled by the actual tourists from the reservations */}
-            {printContentData.allTouristsData.length > 0 && (
-                <p>и</p>
-            )}
-            {printContentData.allTouristsData.map((tourist, index) => (
-                <p key={index}>
-                    ИМЕНА: <b>{tourist.name}</b>, ЕГН/ЛНЧ: <b>{tourist.egn}</b>, № паспорт/л.к.: <b>{tourist.idCard}</b>
+                    <div className="md:col-span-2 flex justify-end space-x-3 mt-8">
+                        {/* Print button for the interactive form */}
+                        <button
+                            type="button"
+                            onClick={handlePrintBusTourContract}
+                            className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition duration-200 shadow-md"
+                        >
+                            Print Bus Tour Contract
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => onPrintFinish()} // Simply go back to tours list
+                            className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition duration-200 shadow-sm"
+                        >
+                            Back to Tours
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            {/* THIS IS THE PRINT-ONLY CONTENT (HIDDEN ON SCREEN) */}
+            <div className="bus-tour-print-content"> {/* New class for print content */}
+                <div className="logo-section">
+                    <img src={Logo} alt="Company Logo" style={{height: '60px', width: 'auto'}}></img>
+                </div>
+                
+                <h1 style={{textAlign: 'center', fontSize: '14pt', fontWeight: 'bold', marginTop: '1.5em', marginBottom: '1em'}}>
+                    ДОГОВОР ЗА ОРГАНИЗИРАНО ТУРИСТИЧЕСКО ПЪТУВАНЕ (АВТОБУСНА ЕКСКУРЗИЯ)
+                </h1>
+                <p style={{textAlign: 'center', marginBottom: '1em'}}>
+                    №: {printContentData.tourId} / Дата: {printContentData.departureDate}
                 </p>
-            ))}
-            {printContentData.allTouristsData.length === 0 && (
-                <p>и <b>ПОТРЕБИТЕЛ</b> (Данните ще бъдат попълнени на място).</p>
-            )}
-            <p>се сключи настоящият договор за следното:</p>
 
-            <h2>І. ПРЕДМЕТ НА ДОГОВОРА</h2>
-            <p>1. Потребителят възлага и заплаща на Туроператора да му предостави туристическо пътуване при определен маршрут и платена от него цена при условията на настоящия договор.</p>
-            <p>2. Туроператорът приема да организира туристическото пътуване на Потребителя по определен маршрут заплащане на договорената цена при условията на настоящия договор.</p>
-            <p>3. Организирано туристическо пътуване е при следните условия:</p>
-            <p>
-                <b>3.1. Маршрут на пътуването:</b> {printContentData.itineraryBg || printContentData.hotel}<br/>
-                Начална дата на пътуването: {printContentData.departureDate} &nbsp;&nbsp;Крайна дата на пътуването: {printContentData.arrivalDate}<br/>
-                Продължителност на пътуването: {printContentData.daysInclTravel} дни / {printContentData.nights} нощувки
-            </p>
-            <p>
-                <b>3.2. Основни услуги, включени в общата цена:</b><br/>
-                1. Транспорт: {printContentData.transportDescription || printContentData.transportCompany}<br/>
-                Час и място на тръгване: {printContentData.departureDateTimePlace}<br/>
-                Час и място на връщане: Приблизително {printContentData.arrivalDate}, в {printContentData.departureDateTimePlace.split(',')[1]?.trim() || 'мястото на тръгване'}<br/>
-                2. Настаняване: {printContentData.tourHotels || printContentData.hotel}<br/>
-                Брой и вид стаи: {printContentData.tourRoomSummary}<br/>
-                3. Брой и вид на храненията, включени в пакетната цена: {printContentData.mealsIncluded}
-            </p>
-            <p>
-                <b>3.3. Други услуги, включени в общата цена:</b> {printContentData.otherServices || 'Водач-представител на фирмата по време на цялото пътуване;'}
-            </p>
-            <p>
-                <b>3.4. Застраховка:</b> {printContentData.insuranceDetails || 'Медицинска застраховка "Помощ при пътуване"'}
-            </p>
-            <p>
-                <b>3.5. Обща цена в лева на пътуването:</b> Съгласно оферта/резервация
-            </p>
-            <p>
-                <b>3.6 Крайна обща дължима сума:</b> Съгласно оферта/резервация
-            </p>
-            <p>
-                <b>3.7 Начин и срок за плащане на пълната сума по пътуването:</b> Съгласно оферта/резервация
-            </p>
-            <p>ПОТВЪРЖДАВАМ от свое име и от името на гореизброените туристи, че съм запознат с условията за записване и програмата на пътуването и внасям депозит съгласно оферта/резервация.</p>
-            <p>Потребителят се задължава да заплати остатъка от пълната сума съгласно оферта/резервация.</p>
+                <p>Днес, {printContentData.departureDate} в гр. Ракитово, се подписа настоящия договор за пътуване между:</p>
+                <p>
+                    <b>“ДАЙНАМЕКС ТУР” ЕООД</b> с удостоверение за туроператор № РК-01-8569/15.04.2025г., с адрес на управление гр. Ракитово, ул. "Васил Куртев" №12А, тел. 0879976446, Булстат № BG208193140 , представлявана и управлявана от КРАСИМИР ЕМИЛОВ АНАНОВ, наричан по-долу за краткост <b>ТУРОПЕРАТОР</b> от една страна.
+                </p>
+                {printContentData.allTouristsData.length > 0 && (
+                    <p>и</p>
+                )}
+                {printContentData.allTouristsData.map((tourist, index) => (
+                    <p key={index}>
+                        ИМЕНА: <b>{tourist.name}</b>, ЕГН/ЛНЧ: <b>{tourist.egn}</b>, № паспорт/л.к.: <b>{tourist.idCard}</b>
+                    </p>
+                ))}
+                {printContentData.allTouristsData.length === 0 && (
+                    <p>и <b>ПОТРЕБИТЕЛ</b> (Данните ще бъдат попълнени на място).</p>
+                )}
+                <p>се сключи настоящият договор за следното:</p>
 
-            <div className="signatures">
-                <span>ЗА ТУРОПЕРАТОРА</span>
-                <span>ЗА ПОТРЕБИТЕЛЯ</span>
-            </div>
-            <div className="signatures" style={{marginTop: '80px'}}>
-                <span>.........................</span>
-                <span>.........................</span>
-            </div>
+                <h2>І. ПРЕДМЕТ НА ДОГОВОРА</h2>
+                <p>1. Потребителят възлага и заплаща на Туроператора да му предостави туристическо пътуване при определен маршрут и платена от него цена при условията на настоящия договор.</p>
+                <p>2. Туроператорът приема да организира туристическото пътуване на Потребителя по определен маршрут заплащане на договорената цена при условията на настоящия договор.</p>
+                <p>3. Организирано туристическо пътуване е при следните условия:</p>
+                <p>
+                    <b>3.1. Маршрут на пътуването:</b> {printContentData.itineraryBg || printContentData.hotel}<br/>
+                    Начална дата на пътуването: {printContentData.departureDate} &nbsp;&nbsp;Крайна дата на пътуването: {printContentData.arrivalDate}<br/>
+                    Продължителност на пътуването: {printContentData.daysInclTravel} дни / {printContentData.nights} нощувки
+                </p>
+                <p>
+                    <b>3.2. Основни услуги, включени в общата цена:</b><br/>
+                    1. Транспорт: {printContentData.transportDescription || printContentData.transportCompany}<br/>
+                    Час и място на тръгване: {printContentData.departureDateTimePlace}<br/>
+                    Час и място на връщане: Приблизително {printContentData.arrivalDate}, в {printContentData.departureDateTimePlace.split(',')[1]?.trim() || 'мястото на тръгване'}<br/>
+                    2. Настаняване: {printContentData.tourHotels || printContentData.hotel}<br/>
+                    Брой и вид стаи: {printContentData.tourRoomSummary}<br/>
+                    3. Брой и вид на храненията, включени в пакетната цена: {printContentData.mealsIncluded}
+                </p>
+                <p>
+                    <b>3.3. Други услуги, включени в общата цена:</b> {printContentData.otherServices || 'Водач-представител на фирмата по време на цялото пътуване;'}
+                </p>
+                <p>
+                    <b>3.4. Застраховка:</b> {printContentData.insuranceDetails || 'Медицинска застраховка "Помощ при пътуване"'}
+                </p>
+                <p>
+                    <b>3.5. Обща цена в лева на пътуването:</b> Съгласно оферта/резервация
+                </p>
+                <p>
+                    <b>3.6 Крайна обща дължима сума:</b> Съгласно оферта/резервация
+                </p>
+                <p>
+                    <b>3.7 Начин и срок за плащане на пълната сума по пътуването:</b> Съгласно оферта/резервация
+                </p>
+                <p>ПОТВЪРЖДАВАМ от свое име и от името на гореизброените туристи, че съм запознат с условията за записване и програмата на пътуването и внасям депозит съгласно оферта/резервация.</p>
+                <p>Потребителят се задължава да заплати остатъка от пълната сума съгласно оферта/резервация.</p>
 
-            {/* General Conditions - These sections typically contain static text */}
-            <div className="general-conditions">
-                <h2>ОБЩИ УСЛОВИЯ</h2>
-                <p><b>Туристическа програма</b> - означава разглеждане на посещаваното селище пеша и/или с градски транспорт, като обектите се разглеждат отвън, освен ако в програмата не е упоменато изрично „посещение" на туристическия обект или друго. Екскурзоводът от фирмата няма право да води групата в музеи, където това право имат само местни оторизирани екскурзоводи, които при желание от страна на групата могат да бъдат наети срещу допълнително заплащане. В някои от посещаваните градове се налага ползването на обществен транспорт, който Потребителят плаща за своя сметка.</p>
-                <p><b>8.2. Панорамна обиколка</b> - означава разглеждане на посещаваното селище с автобуса, като в някои случаи може да се спре и за пешеходно разглеждане по преценка на водача/екскурзовода.</p>
-                <p><b>8.3. Свободно време</b> - означава време, което се дава от водача/екскурзовода на групата обикновено след предварително запознаване със съответното селище и което потребителят сам преценява как да оползотвори. През това време водачът/екскурзоводът на групата и автобусът не са на разположение на туристите.</p>
-                <p><b>8.4. Екскурзия по желание</b> - означава допълнителна факултативна екскурзия, алтернативна на свободното време, цената на която не е включена в общата цена, освен ако в програмата не е упоменато друго. Цената на екскурзията по желание се вписва в графа „цената не включва" в съответната програма.</p>
-                <p><b>8.5. Екскурзия без нощен преход</b> - означава организирано туристическо пътуване с обща цена по време на което няма предвидени нощувки в използваното превозно средство.</p>
-                <p><b>8.6. Екскурзия с нощен преход</b> - означава организирано туристическо пътуване с обща цена по време на което има предвидена поне една нощувка в използваното превозно средство.</p>
-                <p><b>8.7. Закуска / вечеря / друг вид хранене на блок маса (шведска маса, открит бюфет)</b> - означава хранене при което храната е поставена на общ плот или маса от която потребителят може да избере и консумира различни храни и питиета по своя преценка. Блок масата обикновено включва: колбас, кашкавал, масло, конфитюр, чай, кафе и др. Разнообразието и богатството на храните и напитките зависи от съответното заведение за хранене и развлечение.</p>
-                <p><b>8.8. Посещение на туристически обект</b> означава разглеждане отвътре на посочения обект, като в програмата изрично е посочено понятието „ПОСЕЩЕНИЕ". В повечето случаи посещенията на туристически обекти изискват заплащане на входна такса (закупуване на билет), освен ако в програмата не е упоменато друго. Препоръчваме: потребителят да осигури още в България сумите, които предвижда да похарчи в съответните валути за посещаваните държави. Музейните такси се плащат само в местна валута</p>
-                <p><b>8.9. Нощувка в</b> - означава, че нощувката е в рамките на обявеното селище.</p>
-                <p><b>8.10.Нощувка в района на</b> - означава, че нощувката е в друго селище в близост до обявеното селище.</p>
-                <p><b>9. Спорове и рекламации:</b></p>
-                <p>9.1. Всички рекламации, свързани с качеството на платените услуги, в т.ч. конкретните условия в хотелите и хотелските вериги, трябва да бъдат предявени от потребителя на място пред доставчика на услугите и представител/екскурзовод на туроператора или пред обслужващата фирма туроператор за отстраняване на слабостите. В случай, че заинтересованите страни не са удовлетворени, предявяването на рекламацията става в писмена или друга подходяща форма, позволяваща то да бъде възпроизведено в срок до 14 календарни дни след крайната дата на организираното пътуване.</p>
-                <p>9.2. Туроператорът се задължава в срок от 10 дни след получаване на рекламацията да даде своето писмено становище по нея.</p>
-                <p>Забележка: Потребителят не трябва да забравя, че категорията на хотелите и автобусите се определя от оторизираните власти на съответната страна, а не от туроператора.</p>
-                <p><b>10. Ред за изменение и прекратяване на договора:</b></p>
-                <p>10.1. Настоящият договор може да бъде отменян, изменян и допълван с двустранни писмени анекси и при спазване разпоредбите на 3Т.</p>
-                <p>10.2.Всяка от страните има право да поиска изменение или да прекрати Договора във връзка със съществени изменения на обстоятелствата,</p>
-                <p>10.3.Споразумение за изменение или уведомление за прекратяване на Договора се извършва в писмена форма.</p>
-                <p>10.4. При изменение на Договора задълженията на страните се запазват в изменен вид. При прекратяване на Договора задълженията на страните се прекратяват след уреждане на финансовите взаимоотношения</p>
-                <p>10.5. За неуредени в договора выпроси се прилагат разпоредбите на 3Т, 33П, Търговския закон, Закона за задълженията и договорите и останалото действащо законодателство на Р...България.</p>
-                <p>10.6. Анекс към Договора за организирано пътуване е подробно описание на туристическата програма.</p>
-                <p>10.7. Потребителят декларира с подписа си, че той и записаните от него туристи са запознати с програмата на екскурзията и общите условия на организираното пътуване, описани в настоящия договор и ги приемат.</p>
-                <p>10.8. Този договор се изготви в два екземпляра, по един за всяка от страните и се подписа на всяка страница, както следва:</p>
                 <div className="signatures">
                     <span>ЗА ТУРОПЕРАТОРА</span>
                     <span>ЗА ПОТРЕБИТЕЛЯ</span>
@@ -181,31 +408,67 @@ const BusTourContractPrint = ({ tourData, allReservations }) => {
                     <span>.........................</span>
                     <span>.........................</span>
                 </div>
-            </div>
 
-            <div className="general-conditions">
-                <h2>ПРИЛОЖЕНИЕ Nº 1 КЪМ ДОГОВОР ЗА ТУРИСТИЧЕСКИ ПАКЕТ</h2>
-                <h2 style={{marginTop:0}}>ДЕКЛАРАЦИЯ - СЪГЛАСИЕ ЗА ОБРАБОТКА НА ЛИЧНИ ДАННИ</h2>
-                <p>В качеството си на администратор на лични данни, „ДАЙНАМЕКС ТУР" ЕООД, ЕИК 208193140, следва да е получило и/или ще получи от Вас лични данни, които ще обработва, за да предостави услугите си. В случай, че не предоставите личните си данни, „ДАЙНАМЕКС ТУР" няма да може да предостави услугите си, включително да направи резервация от Ваше име за желания период и място.</p>
-                <p>С подписа си по-долу Вие потвърждавате, че:</p>
-                <p>- Сте получили на хартиен носител Политиката ни за поверителност с подробна информация за това какви Ваши лични данни събиране и обработваме, за каква цел, за какъв срок и на какво основание ги обработваме, на кого ги представяме и какви са Вашите права във връзка с тази обработка;</p>
-                <p>- Сме Ви информирали, че посочената Политика за поверителност е налична и онлайн на интернет адрес http://dynamextour.com;</p>
-                <p>- Ако за целите на предоставянето на услугата, която се закупили, сте ни предоставили или ще ни предоставите лични данни на трети лица (например приятели, познати или членове на семейството, които ще пътуват с Вас), Вие декларирате, че ще информирате тези трети лица за това, че сте ни предоставили техните лични данни, както и да им предоставите екземпляр от Политиката за поверителност или да ги насочите към посочения по-горе адрес, на който то е достъпно чрез уеб-страницата;</p>
-                <p>- Декларирате истинността на предоставената ни информация, включително актуалността и верността на личните данни.</p>
-                <br/><br/>
-                <p>........................................................................</p>
-                <p>ТРИ ИМЕНА И ПОДПИС</p>
-                <p>ДАТА: {printContentData.departureDate}</p> {/* Using departureDate for declaration date */}
-            </div>
-            
-            <div className="general-conditions">
-                <h2 style={{marginTop: 0}}>ДЕКЛАРАЦИЯ - ПОТВЪРЖДЕНИЕ ЗА ИНФОРМИРАНОСТ ОТНОСНО УСЛОВИЯТА И ОСНОВНИТЕ ХАРАКТЕРИСТИКИ НА ПАКЕТА</h2>
-                <p>Долуподписаният <b>{printContentData.allTouristsData[0]?.name || '.........................'}</b>, ЕГН: <b>{printContentData.allTouristsData[0]?.egn || '.........................'}</b>, телефон за връзка, <b>{printContentData.allTouristsData[0]?.phone || '.........................'}</b> в качеството ми на Потребител по Договор Nº <b>{printContentData.tourId}</b></p>
-                <p>ДЕКЛАРИРАМ, ЧЕ:</p>
-                <p>Преди да подпиша договора за туристически пакет, от Туроператора и/ или Турагента, в това число и чрез електронния сайт на Дружеството, съм получил цялата съпътстваща информация за условията на пакета, който желая да закупя, съответно и всички данни за моето пътуване и почивка, получил съм подробна и пълна информация на всички поставени от мен вьпроси, предлаганият туристически пакет съм избрал доброволно и съм съгласен изцяло с неговите условия и характеристики, в това число, но не само и с условията за плащане, минималния брой участници, за които ще се осъществи програмата, получил съм информация и за възможността си да сключа договор за доброволна застраховка за покриване на разходи в случай, че прекратя туристическия пакет, като цялата получена от мен преддоговорната информация ме удовлетворява напълно и в знак на съгласие от мое име и от името на записаните от мен лица, полагам подписа си под настоящата Декларация и подписвам Договора за туристически пакет, заедно с всички негови приложения.</p>
-                <br/><br/>
-                <p>ДАТА: {printContentData.departureDate}</p> {/* Using departureDate for declaration date */}
-                <p style={{textAlign: 'right', marginTop: '20px'}}>(подпис) ................................</p>
+                {/* General Conditions - These sections typically contain static text */}
+                <div className="general-conditions">
+                    <h2>ОБЩИ УСЛОВИЯ</h2>
+                    <p><b>Туристическа програма</b> - означава разглеждане на посещаваното селище пеша и/или с градски транспорт, като обектите се разглеждат отвън, освен ако в програмата не е упоменато изрично „посещение" на туристическия обект или друго. Екскурзоводът от фирмата няма право да води групата в музеи, където това право имат само местни оторизирани екскурзоводи, които при желание от страна на групата могат да бъдат наети срещу допълнително заплащане. В някои от посещаваните градове се налага ползването на обществен транспорт, който Потребителят плаща за своя сметка.</p>
+                    <p><b>8.2. Панорамна обиколка</b> - означава разглеждане на посещаваното селище с автобуса, като в някои случаи може да се спре и за пешеходно разглеждане по преценка на водача/екскурзовода.</p>
+                    <p><b>8.3. Свободно време</b> - означава време, което се дава от водача/екскурзовода на групата обикновено след предварително запознаване със съответното селище и което потребителят сам преценява как да оползотвори. През това време водачът/екскурзоводът на групата и автобусът не са на разположение на туристите.</p>
+                    <p><b>8.4. Екскурзия по желание</b> - означава допълнителна факултативна екскурзия, алтернативна на свободното време, цената на която не е включена в общата цена, освен ако в програмата не е упоменато друго. Цената на екскурзията по желание се вписва в графа „цената не включва" в съответната програма.</p>
+                    <p><b>8.5. Екскурзия без нощен преход</b> - означава организирано туристическо пътуване с обща цена по време на което няма предвидени нощувки в използваното превозно средство.</p>
+                    <p><b>8.6. Екскурзия с нощен преход</b> - означава организирано туристическо пътуване с обща цена по време на което има предвидена поне една нощувка в използваното превозно средство.</p>
+                    <p><b>8.7. Закуска / вечеря / друг вид хранене на блок маса (шведска маса, открит бюфет)</b> - означава хранене при което храната е поставена на общ плот или маса от която потребителят може да избере и консумира различни храни и питиета по своя преценка. Блок масата обикновено включва: колбас, кашкавал, масло, конфитюр, чай, кафе и др. Разнообразието и богатството на храните и напитките зависи от съответното заведение за хранене и развлечение.</p>
+                    <p><b>8.8. Посещение на туристически обект</b> означава разглеждане отвътре на посочения обект, като в програмата изрично е посочено понятието „ПОСЕЩЕНИЕ". В повечето случаи посещенията на туристически обекти изискват заплащане на входна такса (закупуване на билет), освен ако в програмата не е упоменато друго. Препоръчваме: потребителят да осигури още в България сумите, които предвижда да похарчи в съответните валути за посещаваните държави. Музейните такси се плащат само в местна валута</p>
+                    <p><b>8.9. Нощувка в</b> - означава, че нощувката е в рамките на обявеното селище.</p>
+                    <p><b>8.10.Нощувка в района на</b> - означава, че нощувката е в друго селище в близост до обявеното селище.</p>
+                    <p><b>9. Спорове и рекламации:</b></p>
+                    <p>9.1. Всички рекламации, свързани с качеството на платените услуги, в т.ч. конкретните условия в хотелите и хотелските вериги, трябва да бъдат предявени от потребителя на място пред доставчика на услугите и представител/екскурзовод на туроператора или пред обслужващата фирма туроператор за отстраняване на слабостите. В случай, че заинтересованите страни не са удовлетворени, предявяването на рекламацията става в писмена или друга подходяща форма, позволяваща то да бъде възпроизведено в срок до 14 календарни дни след крайната дата на организираното пътуване.</p>
+                    <p>9.2. Туроператорът се задължава в срок от 10 дни след получаване на рекламацията да даде своето писмено становище по нея.</p>
+                    <p>Забележка: Потребителят не трябва да забравя, че категорията на хотелите и автобусите се определя от оторизираните власти на съответната страна, а не от туроператора.</p>
+                    <p><b>10. Ред за изменение и прекратяване на договора:</b></p>
+                    <p>10.1. Настоящият договор може да бъде отменян, изменян и допълван с двустранни писмени анекси и при спазване разпоредбите на 3Т.</p>
+                    <p>10.2.Всяка от страните има право да поиска изменение или да прекрати Договора във връзка със съществени изменения на обстоятелствата,</p>
+                    <p>10.3.Споразумение за изменение или уведомление за прекратяване на Договора се извършва в писмена форма.</p>
+                    <p>10.4. При изменение на Договора задълженията на страните се запазват в изменен вид. При прекратяване на Договора задълженията на страните се прекратяват след уреждане на финансовите взаимоотношения</p>
+                    <p>10.5. За неуредени в договора выпроси се прилагат разпоредбите на 3Т, 33П, Търговския закон, Закона за задълженията и договорите и останалото действащо законодателство на Р...България.</p>
+                    <p>10.6. Анекс към Договора за организирано пътуване е подробно описание на туристическата програма.</p>
+                    <p>10.7. Потребителят декларира с подписа си, че той и записаните от него туристи са запознати с програмата на екскурзията и общите условия на организираното пътуване, описани в настоящия договор и ги приемат.</p>
+                    <p>10.8. Този договор се изготви в два екземпляра, по един за всяка от страните и се подписа на всяка страница, както следва:</p>
+                    <div className="signatures">
+                        <span>ЗА ТУРОПЕРАТОРА</span>
+                        <span>ЗА ПОТРЕБИТЕЛЯ</span>
+                    </div>
+                    <div className="signatures" style={{marginTop: '80px'}}>
+                        <span>.........................</span>
+                        <span>.........................</span>
+                    </div>
+                </div>
+
+                <div className="general-conditions">
+                    <h2>ПРИЛОЖЕНИЕ Nº 1 КЪМ ДОГОВОР ЗА ТУРИСТИЧЕСКИ ПАКЕТ</h2>
+                    <h2 style={{marginTop:0}}>ДЕКЛАРАЦИЯ - СЪГЛАСИЕ ЗА ОБРАБОТКА НА ЛИЧНИ ДАННИ</h2>
+                    <p>В качеството си на администратор на лични данни, „ДАЙНАМЕКС ТУР" ЕООД, ЕИК 208193140, следва да е получило и/или ще получи от Вас лични данни, които ще обработва, за да предостави услугите си. В случай, че не предоставите личните си данни, „ДАЙНАМЕКС ТУР" няма да може да предостави услугите си, включително да направи резервация от Ваше име за желания период и място.</p>
+                    <p>С подписа си по-долу Вие потвърждавате, че:</p>
+                    <p>- Сте получили на хартиен носител Политиката ни за поверителност с подробна информация за това какви Ваши лични данни събиране и обработваме, за каква цел, за какъв срок и на какво основание ги обработваме, на кого ги представяме и какви са Вашите права във връзка с тази обработка;</p>
+                    <p>- Сме Ви информирали, че посочената Политика за поверителност е налична и онлайн на интернет адрес http://dynamextour.com;</p>
+                    <p>- Ако за целите на предоставянето на услугата, която се закупили, сте ни предоставили или ще ни предоставите лични данни на трети лица (например приятели, познати или членове на семейството, които ще пътуват с Вас), Вие декларирате, че ще информирате тези трети лица за това, че сте ни предоставили техните лични данни, както и да им предоставите екземпляр от Политиката за поверителност или да ги насочите към посочения по-горе адрес, на който то е достъпно чрез уеб-страницата;</p>
+                    <p>- Декларирате истинността на предоставената ни информация, включително актуалността и верността на личните данни.</p>
+                    <br/><br/>
+                    <p>........................................................................</p>
+                    <p>ТРИ ИМЕНА И ПОДПИС</p>
+                    <p>ДАТА: {printContentData.departureDate}</p>
+                </div>
+                
+                <div className="general-conditions">
+                    <h2 style={{marginTop: 0}}>ДЕКЛАРАЦИЯ - ПОТВЪРЖДЕНИЕ ЗА ИНФОРМИРАНОСТ ОТНОСНО УСЛОВИЯТА И ОСНОВНИТЕ ХАРАКТЕРИСТИКИ НА ПАКЕТА</h2>
+                    <p>Долуподписаният <b>{printContentData.allTouristsData[0]?.name || '.........................'}</b>, ЕГН: <b>{printContentData.allTouristsData[0]?.egn || '.........................'}</b>, телефон за връзка, <b>{printContentData.allTouristsData[0]?.phone || '.........................'}</b> в качеството ми на Потребител по Договор Nº <b>{printContentData.tourId}</b></p>
+                    <p>ДЕКЛАРИРАМ, ЧЕ:</p>
+                    <p>Преди да подпиша договора за туристически пакет, от Туроператора и/ или Турагента, в това число и чрез електронния сайт на Дружеството, съм получил цялата съпътстваща информация за условията на пакета, който желая да закупя, съответно и всички данни за моето пътуване и почивка, получил съм подробна и пълна информация на всички поставени от мен вьпроси, предлаганият туристически пакет съм избрал доброволно и съм съгласен изцяло с неговите условия и характеристики, в това число, но не само и с условията за плащане, минималния брой участници, за които ще се осъществи програмата, получил съм информация и за възможността си да сключа договор за доброволна застраховка за покриване на разходи в случай, че прекратя туристическия пакет, като цялата получена от мен преддоговорната информация ме удовлетворява напълно и в знак на съгласие от мое име и от името на записаните от мен лица, полагам подписа си под настоящата Декларация и подписвам Договора за туристически пакет, заедно с всички негови приложения.</p>
+                    <br/><br/>
+                    <p>ДАТА: {printContentData.departureDate}</p>
+                    <p style={{textAlign: 'right', marginTop: '20px'}}>(подпис) ................................</p>
+                </div>
             </div>
         </div>
     );
