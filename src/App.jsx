@@ -1,4627 +1,640 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-// Import Firebase modules
-import {
-  app,
-  auth,
-  db,
-  appId,
-  onAuthStateChanged,
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  signOut
-} from './firebase';
-import { collection, doc, addDoc, setDoc, deleteDoc, onSnapshot, query, where, getDocs } from 'firebase/firestore';
-
-// Import your logo image
-import Logo from './Logo.png'; // Assuming Logo.png is in the same directory as App.jsx
-import InvoicePrint from './InvoicePrint.jsx'; // New component for printing
-import CustomerContractPrint from './CustomerContractPrint.jsx'; // New component for customer contract generation
-import BusTourContractPrint from './BusTourContractPrint.jsx'; // New component for bus tour contract generation
-
-// --- Notification Display Component ---
-const NotificationDisplay = ({ notifications, onDismiss }) => {
-  return (
-    <div className="fixed top-4 right-4 z-50 space-y-3 w-full max-w-sm">
-      {notifications.map(notification => (
-        <div
-          key={notification.id}
-          // Changed bg-*, border-*, text-* for a softer look consistent with the theme
-          className={`p-4 rounded-lg shadow-md flex items-center justify-between transition-all duration-300 ease-in-out transform
-            ${notification.type === 'success' ? 'bg-green-50 border border-green-200 text-green-800' :
-              notification.type === 'info' ? 'bg-blue-50 border border-blue-200 text-blue-800' :
-              notification.type === 'warning' ? 'bg-yellow-50 border border-yellow-200 text-yellow-800' :
-              notification.type === 'error' ? 'bg-red-50 border border-red-200 text-red-800' : 'bg-gray-50 border border-gray-200 text-gray-800'
-            }`}
-        >
-          <span className="font-medium">{notification.message}</span>
-          {notification.dismissible && (
-            <button onClick={() => onDismiss(notification.id)} className="ml-4 text-gray-600 hover:text-gray-900 p-1 rounded-full hover:bg-gray-100 transition-colors duration-200">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-              </svg>
-            </button>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-};
-
-// --- Confirmation Modal Component ---
-const ConfirmationModal = ({ show, message, onConfirm, onCancel }) => {
-  if (!show) return null;
-  return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm relative"> {/* Rounded-xl and shadow-xl for consistency */}
-        <h3 className="text-xl font-semibold mb-4 text-gray-800">Confirm Action</h3>
-        <p className="text-gray-700 mb-6">{message}</p>
-        <div className="flex justify-end space-x-3">
-          <button
-            onClick={onCancel}
-            className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition duration-200 shadow-sm" // Rounded-lg, hover:bg-gray-100
-          >
-            Cancel
-          </button>
-          <button
-            onClick={onConfirm}
-            // Adjusted color to match red in screenshot, rounded-lg, subtle shadow
-            className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition duration-200 shadow-md"
-          >
-            Confirm
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-
-const App = () => {
-  // Authentication states
-  const [userId, setUserId] = useState(null);
-  const [isAuthReady, setIsAuthReady] = useState(false);
-  const [authMode, setAuthMode] = useState('login'); // 'login' or 'register'
-  const [userEmail, setUserEmail] = useState('');
-  const [userPassword, setUserPassword] = useState('');
-  const [authError, setAuthError] = useState(null);
-  const [isEmailPasswordUser, setIsEmailPasswordUser] = useState(false);
-
-  // Application state for navigation and selected items
-  const [activeTab, setActiveTab] = useState('dashboard');
-  const [selectedReservation, setSelectedReservation] = useState(null);
-  const [viewingReservation, setViewingReservation] = useState(null); // State for the details modal
-  const [expandedReservationId, setExpandedReservationId] = useState(null); // State for expandable payment rows
-  const [selectedTour, setSelectedTour] = useState(null);
-  const [selectedFinancialTransaction, setSelectedFinancialTransaction] = useState(null);
-  // State for currently selected expense invoice for editing
-  const [selectedExpenseInvoice, setSelectedExpenseInvoice] = useState(null);
-  // State for currently selected product for editing
-  const [selectedProduct, setSelectedProduct] = useState(null);
-  // New: State for currently selected sales invoice for editing
-const [selectedSalesInvoice, setSelectedSalesInvoice] = useState(null);
-// NEW STATE FOR CONTRACT GENERATION
-  const [reservationToGenerateContract, setReservationToGenerateContract] = useState(null);
-  const [tourToGenerateContract, setTourToGenerateContract] = useState(null); // New state for bus tour contract
-  // New: Search term states
- // New: Search term states
-  const [searchCustomerTerm, setSearchCustomerTerm] = useState('');
-  const [searchReservationTerm, setSearchReservationTerm] = useState('');
-
-  // New: Sort configuration for financial reports
-// Sort configuration for financial reports
-  const [sortConfig, setSortConfig] = useState({ key: 'date', direction: 'descending' });
-
-  // New: State to hold the invoice object for printing
-  const [invoiceToPrint, setInvoiceToPrint] = useState(null);
-
-  // Data states - populated from Firestore (user-specific)
-  const [reservations, setReservations] = useState([]);
-  const [customers, setCustomers] = useState([]);
-  const [tours, setTours] = useState([]);
-  const [financialTransactions, setFinancialTransactions] = useState([]);
-  // Invoicing data states
-  const [salesInvoices, setSalesInvoices] = useState([]);
-  const [expenseInvoices, setExpenseInvoices] = useState([]);
-  const [products, setProducts] = useState([]);
-
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  // Notification states
-  const [notifications, setNotifications] = useState([]);
-  const notificationIdCounter = useRef(0); // For unique notification IDs
-
-  // State for Add/Edit Reservation Form
-// State for Add/Edit Reservation Form
-// State for Add/Edit Reservation Form
-  const [reservationForm, setReservationForm] = useState({
-    creationDate: '',
-    reservationNumber: '',
-    tourType: 'HOTEL ONLY',
-    hotel: '',
-    food: '',
-    roomType: '', // New field
-    place: '',
-    checkIn: '',
-    checkOut: '',
-    adults: 1,
-    children: 0,
-    tourists: [{
-      mode: 'new', // 'new' or 'existing'
-      firstName: '',
-      fatherName: '',
-      familyName: '',
-      id: '',
-      realId: '',
-      address: '',
-      city: '',
-      postCode: '',
-      email: '',
-      phone: ''
-    }],
-    depositPaid: false,
-    depositAmount: 0,
-    finalAmount: 0,
-    owedToHotel: 0,
-    profit: 0,
-    tourOperator: '',
-    status: 'Pending',
-    linkedTourId: '',
-    approxTransportCost: 0,
-  });
-
-  // State for Add/Edit Tour Form
-const [tourForm, setTourForm] = useState({
-     tourId: '',
-     departureDate: '',
-     arrivalDate: '',
-     nights: 0,
-     daysInclTravel: 0,
-     transportCompany: '', // Existing
-     departureDateTimePlace: '', // NEW: Час и място на тръгване (combined)
-     transportDescription: '', // NEW: 2. Транспорт (general description)
-     insuranceDetails: '', // NEW: Застраховка
-     tourHotels: '', // NEW: Multiple hotels input
-     tourRoomSummary: '', // NEW: Room types and count of rooms for the tour
-     mealsIncluded: '', // NEW: Брой и вид на храненията, включени в пакетната цена
-     hotel: '', // Existing
-     maxPassengers: 0, // Existing
-   });
-  // State for Edit Customer Form (used in a modal)
-// State for Edit Customer Form (used in a modal)
-  const [customerEditForm, setCustomerEditForm] = useState({
-    id: '',
-    realId: '', // New field for Real ID
-    firstName: '',
-    fatherName: '',
-    familyName: '',
-    address: '',
-    city: '',
-    postCode: '',
-    email: '',
-    phone: ''
-  });
-  const [showCustomerEditModal, setShowCustomerEditModal] = useState(false);
-
-  // State for Add Payment/Expense Form
-  const [financialTransactionForm, setFinancialTransactionForm] = useState({
-    date: '',
-    method: 'Bank',
-    amount: 0,
-    reasonDescription: '',
-    vat: 0,
-    type: 'income',
-    associatedReservationId: '',
-    associatedTourId: '',
-  });
-
- // States for Financial Reports filters
-  const [reportStartDate, setReportStartDate] = useState('');
-  const [reportEndDate, setReportEndDate] = useState('');
-  const [reportFilterType, setReportFilterType] = useState('all');
-  const [reportFilterMethod, setReportFilterMethod] = useState('all'); // New filter state
-  const [reportFilterAssociation, setReportFilterAssociation] = useState('');
-
-  
-  // States for Filters on Reservations
-  const [filterReservationStatus, setFilterReservationStatus] = useState('All');
-  const [filterReservationHotel, setFilterReservationHotel] = useState('');
-  const [filterReservationTourType, setFilterReservationTourType] = useState('All');
-  const [filterReservationCheckInDate, setFilterReservationCheckInDate] = useState('');
-  const [filterReservationCheckOutDate, setFilterReservationCheckOutDate] = useState('');
-
-  // States for Filters on Tours
-  const [filterTourHotel, setFilterTourHotel] = useState('');
-  const [filterTourTransportCompany, setFilterTourTransportCompany] = useState('');
-  const [filterTourDepartureDate, setFilterTourDepartureDate] = useState('');
-  const [filterTourArrivalDate, setFilterTourArrivalDate] = useState('');
-
-  // State for Delete Confirmation Modal
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [confirmMessage, setConfirmMessage] = useState('');
-  const [confirmAction, setConfirmAction] = useState(null);
-
-  // Currency Conversion Rate
-  const EUR_TO_BGN_RATE = 1.95583;
-
-  // New: State for Expense Invoice Form
-  const [expenseInvoiceForm, setExpenseInvoiceForm] = useState({
-    companyName: '',
-    companyID: '',
-    vatID: '',
-    invoiceNumber: '',
-    invoiceDate: '',
-    productsServices: '', // Will be a string for now, can be array of objects later
-    paymentMethod: 'Bank',
-    dueDate: '',
-    totalAmount: 0,
-    totalVAT: 0, // This VAT will be negative in dashboard calculations
-    notes: ''
-  });
-
-  // New: State for Product Form
-  const [productForm, setProductForm] = useState({
-    productCode: '',
-    productName: '',
-    price: 0,
-    vatRate: 20 // Default VAT rate, can be adjusted
-  });
-
-  // New: State for Sales Invoice Form
-// New: State for Sales Invoice Form
- const [salesInvoiceForm, setSalesInvoiceForm] = useState({
-    invoiceNumber: '',
-    invoiceDate: '',
-    clientName: '',
-    clientMOL: '',
-    clientID: '',
-    clientVATID: '',
-    clientAddress: '',
-    clientCity: '',
-    clientPostCode: '',
-    products: [],
-    paymentMethod: 'Cash',
-    bankDetails: {
-      iban: 'BG87BPBI79301036586601',
-      bankName: 'Пощенска банка'
-    },
-    dueDate: '',
-    isCopy: false,
-    totalAmount: 0,
-    totalVAT: 0,
-    grandTotal: 0,
-    notes: '',
-    // New editable fields
-    transactionBasis: 'Услуга',
-    transactionDescription: 'ТУРИСТИЧЕСКИ УСЛУГИ',
-    transactionPlace: 'България',
-    receivedBy: '',
-  });
-
-
-  // --- Notification System Functions ---
-  const addNotification = useCallback((message, type = 'info', dismissible = true, autoDismiss = 5000) => {
-    const id = notificationIdCounter.current++;
-    setNotifications(prev => [...prev, { id, message, type, dismissible }]);
-
-    if (autoDismiss && dismissible) {
-      setTimeout(() => {
-        removeNotification(id);
-      }, autoDismiss);
-    }
-  }, []);
-
-  const removeNotification = useCallback((id) => {
-    setNotifications(prev => prev.filter(n => n.id !== id));
-  }, []);
-
-  // Override the previous showMessage to use the new notification system
-  const showMessage = useCallback((msg, type = 'success') => {
-    addNotification(msg, type);
-  }, [addNotification]);
-
-
-  // --- Firebase Authentication Management ---
-  useEffect(() => {
-    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        // Ensure it's an email/password user, not an anonymous one
-        const isCurrentEmailPasswordUser = user.isAnonymous === false && user.providerData.some(provider => provider.providerId === 'password');
-
-        if (!isCurrentEmailPasswordUser) {
-          // If it's an anonymous user, sign them out to force proper login
-          console.log("Detected non-email/password user. Signing out to force login form.");
-          signOut(auth).catch(err => console.error("Error signing out anonymous user:", err));
-          setUserId(null);
-          setIsEmailPasswordUser(false);
-        } else {
-          setUserId(user.uid);
-          setIsEmailPasswordUser(true);
-          console.log("Firebase User Authenticated:", user.uid, "Email/Password:", true);
-        }
-      } else {
-        setUserId(null);
-        setIsEmailPasswordUser(false);
-        console.log("No Firebase User. Displaying login/register form.");
-      }
-      setIsAuthReady(true);
-      setLoading(false);
-    });
-
-    return () => unsubscribeAuth();
-  }, []);
-
-
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setAuthError(null);
-    try {
-      await signInWithEmailAndPassword(auth, userEmail, userPassword);
-      showMessage('Logged in successfully!', 'success');
-      setUserEmail('');
-      setUserPassword('');
-    } catch (err) {
-      console.error("Login error:", err);
-      setAuthError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleRegister = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setAuthError(null);
-    try {
-      await createUserWithEmailAndPassword(auth, userEmail, userPassword);
-      showMessage('Account created and logged in successfully!', 'success');
-      setUserEmail('');
-      setUserPassword('');
-    } catch (err) {
-      console.error("Registration error:", err);
-      setAuthError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleLogout = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      await signOut(auth);
-      showMessage('Logged out successfully!', 'info');
-      // Clear all state data on logout for security and data integrity
-      setReservations([]);
-      setCustomers([]);
-      setTours([]);
-      setFinancialTransactions([]);
-      setSalesInvoices([]);
-      setExpenseInvoices([]);
-      setProducts([]);
-      setActiveTab('dashboard'); // Redirect to dashboard or login
-    } catch (err) {
-      console.error("Logout error:", err);
-      setError("Failed to log out. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // --- Firestore Data Listeners (user-specific) ---
-  useEffect(() => {
-    let unsubscribe;
-    if (isAuthReady && userId) {
-      setLoading(true);
-      const reservationsCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/reservations`);
-      unsubscribe = onSnapshot(reservationsCollectionRef, (snapshot) => {
-        const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
-        setReservations(data);
-        setLoading(false);
-      }, (err) => {
-        console.error("Error fetching reservations:", err);
-        setError("Failed to load reservations. Please try again.");
-        setLoading(false);
-      });
-    } else if (isAuthReady && !userId) {
-      setReservations([]);
-      setLoading(false);
-    }
-    return () => {
-      if (unsubscribe) unsubscribe();
-    };
-  }, [isAuthReady, userId]);
-
-  useEffect(() => {
-    let unsubscribe;
-    if (isAuthReady && userId) {
-      setLoading(true);
-      const customersCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/customers`);
-      unsubscribe = onSnapshot(customersCollectionRef, (snapshot) => {
-        const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
-        setCustomers(data);
-        setLoading(false);
-      }, (err) => {
-        console.error("Error fetching customers:", err);
-        setError("Failed to load customers. Please try again.");
-        setLoading(false);
-      });
-    } else if (isAuthReady && !userId) {
-      setCustomers([]);
-      setLoading(false);
-    }
-    return () => {
-      if (unsubscribe) unsubscribe();
-    };
-  }, [isAuthReady, userId]);
-
-  useEffect(() => {
-    let unsubscribe;
-    if (isAuthReady && userId) {
-      setLoading(true);
-      const toursCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/tours`);
-      unsubscribe = onSnapshot(toursCollectionRef, (snapshot) => {
-        const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
-        setTours(data);
-        setLoading(false);
-      }, (err) => {
-        console.error("Error fetching tours:", err);
-        setError("Failed to load tours. Please try again.");
-        setLoading(false);
-      });
-    } else if (isAuthReady && !userId) {
-      setTours([]);
-      setLoading(false);
-    }
-    return () => {
-      if (unsubscribe) unsubscribe();
-    };
-  }, [isAuthReady, userId]);
-
-  useEffect(() => {
-    let unsubscribe;
-    if (isAuthReady && userId) {
-      setLoading(true);
-      const financialTransactionsCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/financialTransactions`);
-      unsubscribe = onSnapshot(financialTransactionsCollectionRef, (snapshot) => {
-        const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
-        setFinancialTransactions(data);
-        setLoading(false);
-      }, (err) => {
-        console.error("Error fetching financial transactions:", err);
-        setError("Failed to load financial transactions. Please try again.");
-        setLoading(false);
-      });
-    } else if (isAuthReady && !userId) {
-      setFinancialTransactions([]);
-      setLoading(false);
-    }
-    return () => {
-      if (unsubscribe) unsubscribe();
-    };
-  }, [isAuthReady, userId]);
-
-  // Firestore listener for Sales Invoices
-  useEffect(() => {
-    let unsubscribe;
-    if (isAuthReady && userId) {
-      setLoading(true);
-      const salesInvoicesCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/invoices_sales`);
-      unsubscribe = onSnapshot(salesInvoicesCollectionRef, (snapshot) => {
-        const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
-        setSalesInvoices(data);
-        setLoading(false);
-      }, (err) => {
-        console.error("Error fetching sales invoices:", err);
-        setError("Failed to load sales invoices. Please try again.");
-        setLoading(false);
-      });
-    } else if (isAuthReady && !userId) {
-      setSalesInvoices([]);
-      setLoading(false);
-    }
-    return () => {
-      if (unsubscribe) unsubscribe();
-    };
-  }, [isAuthReady, userId]);
-
-  // Firestore listener for Expense Invoices
-  useEffect(() => {
-    let unsubscribe;
-    if (isAuthReady && userId) {
-      setLoading(true);
-      const expenseInvoicesCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/invoices_expenses`);
-      unsubscribe = onSnapshot(expenseInvoicesCollectionRef, (snapshot) => {
-        const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
-        setExpenseInvoices(data);
-        setLoading(false);
-      }, (err) => {
-        console.error("Error fetching expense invoices:", err);
-        setError("Failed to load expense invoices. Please try again.");
-        setLoading(false);
-      });
-    } else if (isAuthReady && !userId) {
-      setExpenseInvoices([]);
-      setLoading(false);
-    }
-    return () => {
-      if (unsubscribe) unsubscribe();
-    };
-  }, [isAuthReady, userId]);
-
-  // Firestore listener for Products
-  useEffect(() => {
-    let unsubscribe;
-    if (isAuthReady && userId) {
-      setLoading(true);
-      const productsCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/products`);
-      unsubscribe = onSnapshot(productsCollectionRef, (snapshot) => {
-        const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
-        setProducts(data);
-        setLoading(false);
-      }, (err) => {
-        console.error("Error fetching products:", err);
-        setError("Failed to load products. Please try again.");
-        setLoading(false);
-      });
-    } else if (isAuthReady && !userId) {
-      setProducts([]);
-      setLoading(false);
-    }
-    return () => {
-      if (unsubscribe) unsubscribe();
-    };
-  }, [isAuthReady, userId]);
-
-
-  // --- Helper Functions ---
-
-  const calculateDaysBetweenDates = (date1, date2) => {
-    if (date1 && date2) {
-      const d1 = new Date(date1);
-      const d2 = new Date(date2);
-      const diffTime = Math.abs(d2.getTime() - d1.getTime());
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      return diffDays;
-    }
-    return 0;
-  };
-
-  const generateReservationNumber = useCallback(async () => {
-    if (!userId) return null;
-    const q = query(collection(db, `artifacts/${appId}/users/${userId}/reservations`));
-    const querySnapshot = await getDocs(q);
-    let highestNum = 100100;
-    querySnapshot.forEach((doc) => {
-      const res = doc.data();
-      if (res.reservationNumber && res.reservationNumber.startsWith('DYT')) {
-        const numPart = parseInt(res.reservationNumber.substring(3), 10);
-        if (!isNaN(numPart) && numPart > highestNum) {
-          highestNum = numPart;
-        }
-      }
-    });
-    return `DYT${highestNum + 1}`;
-  }, [userId]);
-
-  const generateTourId = useCallback(async () => {
-    if (!userId) return null;
-    const q = query(collection(db, `artifacts/${appId}/users/${userId}/tours`));
-    const querySnapshot = await getDocs(q);
-    let highestNum = 0;
-    querySnapshot.forEach((doc) => {
-      const tour = doc.data();
-      if (tour.tourId && tour.tourId.startsWith('DYT')) {
-        const numPart = parseInt(tour.tourId.substring(3), 10);
-        if (!isNaN(numPart) && numPart > highestNum) {
-          highestNum = numPart;
-        }
-      }
-    });
-    return `DYT${String(highestNum + 1).padStart(3, '0')}`;
-  }, [userId]);
-
-  // Generate Invoice Number for Expenses
-  const generateExpenseInvoiceNumber = useCallback(async () => {
-    if (!userId) return null;
-    const q = query(collection(db, `artifacts/${appId}/users/${userId}/invoices_expenses`));
-    const querySnapshot = await getDocs(q);
-    let highestNum = 0;
-    querySnapshot.forEach((doc) => {
-      const inv = doc.data();
-      if (inv.invoiceNumber && inv.invoiceNumber.startsWith('DYT')) {
-        const numPart = parseInt(inv.invoiceNumber.substring(3), 10);
-        if (!isNaN(numPart) && numPart > highestNum) {
-          highestNum = numPart;
-        }
-      }
-    });
-    return `DYT${String(highestNum + 1).padStart(7, '0')}`; // DYT0000001
-  }, [userId]);
-
-  // New: Generate Product Code
-  const generateProductCode = useCallback(async () => {
-    if (!userId) return null;
-    const q = query(collection(db, `artifacts/${appId}/users/${userId}/products`));
-    const querySnapshot = await getDocs(q);
-    let highestNum = 0;
-    querySnapshot.forEach((doc) => {
-      const prod = doc.data();
-      if (prod.productCode && prod.productCode.startsWith('PROD')) {
-        const numPart = parseInt(prod.productCode.substring(4), 10);
-        if (!isNaN(numPart) && numPart > highestNum) {
-          highestNum = numPart;
-        }
-      }
-    });
-    return `PROD${String(highestNum + 1).padStart(4, '0')}`; // PROD0001
-  }, [userId]);
-
-  // New: Generate Sales Invoice Number
-  const generateSalesInvoiceNumber = useCallback(async () => {
-    if (!userId) return null;
-    const q = query(collection(db, `artifacts/${appId}/users/${userId}/invoices_sales`));
-    const querySnapshot = await getDocs(q);
-    let highestNum = 0;
-    querySnapshot.forEach((doc) => {
-      const inv = doc.data();
-      if (inv.invoiceNumber && inv.invoiceNumber.startsWith('DYT')) {
-        const numPart = parseInt(inv.invoiceNumber.substring(3), 10);
-        if (!isNaN(numPart) && numPart > highestNum) {
-          highestNum = numPart;
-        }
-      }
-    });
-    return `DYT${String(highestNum + 1).padStart(7, '0')}`; // DYT0000001
-  }, [userId]);
-
-
-  // --- Handlers for Reservation Form ---
-
-  const handleReservationFormChange = useCallback((e) => {
-    const { name, value, type, checked } = e.target;
-    setReservationForm(prev => {
-      const newState = {
-        ...prev,
-        [name]: type === 'checkbox' ? checked : value,
-      };
-      if (name === 'checkIn' || name === 'checkOut') {
-        newState.totalNights = calculateDaysBetweenDates(newState.checkIn, newState.checkOut);
-      }
-      // Updated profit calculation
-      if (['finalAmount', 'owedToHotel', 'approxTransportCost'].includes(name)) {
-        const final = parseFloat(newState.finalAmount) || 0;
-        const owed = parseFloat(newState.owedToHotel) || 0;
-        const transport = parseFloat(newState.approxTransportCost) || 0;
-        newState.profit = final - owed - transport;
-      }
-      return newState;
-    });
-  }, []);
-
-const handleTouristChange = useCallback((index, e) => {
-    const { name, value } = e.target;
-    setReservationForm(prev => {
-      const newTourists = [...prev.tourists];
-      newTourists[index] = {
-        ...newTourists[index],
-        [name]: value,
-      };
-      return { ...prev, tourists: newTourists };
-    });
-  }, []);
-
-  const handleTouristModeChange = useCallback((index, newMode) => {
-    setReservationForm(prev => {
-      const newTourists = [...prev.tourists];
-      const currentTourist = { ...newTourists[index], mode: newMode };
-
-      // If switching back to 'new', clear the fields to prevent confusion
-      if (newMode === 'new') {
-        currentTourist.firstName = '';
-        currentTourist.fatherName = '';
-        currentTourist.familyName = '';
-        currentTourist.id = '';
-        currentTourist.realId = '';
-        currentTourist.address = '';
-        currentTourist.city = '';
-        currentTourist.postCode = '';
-        currentTourist.email = '';
-        currentTourist.phone = '';
-      }
-
-      newTourists[index] = currentTourist;
-      return { ...prev, tourists: newTourists };
-    });
-  }, []);
-
-  const handleExistingTouristSelect = useCallback((index, selectedCustomerId) => {
-    // Find the full customer object from our customers state
-    const selectedCustomer = customers.find(c => c.id === selectedCustomerId);
-    if (!selectedCustomer) return;
-
-    setReservationForm(prev => {
-      const newTourists = [...prev.tourists];
-      // Overwrite the specific tourist's data with the selected customer's data
-      newTourists[index] = {
-        ...selectedCustomer,
-        mode: 'existing', // Ensure the mode is set to 'existing'
-      };
-      return { ...prev, tourists: newTourists };
-    });
-  }, [customers]); // We need to re-run this if the customers list changes
-
-const addTourist = useCallback(() => {
-    setReservationForm(prev => ({
-      ...prev,
-      tourists: [...prev.tourists, {
-        mode: 'new', firstName: '', fatherName: '', familyName: '', id: '', realId: '', address: '',
-        city: '', postCode: '', email: '', phone: ''
-      }],
-    }));
-  }, []);
-
-  const removeTourist = useCallback((index) => {
-    setReservationForm(prev => ({
-      ...prev,
-      tourists: prev.tourists.filter((_, i) => i !== index),
-    }));
-  }, []);
-
-  // --- Customer Management (uses Firestore user-specific collection) ---
-const manageCustomerRecords = useCallback(async (tourists) => {
-    if (!userId) return;
-    const customersCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/customers`);
-
-    for (const tourist of tourists) {
-      // If the tourist was selected from the existing list, we don't need to update their record from here.
-      if (tourist.mode === 'existing') {
-        continue;
-      }
-
-      if (!tourist.id) {
-        console.warn("Skipping customer record management for a tourist without an ID (ID is required for Firestore).");
-        continue;
-      }
-
-      const q = query(customersCollectionRef, where("id", "==", tourist.id));
-      const querySnapshot = await getDocs(q);
-
-const customerData = {
-        firstName: tourist.firstName,
-        fatherName: tourist.fatherName,
-        familyName: tourist.familyName,
-        address: tourist.address,
-        city: tourist.city,
-        postCode: tourist.postCode,
-        email: tourist.email,
-        phone: tourist.phone,
-        id: tourist.id,
-        realId: tourist.realId,
-      };
-
-      if (!querySnapshot.empty) {
-        const docToUpdate = querySnapshot.docs[0].ref;
-        await setDoc(docToUpdate, customerData, { merge: true });
-        console.log(`Customer ${tourist.id} updated.`);
-      } else {
-        await addDoc(customersCollectionRef, customerData);
-        console.log(`Customer ${tourist.id} added.`);
-      }
-    }
-  }, [userId]);
-
-
-  // --- Submit Reservation Form (uses Firestore user-specific collection) ---
-  const handleSubmitReservation = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-    addNotification(''); // Clear previous messages
-
-    if (!userId) {
-      addNotification("User not authenticated. Please log in to save data.", 'error');
-      setLoading(false);
-      return;
-    }
-
-    try {
-      let currentReservationNumber = reservationForm.reservationNumber;
-      if (!selectedReservation && !currentReservationNumber) {
-        currentReservationNumber = await generateReservationNumber();
-        setReservationForm(prev => ({ ...prev, reservationNumber: currentReservationNumber }));
-      }
-
-      const finalProfit = (parseFloat(reservationForm.finalAmount) || 0) -
-                           (parseFloat(reservationForm.owedToHotel) || 0) -
-                           (parseFloat(reservationForm.approxTransportCost) || 0);
-
-
-      const reservationData = {
-        ...reservationForm,
-        reservationNumber: currentReservationNumber,
-        depositPaid: reservationForm.depositPaid, // Ensure boolean is passed correctly
-        depositAmount: parseFloat(reservationForm.depositAmount) || 0,
-        finalAmount: parseFloat(reservationForm.finalAmount) || 0,
-        owedToHotel: parseFloat(reservationForm.owedToHotel) || 0,
-        profit: finalProfit, // Use the newly calculated profit
-        adults: parseInt(reservationForm.adults) || 0,
-        children: parseInt(reservationForm.children) || 0,
-        approxTransportCost: parseFloat(reservationForm.approxTransportCost) || 0,
-        creationDate: reservationForm.creationDate,
-        checkIn: reservationForm.checkIn,
-        checkOut: reservationForm.checkOut,
-        totalNights: calculateDaysBetweenDates(reservationForm.checkIn, reservationForm.checkOut),
-        tourists: reservationForm.tourists ? reservationForm.tourists.map(t => ({ ...t })) : [], // Ensure tourists is an array
-      };
-
-      await manageCustomerRecords(reservationForm.tourists);
-
-      const reservationsCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/reservations`);
-
-      if (selectedReservation) {
-        const resDocRef = doc(reservationsCollectionRef, selectedReservation.id);
-        await setDoc(resDocRef, reservationData, { merge: true });
-        addNotification('Reservation updated successfully!', 'success');
-      } else {
-        await addDoc(reservationsCollectionRef, reservationData);
-        addNotification('Reservation added successfully!', 'success');
-      }
-
-      resetReservationForm();
-      setActiveTab('reservations');
-    } catch (err) {
-      console.error("Error saving reservation:", err);
-      setError(`Failed to save reservation: ${err.message || err.toString()}`);
-      addNotification(`Failed to save reservation: ${err.message || err.toString()}`, 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-const resetReservationForm = useCallback(() => {
-    setReservationForm({
-      creationDate: '', reservationNumber: '', tourType: 'HOTEL ONLY', hotel: '',
-      food: '', roomType: '', place: '', checkIn: '', checkOut: '', adults: 1, children: 0,
-      tourists: [{
-        mode: 'new', firstName: '', fatherName: '', familyName: '', id: '', realId: '', address: '',
-        city: '', postCode: '', email: '', phone: ''
-      }],
-      depositPaid: false, depositAmount: 0, finalAmount: 0, owedToHotel: 0,
-      profit: 0, tourOperator: '', status: 'Pending', linkedTourId: '', approxTransportCost: 0,
-    });
-    setSelectedReservation(null);
-  }, []);
-
-  // --- Edit Reservation Logic (uses Firestore user-specific collection) ---
-const handleEditReservation = useCallback((reservation) => {
-    setReservationForm({
-      clientMOL: '', // Default value for old invoices
-      ...reservation,
-      roomType: reservation.roomType || '', // Add default for new field
-      adults: parseInt(reservation.adults) || 0,
-      children: parseInt(reservation.children) || 0,
-      depositAmount: parseFloat(reservation.depositAmount) || 0,
-      finalAmount: parseFloat(reservation.finalAmount) || 0,
-      owedToHotel: parseFloat(reservation.owedToHotel) || 0,
-      profit: parseFloat(reservation.profit) || 0,
-      approxTransportCost: parseFloat(reservation.approxTransportCost) || 0,
-      // Ensure old reservations are compatible with the new tourist data structure
-      tourists: reservation.tourists ? reservation.tourists.map(t => ({
-        mode: 'new', // Default to 'new' mode for existing data
-        realId: '',  // Ensure realId exists with a default value
-        ...t,        // Spread the existing tourist data, which will overwrite defaults if present
-      })) : [],
-    });
-    setSelectedReservation(reservation);
-    setActiveTab('addReservation');
-  }, []);
-  // --- Delete Reservation Logic (uses Firestore user-specific collection) ---
-  const handleDeleteReservation = useCallback((reservationId) => {
-    setConfirmMessage("Are you sure you want to delete this reservation?");
-    setConfirmAction(() => async () => {
-      setLoading(true);
-      setError(null);
-      addNotification('');
-      if (!userId) {
-        addNotification("User not authenticated. Please log in to delete data.", 'error');
-        setLoading(false);
-        return;
-      }
-      try {
-        const reservationDocRef = doc(db, `artifacts/${appId}/users/${userId}/reservations`, reservationId);
-        await deleteDoc(reservationDocRef);
-        addNotification('Reservation deleted successfully!', 'success');
-      } catch (err) {
-        console.error("Error deleting reservation:", err);
-        setError("Failed to delete reservation. Please try again.");
-        addNotification(`Failed to delete reservation: ${err.message || err.toString()}`, 'error');
-      } finally {
-        setLoading(false);
-      }
-    });
-    setShowConfirmModal(true);
-  }, [userId, addNotification]);
-
-  // --- Customer Management (uses Firestore user-specific collection) ---
-const handleEditCustomer = (customer) => {
-    // Ensure old customer data is compatible with the new form state
-    setCustomerEditForm({
-      realId: '', // Default value for the new field
-      ...customer,  // Spread existing data, which will overwrite the default if it exists
-    });
-    setShowCustomerEditModal(true);
-  };
-
-  const handleCustomerEditFormChange = (e) => {
-    const { name, value } = e.target;
-    setCustomerEditForm(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleUpdateCustomer = async (e) => {
-    e.preventDefault();
-    if (!customerEditForm.id) {
-      setError("Customer ID not found. Cannot update.");
-      addNotification("Customer ID not found. Cannot update.", 'error');
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-    addNotification('');
-
-    if (!userId) {
-      addNotification("User not authenticated. Please log in to update data.", 'error');
-      setLoading(false);
-      return;
-    }
-
-    try {
-      const customerDocRef = doc(db, `artifacts/${appId}/users/${userId}/customers`, customerEditForm.id);
-      await setDoc(customerDocRef, customerEditForm, { merge: true });
-      addNotification('Customer updated successfully!', 'success');
-      setShowCustomerEditModal(false);
-    } catch (err) {
-      console.error("Error updating customer:", err);
-      setError("Failed to update customer. Please try again.");
-      addNotification(`Failed to update customer: ${err.message || err.toString()}`, 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // --- Tour Module Logic (uses Firestore user-specific collection) ---
-  const handleTourFormChange = useCallback((e) => {
-    const { name, value, type } = e.target;
-    setTourForm(prev => {
-      const newState = {
-        ...prev,
-        [name]: type === 'number' ? parseFloat(value) || 0 : value,
-      };
-      if (name === 'departureDate' || name === 'arrivalDate') {
-        newState.daysInclTravel = calculateDaysBetweenDates(newState.departureDate, newState.arrivalDate) + 1;
-      }
-      return newState;
-    });
-  }, []);
-
-  const handleSubmitTour = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-    addNotification('');
-
-    if (!userId) {
-      addNotification("User not authenticated. Please log in to save data.", 'error');
-      setLoading(false);
-      return;
-    }
-
-    try {
-      let currentTourId = tourForm.tourId;
-      if (!currentTourId) {
-        currentTourId = await generateTourId();
-        setTourForm(prev => ({ ...prev, tourId: currentTourId }));
-      }
-
-      const tourData = {
-        ...tourForm,
-        tourId: currentTourId,
-        nights: parseInt(tourForm.nights) || 0,
-        daysInclTravel: calculateDaysBetweenDates(tourForm.departureDate, tourForm.arrivalDate) + 1,
-        maxPassengers: parseInt(tourForm.maxPassengers) || 0,
-        departureDate: tourForm.departureDate,
-        arrivalDate: tourForm.arrivalDate,
-      };
-
-      const toursCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/tours`);
-
-      if (selectedTour) {
-        const tourDocRef = doc(toursCollectionRef, selectedTour.id);
-        await setDoc(tourDocRef, tourData, { merge: true });
-        addNotification('Tour updated successfully!', 'success');
-      } else {
-        await addDoc(toursCollectionRef, tourData);
-        addNotification('Tour added successfully!', 'success');
-      }
-
-      resetTourForm();
-      setActiveTab('tours');
-    } catch (err) {
-      console.error("Error saving tour:", err);
-      setError(`Failed to save tour: ${err.message || err.toString()}`);
-      addNotification(`Failed to save tour: ${err.message || err.toString()}`, 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
- const resetTourForm = useCallback(() => {
-     setTourForm({
-       tourId: '', departureDate: '', arrivalDate: '', nights: 0, daysInclTravel: 0,
-       transportCompany: '',
-       departureDateTimePlace: '', // NEW
-       transportDescription: '', // NEW
-       insuranceDetails: '', // NEW
-       tourHotels: '', // NEW
-       tourRoomSummary: '', // NEW
-       mealsIncluded: '', // NEW
-       hotel: '',
-       maxPassengers: 0,
-     });
-     setSelectedTour(null);
-   }, []);
-
- const handleEditTour = useCallback((tour) => {
-     setTourForm({
-       ...tour,
-       nights: parseInt(tour.nights) || 0,
-       daysInclTravel: parseInt(tour.daysInclTravel) || 0,
-       maxPassengers: parseInt(tour.maxPassengers) || 0,
-       departureDateTimePlace: tour.departureDateTimePlace || '', // NEW
-       transportDescription: tour.transportDescription || '', // NEW
-       insuranceDetails: tour.insuranceDetails || '', // NEW
-       tourHotels: tour.tourHotels || '', // NEW
-       tourRoomSummary: tour.tourRoomSummary || '', // NEW
-       mealsIncluded: tour.mealsIncluded || '', // NEW
-     });
-     setSelectedTour(tour);
-     setActiveTab('addTour');
-   }, []);
-
-  const handleDeleteTour = useCallback((tourId) => {
-    setConfirmMessage("Are you sure you want to delete this tour? This will not un-link existing reservations.");
-    setConfirmAction(() => async () => {
-      setLoading(true);
-      setError(null);
-      addNotification('');
-      if (!userId) {
-        addNotification("User not authenticated. Please log in to delete data.", 'error');
-        setLoading(false);
-        return;
-      }
-      try {
-        const toursCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/tours`);
-        const q = query(toursCollectionRef, where("tourId", "==", tourId));
-        const querySnapshot = await getDocs(q);
-
-        if (!querySnapshot.empty) {
-          const docToDelete = querySnapshot.docs[0].ref;
-          await deleteDoc(docToDelete);
-          addNotification('Tour deleted successfully!', 'success');
-        } else {
-          setError("Tour not found or already deleted.");
-          addNotification("Tour not found or already deleted.", 'error');
-        }
-      } catch (err) {
-        console.error("Error deleting tour:", err);
-        setError("Failed to delete tour. Please try again.");
-        addNotification(`Failed to delete tour: ${err.message || err.toString()}`, 'error');
-      } finally {
-        setLoading(false);
-      }
-    });
-    setShowConfirmModal(true);
-  }, [userId, addNotification]);
-
-  const getLinkedReservations = useCallback((tourId) => {
-    return reservations.filter(res => res.linkedTourId === tourId);
-  }, [reservations]);
-
-
-  // --- Financial Transaction Module Logic (uses Firestore user-specific collection) ---
-
-  const handleFinancialTransactionFormChange = useCallback((e) => {
-    const { name, value, type } = e.target;
-    // This version simply updates the field that was changed, without affecting the other.
-    setFinancialTransactionForm(prev => ({
-      ...prev,
-      [name]: type === 'number' ? parseFloat(value) || 0 : value,
-    }));
-  }, []);
-
-  const handleSubmitFinancialTransaction = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-    addNotification('');
-
-    if (!userId) {
-      addNotification("User not authenticated. Please log in to save data.", 'error');
-      setLoading(false);
-      return;
-    }
-
-    try {
-      const transactionData = {
-        ...financialTransactionForm,
-        amount: parseFloat(financialTransactionForm.amount) || 0,
-        vat: parseFloat(financialTransactionForm.vat) || 0,
-        date: financialTransactionForm.date,
-      };
-
-      const financialTransactionsCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/financialTransactions`);
-
-      if (selectedFinancialTransaction) {
-        const ftDocRef = doc(financialTransactionsCollectionRef, selectedFinancialTransaction.id);
-        await setDoc(ftDocRef, transactionData, { merge: true });
-        addNotification('Transaction updated successfully!', 'success');
-      } else {
-        await addDoc(financialTransactionsCollectionRef, transactionData);
-        addNotification(`${financialTransactionForm.type === 'income' ? 'Payment' : 'Expense'} added successfully!`, 'success');
-      }
-
-      resetFinancialTransactionForm();
-      setActiveTab('payments');
-    } catch (err) {
-      console.error("Error saving financial transaction:", err);
-      setError(`Failed to save financial transaction: ${err.message || err.toString()}`, 'error');
-      addNotification(`Failed to save financial transaction: ${err.message || err.toString()}`, 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const resetFinancialTransactionForm = useCallback(() => {
-    setFinancialTransactionForm({
-      date: '', method: 'Bank', amount: 0, reasonDescription: '', vat: 0,
-      type: 'income', associatedReservationId: '', associatedTourId: '',
-    });
-    setSelectedFinancialTransaction(null);
-  }, []);
-
-  const handleEditFinancialTransaction = useCallback((transaction) => {
-    setFinancialTransactionForm({
-      ...transaction,
-      amount: parseFloat(transaction.amount) || 0,
-      vat: parseFloat(transaction.vat) || 0,
-    });
-    setSelectedFinancialTransaction(transaction);
-    setActiveTab('addFinancialTransaction');
-  }, []);
-
-  const handleDeleteFinancialTransaction = useCallback((transactionId) => {
-    setConfirmMessage("Are you sure you want to delete this financial transaction?");
-    setConfirmAction(() => async () => {
-      setLoading(true);
-      setError(null);
-      addNotification('');
-      if (!userId) {
-        addNotification("User not authenticated. Please log in to delete data.", 'error');
-        setLoading(false);
-        return;
-      }
-      try {
-        const ftDocRef = doc(db, `artifacts/${appId}/users/${userId}/financialTransactions`, transactionId);
-        await deleteDoc(ftDocRef);
-        addNotification('Transaction deleted successfully!', 'success');
-      } catch (err) {
-        console.error("Error deleting financial transaction:", err);
-        setError("Failed to delete financial transaction. Please try again.");
-        addNotification(`Failed to delete financial transaction: ${err.message || err.toString()}`, 'error');
-      } finally {
-        setLoading(false);
-      }
-    });
-    setShowConfirmModal(true);
-  }, [userId, addNotification]);
-
-
-  // --- Dashboard Calculations (Uses Firestore user-specific data) ---
-const dashboardStats = useMemo(() => {
-    const totalReservations = reservations.length;
-    const totalProfit = reservations.reduce((sum, res) => sum + (res.profit || 0), 0);
-    const averageProfitPerReservation = totalReservations > 0 ? totalProfit / totalReservations : 0;
-    const totalNightsSum = reservations.reduce((sum, res) => sum + (res.totalNights || 0), 0);
-    const averageStayPerReservation = totalReservations > 0 ? totalNightsSum / totalReservations : 0;
-
-    const totalIncome = financialTransactions
-      .filter(ft => ft.type === 'income')
-      .reduce((sum, ft) => sum + (ft.amount || 0), 0);
-
-    const totalExpenses = financialTransactions
-      .filter(ft => ft.type === 'expense')
-      .reduce((sum, ft) => sum + (ft.amount || 0), 0);
-
-    let totalBookedPassengersAcrossAllTours = 0;
-    let totalMaxPassengersAcrossAllTours = 0;
-
-    tours.forEach(tour => {
-      const linkedReservations = reservations.filter(res => res.linkedTourId === tour.tourId);
-      const bookedPassengersForTour = linkedReservations.reduce((sum, res) => sum + (res.adults || 0) + (res.children || 0), 0);
-      totalBookedPassengersAcrossAllTours += bookedPassengersForTour;
-      totalMaxPassengersAcrossAllTours += (tour.maxPassengers || 0);
-    });
-
-    const overallBusTourFulfillment = totalMaxPassengersAcrossAllTours > 0
-      ? (totalBookedPassengersAcrossAllTours / totalMaxPassengersAcrossAllTours) * 100
-      : 0;
-
-    // --- New Balance Calculations ---
-    const balances = {
-      Bank: { income: 0, expense: 0 },
-      Cash: { income: 0, expense: 0 },
-      'Cash 2': { income: 0, expense: 0 },
-    };
-
-    financialTransactions.forEach(ft => {
-      if (balances[ft.method]) {
-        balances[ft.method][ft.type] += (ft.amount || 0);
-      }
-    });
-
-    const bankBalance = balances.Bank.income - balances.Bank.expense;
-    const cashBalance = balances.Cash.income - balances.Cash.expense;
-    const cash2Balance = balances['Cash 2'].income - balances['Cash 2'].expense;
-    // --- End of New Calculations ---
-
-    return {
-      totalReservations,
-      totalProfit,
-      averageProfitPerReservation,
-      averageStayPerReservation,
-      totalIncome,
-      totalExpenses,
-      overallBusTourFulfillment,
-      totalBusPassengersBooked: totalBookedPassengersAcrossAllTours,
-      // Add new balances to the returned object
-      bankBalance,
-      cashBalance,
-      cash2Balance,
-    };
-  }, [reservations, financialTransactions, tours]);
-
-  // Invoicing Dashboard Calculations
-  const invoicingDashboardStats = useMemo(() => {
-    const totalSalesInvoices = salesInvoices.length;
-    const totalExpenseInvoices = expenseInvoices.length;
-
-    let totalSalesAmount = 0;
-    let totalSalesVAT = 0;
-    salesInvoices.forEach(inv => {
-      totalSalesAmount += (parseFloat(inv.totalAmount) || 0);
-      totalSalesVAT += (parseFloat(inv.totalVAT) || 0);
-    });
-
-    let totalExpenseAmount = 0;
-    let totalExpenseVAT = 0;
-    expenseInvoices.forEach(inv => {
-      totalExpenseAmount += (parseFloat(inv.totalAmount) || 0);
-      totalExpenseVAT += (parseFloat(inv.totalVAT) || 0);
-    });
-
-    const netProfitInvoicing = totalSalesAmount - totalExpenseAmount;
-    const netVAT = totalSalesVAT - totalExpenseVAT; // Sales VAT - Expense VAT
-
-    // Convert BGN to EUR for display
-    const toEUR = (amount) => (amount / EUR_TO_BGN_RATE).toFixed(2);
-
-    return {
-      totalSalesInvoices,
-      totalExpenseInvoices,
-      totalSalesAmount: totalSalesAmount.toFixed(2),
-      totalSalesAmountEUR: toEUR(totalSalesAmount),
-      totalSalesVAT: totalSalesVAT.toFixed(2),
-      totalSalesVATEUR: toEUR(totalSalesVAT),
-      totalExpenseAmount: totalExpenseAmount.toFixed(2),
-      totalExpenseAmountEUR: toEUR(totalExpenseAmount),
-      totalExpenseVAT: totalExpenseVAT.toFixed(2),
-      totalExpenseVATEUR: toEUR(totalExpenseVAT),
-      netProfitInvoicing: netProfitInvoicing.toFixed(2),
-      netProfitInvoicingEUR: toEUR(netProfitInvoicing),
-      netVAT: netVAT.toFixed(2),
-      netVATEUR: toEUR(netVAT),
-    };
-  }, [salesInvoices, expenseInvoices]);
-
-
-  // --- Financial Reports Logic (Uses Firestore user-specific data) ---
-
- const handleReportFilterChange = useCallback((e) => {
-    const { name, value } = e.target;
-    if (name === 'reportStartDate') setReportStartDate(value);
-    else if (name === 'reportEndDate') setReportEndDate(value);
-    else if (name === 'reportFilterType') setReportFilterType(value);
-    else if (name === 'reportFilterMethod') setReportFilterMethod(value);
-    else if (name === 'reportFilterAssociation') setReportFilterAssociation(value);
-  }, []);
-
-
-  const requestSort = (key) => {
-    let direction = 'ascending';
-    if (sortConfig.key === key && sortConfig.direction === 'ascending') {
-      direction = 'descending';
-    }
-    setSortConfig({ key, direction });
-  };
-
-const filteredFinancialTransactions = useMemo(() => {
-    let sortableTransactions = financialTransactions.filter(ft => {
-      // --- Date Filters ---
-      const transactionDate = new Date(ft.date);
-      const startDate = reportStartDate ? new Date(reportStartDate) : null;
-      const endDate = reportEndDate ? new Date(reportEndDate) : null;
-
-      if (startDate && transactionDate < startDate) return false;
-      if (endDate && transactionDate > endDate) {
-        const adjustedEndDate = new Date(endDate);
-        adjustedEndDate.setDate(adjustedEndDate.getDate() + 1);
-        if (transactionDate >= adjustedEndDate) return false;
-      }
-
-      // --- Type Filter ---
-      if (reportFilterType !== 'all' && ft.type !== reportFilterType) return false;
-      
-      // --- New Method Filter ---
-      if (reportFilterMethod !== 'all' && ft.method !== reportFilterMethod) return false;
-
-      // --- Association Filter ---
-      if (reportFilterAssociation) {
-        const lowerCaseFilter = reportFilterAssociation.toLowerCase();
-        const matchesReservation = ft.associatedReservationId?.toLowerCase().includes(lowerCaseFilter);
-        const matchesTour = ft.associatedTourId?.toLowerCase().includes(lowerCaseFilter);
-        if (!matchesReservation && !matchesTour) return false;
-      }
-
-      return true;
-    });
-
-    // --- Dynamic Sorting Logic ---
-    if (sortConfig.key !== null) {
-      sortableTransactions.sort((a, b) => {
-        if (a[sortConfig.key] < b[sortConfig.key]) {
-          return sortConfig.direction === 'ascending' ? -1 : 1;
-        }
-        if (a[sortConfig.key] > b[sortConfig.key]) {
-          return sortConfig.direction === 'ascending' ? 1 : -1;
-        }
-        return 0;
-      });
-    }
-
-    return sortableTransactions;
-  }, [financialTransactions, reportStartDate, reportEndDate, reportFilterType, reportFilterMethod, reportFilterAssociation, sortConfig]);
-
-  const reportTotals = useMemo(() => {
-    let totalIncome = 0;
-    let totalExpenses = 0;
-    filteredFinancialTransactions.forEach(ft => {
-      if (ft.type === 'income') {
-        totalIncome += (ft.amount || 0);
-      } else if (ft.type === 'expense') {
-        totalExpenses += (ft.amount || 0);
-      }
-    });
-    const netProfit = totalIncome - totalExpenses;
-    return { totalIncome, totalExpenses, netProfit };
-  }, [filteredFinancialTransactions]);
-
- const resetFinancialReportsFilters = useCallback(() => {
-    setReportStartDate('');
-    setReportEndDate('');
-    setReportFilterType('all');
-    setReportFilterAssociation('');
-  }, []);
-
-
-
-  // --- Filtered Reservations Logic ---
-  const handleReservationFilterChange = useCallback((e) => {
-    const { name, value } = e.target;
-    if (name === 'filterReservationStatus') setFilterReservationStatus(value);
-    else if (name === 'filterReservationHotel') setFilterReservationHotel(value);
-    else if (name === 'filterReservationTourType') setFilterReservationTourType(value);
-    else if (name === 'filterReservationCheckInDate') setFilterReservationCheckInDate(value);
-    else if (name === 'filterReservationCheckOutDate') setFilterReservationCheckOutDate(value);
-  }, []);
-
-  const resetReservationFilters = useCallback(() => {
-    setFilterReservationStatus('All');
-    setFilterReservationHotel('');
-    setFilterReservationTourType('All');
-    setFilterReservationCheckInDate('');
-    setFilterReservationCheckOutDate('');
-  }, []);
-
-const filteredReservations = useMemo(() => {
-    return reservations.filter(res => {
-      // Existing filters
-      if (filterReservationStatus !== 'All' && res.status !== filterReservationStatus) return false;
-      if (filterReservationHotel && !res.hotel?.toLowerCase().includes(filterReservationHotel.toLowerCase())) return false;
-      if (filterReservationTourType !== 'All' && res.tourType !== filterReservationTourType) return false;
-      if (filterReservationCheckInDate && new Date(res.checkIn) < new Date(filterReservationCheckInDate)) return false;
-      if (filterReservationCheckOutDate && new Date(res.checkOut) > new Date(filterReservationCheckOutDate)) return false;
-
-      // New search filter for lead guest
-      if (searchReservationTerm) {
-        const leadGuest = res.tourists?.[0];
-        if (!leadGuest) return false; // No lead guest to search for
-        const fullName = `${leadGuest.firstName || ''} ${leadGuest.familyName || ''}`.toLowerCase();
-        if (!fullName.includes(searchReservationTerm.toLowerCase())) return false;
-      }
-
-      return true;
-    }).sort((a, b) => {
-      // Sort by reservation number descending
-      const numA = parseInt(a.reservationNumber?.substring(3) || '0', 10);
-      const numB = parseInt(b.reservationNumber?.substring(3) || '0', 10);
-      return numB - numA;
-    });
-  }, [reservations, filterReservationStatus, filterReservationHotel, filterReservationTourType, filterReservationCheckInDate, filterReservationCheckOutDate, searchReservationTerm]);
-
-
-  // --- Filtered Tours Logic ---
-  const handleTourFilterChange = useCallback((e) => {
-    const { name, value } = e.target;
-    if (name === 'filterTourHotel') setFilterTourHotel(value);
-    else if (name === 'filterTourTransportCompany') setFilterTourTransportCompany(value);
-    else if (name === 'filterTourDepartureDate') setFilterTourDepartureDate(value);
-    else if (name === 'filterTourArrivalDate') setFilterTourArrivalDate(value);
-  }, []);
-
-  const resetTourFilters = useCallback(() => {
-    setFilterTourHotel('');
-    setFilterTourTransportCompany('');
-    setFilterTourDepartureDate('');
-    setFilterTourArrivalDate('');
-  }, []);
-
-const filteredTours = useMemo(() => {
-    return tours.filter(tour => {
-      if (filterTourHotel && !tour.hotel?.toLowerCase().includes(filterTourHotel.toLowerCase())) return false;
-      if (filterTourTransportCompany && !tour.transportCompany?.toLowerCase().includes(filterTourTransportCompany.toLowerCase())) return false;
-      if (filterTourDepartureDate && new Date(tour.departureDate) < new Date(filterTourDepartureDate)) return false;
-      if (filterTourArrivalDate && new Date(tour.arrivalDate) > new Date(tour.arrivalDate)) return false;
-      return true;
-    }).sort((a, b) => new Date(b.departureDate) - new Date(a.departureDate));
-  }, [tours, filterTourHotel, filterTourTransportCompany, filterTourDepartureDate, filterTourArrivalDate]);
-
-
-  // New: Filtered Customers Logic with Search
-  const filteredCustomers = useMemo(() => {
-    let sortedCustomers = [...customers].sort((a, b) => (a.firstName || '').localeCompare(b.firstName || ''));
-
-    if (!searchCustomerTerm) {
-      return sortedCustomers;
-    }
-    return sortedCustomers.filter(cust => {
-      const fullName = `${cust.firstName || ''} ${cust.fatherName || ''} ${cust.familyName || ''}`.toLowerCase();
-      return fullName.includes(searchCustomerTerm.toLowerCase());
-    });
-  }, [customers, searchCustomerTerm]);
-
-
-  // --- New: Notification Generation Logic ---
-  useEffect(() => {
-    if (!isAuthReady || !userId) return;
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    // Filter out previous auto-generated notifications before adding new ones
-    setNotifications(prev => prev.filter(n => !(n.source === 'auto-res' || n.source === 'auto-tour')));
-
-    reservations.forEach(res => {
-      const checkInDate = new Date(res.checkIn);
-      checkInDate.setHours(0, 0, 0, 0);
-      const diffDays = Math.ceil((checkInDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-
-      if (diffDays >= 0 && diffDays <= 7) {
-        addNotification(
-          `Reservation ${res.reservationNumber} for ${res.hotel} checks in on ${res.checkIn} (in ${diffDays} days).`,
-          'warning',
-          true, // dismissible
-          null, // autoDismiss, null means indefinite (until manually dismissed)
-          'auto-res' // custom source to filter later
-        );
-      }
-    });
-
-    tours.forEach(tour => {
-      const departureDate = new Date(tour.departureDate);
-      departureDate.setHours(0, 0, 0, 0);
-      const diffDays = Math.ceil((departureDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-
-      if (diffDays >= 0 && diffDays <= 30) {
-        const linkedReservations = reservations.filter(res => res.linkedTourId === tour.tourId);
-        const bookedPassengers = linkedReservations.reduce((sum, res) => sum + (res.adults || 0) + (res.children || 0), 0);
-        const fulfillment = tour.maxPassengers > 0 ? (bookedPassengers / tour.maxPassengers) * 100 : 0;
-
-        if (fulfillment < 50 && bookedPassengers > 0) {
-          addNotification(
-            `Tour ${tour.tourId} to ${tour.hotel} has only ${fulfillment.toFixed(1)}% passengers booked (departing in ${diffDays} days).`,
-            'warning',
-            true,
-            null,
-            'auto-tour'
-          );
-        } else if (fulfillment === 0 && diffDays <= 14) {
-           addNotification(
-            `Tour ${tour.tourId} to ${tour.hotel} has NO passengers booked (departing in ${diffDays} days).`,
-            'error',
-            true,
-            null,
-            'auto-tour'
-          );
-        }
-      }
-    });
-
-  }, [reservations, tours, isAuthReady, userId, addNotification]);
-
-
-  // --- Expense Invoice Functions ---
-  const handleExpenseInvoiceFormChange = useCallback((e) => {
-    const { name, value, type } = e.target;
-    setExpenseInvoiceForm(prev => {
-      const newState = {
-        ...prev,
-        [name]: type === 'number' ? parseFloat(value) || 0 : value,
-      };
-      return newState;
-    });
-  }, []);
-
-  const resetExpenseInvoiceForm = useCallback(() => {
-    setExpenseInvoiceForm({
-      companyName: '', companyID: '', vatID: '', invoiceNumber: '', invoiceDate: '',
-      productsServices: '', paymentMethod: 'Bank', dueDate: '', totalAmount: 0, totalVAT: 0, notes: ''
-    });
-    setSelectedExpenseInvoice(null);
-  }, []);
-
-  const handleSubmitExpenseInvoice = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-    addNotification('');
-
-    if (!userId) {
-      addNotification("User not authenticated. Please log in to save data.", 'error');
-      setLoading(false);
-      return;
-    }
-
-    try {
-      // Generate invoice number only if adding a new invoice
-      let currentInvoiceNumber = expenseInvoiceForm.invoiceNumber;
-      if (!selectedExpenseInvoice && !currentInvoiceNumber) {
-        currentInvoiceNumber = await generateExpenseInvoiceNumber();
-      }
-
-      const invoiceData = {
-        ...expenseInvoiceForm,
-        invoiceNumber: currentInvoiceNumber,
-        totalAmount: parseFloat(expenseInvoiceForm.totalAmount) || 0,
-        totalVAT: parseFloat(expenseInvoiceForm.totalVAT) || 0,
-      };
-
-      const expenseInvoicesCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/invoices_expenses`);
-
-      if (selectedExpenseInvoice) {
-        const invoiceDocRef = doc(expenseInvoicesCollectionRef, selectedExpenseInvoice.id);
-        await setDoc(invoiceDocRef, invoiceData, { merge: true });
-        addNotification('Expense Invoice updated successfully!', 'success');
-      } else {
-        await addDoc(expenseInvoicesCollectionRef, invoiceData);
-        addNotification('Expense Invoice added successfully!', 'success');
-      }
-
-      resetExpenseInvoiceForm();
-      setActiveTab('invoicingExpenses');
-    } catch (err) {
-      console.error("Error saving expense invoice:", err);
-      setError(`Failed to save expense invoice: ${err.message || err.toString()}`);
-      addNotification(`Failed to save expense invoice: ${err.message || err.toString()}`, 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleEditExpenseInvoice = useCallback((invoice) => {
-    setExpenseInvoiceForm({
-      ...invoice,
-      totalAmount: parseFloat(invoice.totalAmount) || 0,
-      totalVAT: parseFloat(invoice.totalVAT) || 0,
-    });
-    setSelectedExpenseInvoice(invoice);
-    setActiveTab('addExpenseInvoice'); // Switch to the form view
-  }, []);
-
-  const handleDeleteExpenseInvoice = useCallback((invoiceId) => {
-    setConfirmMessage("Are you sure you want to delete this expense invoice?");
-    setConfirmAction(() => async () => {
-      setLoading(true);
-      setError(null);
-      addNotification('');
-      if (!userId) {
-        addNotification("User not authenticated. Please log in to delete data.", 'error');
-        setLoading(false);
-        return;
-      }
-      try {
-        const invoiceDocRef = doc(db, `artifacts/${appId}/users/${userId}/invoices_expenses`, invoiceId);
-        await deleteDoc(invoiceDocRef);
-        addNotification('Expense Invoice deleted successfully!', 'success');
-      } catch (err) {
-        console.error("Error deleting expense invoice:", err);
-        setError("Failed to delete expense invoice. Please try again.");
-        addNotification(`Failed to delete expense invoice: ${err.message || err.toString()}`, 'error');
-      } finally {
-        setLoading(false);
-      }
-    });
-    setShowConfirmModal(true);
-  }, [userId, addNotification]);
-
-
-  // --- Product Management Functions ---
-  const handleProductFormChange = useCallback((e) => {
-    const { name, value, type } = e.target;
-    setProductForm(prev => ({
-      ...prev,
-      [name]: type === 'number' ? parseFloat(value) || 0 : value,
-    }));
-  }, []);
-
-  const resetProductForm = useCallback(() => {
-    setProductForm({
-      productCode: '',
-      productName: '',
-      price: 0,
-      vatRate: 20
-    });
-    setSelectedProduct(null);
-  }, []);
-
-  const handleSubmitProduct = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-    addNotification('');
-
-    if (!userId) {
-      addNotification("User not authenticated. Please log in to save data.", 'error');
-      setLoading(false);
-      return;
-    }
-
-    try {
-      let currentProductCode = productForm.productCode;
-      if (!selectedProduct && !currentProductCode) {
-        currentProductCode = await generateProductCode();
-      }
-
-      const productData = {
-        ...productForm,
-        productCode: currentProductCode,
-        price: parseFloat(productForm.price) || 0,
-        vatRate: parseFloat(productForm.vatRate) || 0,
-      };
-
-      const productsCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/products`);
-
-      if (selectedProduct) {
-        const productDocRef = doc(productsCollectionRef, selectedProduct.id);
-        await setDoc(productDocRef, productData, { merge: true });
-        addNotification('Product updated successfully!', 'success');
-      } else {
-        await addDoc(productsCollectionRef, productData);
-        addNotification('Product added successfully!', 'success');
-      }
-
-      resetProductForm();
-      setActiveTab('invoicingProducts');
-    } catch (err) {
-      console.error("Error saving product:", err);
-      setError(`Failed to save product: ${err.message || err.toString()}`);
-      addNotification(`Failed to save product: ${err.message || err.toString()}`, 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleEditProduct = useCallback((product) => {
-    setProductForm({
-      ...product,
-      price: parseFloat(product.price) || 0,
-      vatRate: parseFloat(product.vatRate) || 0,
-    });
-    setSelectedProduct(product);
-    setActiveTab('addProduct'); // New tab for adding/editing products
-  }, []);
-
-  const handleDeleteProduct = useCallback((productId) => {
-    setConfirmMessage("Are you sure you want to delete this product?");
-    setConfirmAction(() => async () => {
-      setLoading(true);
-      setError(null);
-      addNotification('');
-      if (!userId) {
-        addNotification("User not authenticated. Please log in to delete data.", 'error');
-        setLoading(false);
-        return;
-      }
-      try {
-        const productDocRef = doc(db, `artifacts/${appId}/users/${userId}/products`, productId);
-        await deleteDoc(productDocRef);
-        addNotification('Product deleted successfully!', 'success');
-      } catch (err) {
-        console.error("Error deleting product:", err);
-        setError("Failed to delete product. Please try again.");
-        addNotification(`Failed to delete product: ${err.message || err.toString()}`, 'error');
-      } finally {
-        setLoading(false);
-      }
-    });
-    setShowConfirmModal(true);
-  }, [userId, addNotification]);
-
-
-  // --- Sales Invoice Functions ---
-  const handleSalesInvoiceFormChange = useCallback((e) => {
-    const { name, value, type, checked } = e.target;
-    setSalesInvoiceForm(prev => {
-      const newState = {
-        ...prev,
-        [name]: type === 'checkbox' ? checked : value,
-      };
-
-      // No recalculation here, it's done in handleSalesInvoiceProductChange
-      return newState;
-    });
-  }, []);
-
-  const handleSalesInvoiceProductChange = useCallback((index, e) => {
-    const { name, value, type } = e.target; // Corrected: 'type' is now destructured
-    setSalesInvoiceForm(prev => {
-      const newProducts = [...prev.products];
-      const product = { ...newProducts[index] }; // Create a copy to avoid direct mutation
-
-      if (name === 'productCode') {
-        const selectedProductData = products.find(p => p.productCode === value);
-        if (selectedProductData) {
-          product.productCode = selectedProductData.productCode;
-          product.productName = selectedProductData.productName;
-          product.price = selectedProductData.price;
-          product.vatRate = selectedProductData.vatRate;
-        } else {
-          // If product code is cleared or not found, clear other fields
-          product.productCode = value;
-          product.productName = '';
-          product.price = 0;
-          product.vatRate = 0;
-        }
-      } else {
-        // Now 'type' is correctly defined
-        product[name] = type === 'number' ? parseFloat(value) || 0 : value;
-      }
-
-      // Recalculate line total and VAT for the current product
-      const quantity = parseFloat(product.quantity) || 0;
-      const price = parseFloat(product.price) || 0;
-      const vatRate = parseFloat(product.vatRate) || 0;
-
-      product.lineTotal = (quantity * price);
-      product.lineVAT = (product.lineTotal * (vatRate / 100));
-      product.lineGrandTotal = product.lineTotal + product.lineVAT;
-
-      newProducts[index] = product; // Update the product in the array
-
-      // Recalculate overall totals for the invoice
-      let newTotalAmount = 0;
-      let newTotalVAT = 0;
-      newProducts.forEach(item => {
-        newTotalAmount += item.lineTotal || 0;
-        newTotalVAT += item.lineVAT || 0;
-      });
-
-      return {
-        ...prev,
-        products: newProducts,
-        totalAmount: newTotalAmount,
-        totalVAT: newTotalVAT,
-        grandTotal: newTotalAmount + newTotalVAT,
-      };
-    }); // Corrected closing for setSalesInvoiceForm
-  }, [products]); // Corrected closing for useCallback, and dependencies
-
-
-  const addSalesInvoiceProduct = useCallback(() => {
-    setSalesInvoiceForm(prev => ({
-      ...prev,
-      products: [...prev.products, {
-        productCode: '', productName: '', quantity: 1, price: 0, vatRate: 20, lineTotal: 0, lineVAT: 0, lineGrandTotal: 0
-      }],
-    }));
-  }, []);
-
-  const removeSalesInvoiceProduct = useCallback((index) => {
-    setSalesInvoiceForm(prev => {
-      const newProducts = prev.products.filter((_, i) => i !== index);
-      let newTotalAmount = 0;
-      let newTotalVAT = 0;
-      newProducts.forEach(item => {
-        newTotalAmount += item.lineTotal || 0;
-        newTotalVAT += item.lineVAT || 0;
-      });
-      return {
-        ...prev,
-        products: newProducts,
-        totalAmount: newTotalAmount,
-        totalVAT: newTotalVAT,
-        grandTotal: newTotalAmount + newTotalVAT,
-      };
-    });
-  }, []);
-
- const resetSalesInvoiceForm = useCallback(() => {
-    setSalesInvoiceForm({
-      invoiceNumber: '',
-      invoiceDate: '',
-      clientName: '',
-      clientMOL: '',
-      clientID: '',
-      clientVATID: '',
-      clientAddress: '',
-      clientCity: '',
-      clientPostCode: '',
-      products: [],
-      paymentMethod: 'Cash',
-      bankDetails: {
-        iban: 'BG87BPBI79301036586601',
-        bankName: 'Пощенска банка'
-      },
-      dueDate: '',
-      isCopy: false,
-      totalAmount: 0,
-      totalVAT: 0,
-      grandTotal: 0,
-      notes: '',
-      // New editable fields
-      transactionBasis: 'Услуга',
-      transactionDescription: 'ТУРИСТИЧЕСКИ УСЛУГИ',
-      transactionPlace: 'България',
-      receivedBy: '',
-    });
-    setSelectedSalesInvoice(null);
-  }, []);
-
-  const handleSubmitSalesInvoice = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-    addNotification('');
-
-    if (!userId) {
-      addNotification("User not authenticated. Please log in to save data.", 'error');
-      setLoading(false);
-      return;
-    }
-
-    try {
-      let currentInvoiceNumber = salesInvoiceForm.invoiceNumber;
-      if (!selectedSalesInvoice && !currentInvoiceNumber) {
-        currentInvoiceNumber = await generateSalesInvoiceNumber();
-      }
-
-      const invoiceData = {
-        ...salesInvoiceForm,
-        invoiceNumber: currentInvoiceNumber,
-        totalAmount: parseFloat(salesInvoiceForm.totalAmount) || 0,
-        totalVAT: parseFloat(salesInvoiceForm.totalVAT) || 0,
-        grandTotal: parseFloat(salesInvoiceForm.grandTotal) || 0,
-        products: salesInvoiceForm.products.map(p => ({
-          productCode: p.productCode,
-          productName: p.productName,
-          quantity: parseFloat(p.quantity) || 0,
-          price: parseFloat(p.price) || 0,
-          vatRate: parseFloat(p.vatRate) || 0,
-          lineTotal: parseFloat(p.lineTotal) || 0,
-          lineVAT: parseFloat(p.lineVAT) || 0,
-          lineGrandTotal: parseFloat(p.lineGrandTotal) || 0,
-        })),
-        isCopy: salesInvoiceForm.isCopy,
-      };
-
-      const salesInvoicesCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/invoices_sales`);
-
-      if (selectedSalesInvoice) {
-        const invoiceDocRef = doc(salesInvoicesCollectionRef, selectedSalesInvoice.id);
-        await setDoc(invoiceDocRef, invoiceData, { merge: true });
-        addNotification('Sales Invoice updated successfully!', 'success');
-      } else {
-        await addDoc(salesInvoicesCollectionRef, invoiceData);
-        addNotification('Sales Invoice added successfully!', 'success');
-      }
-
-      resetSalesInvoiceForm();
-      setActiveTab('invoicingSales');
-    } catch (err) {
-      console.error("Error saving sales invoice:", err);
-      setError(`Failed to save sales invoice: ${err.message || err.toString()}`);
-      addNotification(`Failed to save sales invoice: ${err.message || err.toString()}`, 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-const handleEditSalesInvoice = useCallback((invoice) => {
-    setSalesInvoiceForm({
-      // Defaults for old invoices that might not have these fields
-      clientMOL: '',
-      transactionBasis: 'Услуга',
-      transactionDescription: 'ТУРИСТИЧЕСКИ УСЛУГИ',
-      transactionPlace: 'България',
-      receivedBy: '',
-      ...invoice, // Overwrite defaults with saved data if it exists
-      totalAmount: parseFloat(invoice.totalAmount) || 0,
-      totalVAT: parseFloat(invoice.totalVAT) || 0,
-      grandTotal: parseFloat(invoice.grandTotal) || 0,
-      products: invoice.products ? invoice.products.map(p => ({
-        ...p,
-        quantity: parseFloat(p.quantity) || 0,
-        price: parseFloat(p.price) || 0,
-        vatRate: parseFloat(p.vatRate) || 0,
-        lineTotal: parseFloat(p.lineTotal) || 0,
-        lineVAT: parseFloat(p.lineVAT) || 0,
-        lineGrandTotal: parseFloat(p.lineGrandTotal) || 0,
-      })) : [],
-    });
-    setSelectedSalesInvoice(invoice);
-    setActiveTab('addSalesInvoice');
-  }, []);
-
-  const handleDeleteSalesInvoice = useCallback((invoiceId) => {
-    setConfirmMessage("Are you sure you want to delete this sales invoice?");
-    setConfirmAction(() => async () => {
-      setLoading(true);
-      setError(null);
-      addNotification('');
-      if (!userId) {
-        addNotification("User not authenticated. Please log in to delete data.", 'error');
-        setLoading(false);
-        return;
-      }
-      try {
-        const invoiceDocRef = doc(db, `artifacts/${appId}/users/${userId}/invoices_sales`, invoiceId);
-        await deleteDoc(invoiceDocRef);
-        addNotification('Sales Invoice deleted successfully!', 'success');
-      } catch (err) {
-        console.error("Error deleting sales invoice:", err);
-        setError("Failed to delete sales invoice. Please try again.");
-        addNotification(`Failed to delete sales invoice: ${err.message || err.toString()}`, 'error');
-      } finally {
-        setLoading(false);
-      }
-    });
-    setShowConfirmModal(true);
-  }, [userId, addNotification]);
-
-
-  // --- Render UI based on activeTab ---
-  const renderContent = () => {
-    if (!isAuthReady || loading) {
-      return (
-        <div className="flex justify-center items-center h-full min-h-[calc(100vh-100px)]">
-          <div className="text-gray-600 text-lg animate-pulse">Loading application...</div> {/* Changed text color */}
-        </div>
-      );
-    }
-
-    if (!userId) {
-      return (
-        <div className="flex justify-center items-center h-full min-h-[calc(100vh-100px)]">
-          <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md"> {/* Consistent rounded-xl and shadow-lg */}
-            <h2 className="text-3xl font-bold mb-6 text-gray-800 text-center">
-              {authMode === 'login' ? 'Login to Dynamex' : 'Register for Dynamex'}
-            </h2>
-            {authError && (
-              <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-md relative mb-4" role="alert"> {/* Adjusted error colors */}
-                <span className="block sm:inline">{authError}</span>
-              </div>
-            )}
-            <form onSubmit={authMode === 'login' ? handleLogin : handleRegister} className="space-y-4">
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email</label>
-                <input
-                  type="email"
-                  id="email"
-                  value={userEmail}
-                  onChange={(e) => setUserEmail(e.target.value)}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 px-3 py-2" // Focus ring green
-                  required
-                />
-              </div>
-              <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700">Password</label>
-                <input
-                  type="password"
-                  id="password"
-                  value={userPassword}
-                  onChange={(e) => setUserPassword(e.target.value)}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 px-3 py-2" // Focus ring green
-                  required
-                />
-              </div>
-              <button
-                type="submit"
-                // Primary button style matching screenshot's green
-                className="w-full px-6 py-3 bg-[#28A745] text-white rounded-lg hover:bg-[#218838] transition duration-200 shadow-md font-semibold text-lg"
-                disabled={loading}
-              >
-                {loading ? 'Processing...' : (authMode === 'login' ? 'Login' : 'Register')}
-              </button>
-            </form>
-            <p className="mt-6 text-center text-gray-600">
-              {authMode === 'login' ? (
-                <>
-                  Don't have an account?{' '}
-                  <button
-                    type="button"
-                    onClick={() => { setAuthMode('register'); setAuthError(null); }}
-                    className="text-[#28A745] hover:text-[#218838] font-medium" // Link color green
-                  >
-                    Register
-                  </button>
-                </>
-              ) : (
-                <>
-                  Already have an account?{' '}
-                  <button
-                    type="button"
-                    onClick={() => { setAuthMode('login'); setAuthError(null); }}
-                    className="text-[#28A745] hover:text-[#218838] font-medium" // Link color green
-                  >
-                    Login
-                  </button>
-                </>
-              )}
-            </p>
-          </div>
-        </div>
-      );
-    }
-    if (error) {
-      return (
-        <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-md relative mb-4" role="alert"> {/* Adjusted error colors */}
-          <strong className="font-bold">Error!</strong>
-          <span className="block sm:inline ml-2">{error}</span>
-        </div>
-      );
-    }
-
-    switch (activeTab) {
-case 'dashboard':
-        return (
-          <div className="p-6 bg-white rounded-xl shadow-lg"> {/* Consistent card styling */}
-            <h2 className="text-3xl font-bold mb-8 text-gray-800 border-b pb-4">Dashboard & Analytics</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"> {/* Changed to 4 columns on large screens */}
-              {/* Reservation Stats */}
-              <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
-                <h3 className="font-semibold text-xl text-gray-700 mb-3">Reservation Metrics</h3>
-                <p className="text-gray-600 text-lg">Total Reservations: <span className="font-bold text-gray-800">{dashboardStats.totalReservations}</span></p>
-                <p className="text-gray-600 text-lg">Total Profit: <span className="font-bold text-[#28A745]">BGN {dashboardStats.totalProfit.toFixed(2)}</span></p>
-                <p className="text-gray-600 text-lg">Avg. Profit/Res: <span className="font-bold text-[#28A745]">BGN {dashboardStats.averageProfitPerReservation.toFixed(2)}</span></p>
-                <p className="text-gray-600 text-lg">Avg. Stay/Res: <span className="font-bold text-gray-800">{dashboardStats.averageStayPerReservation.toFixed(1)} nights</span></p>
-              </div>
-
-              {/* Financial Stats */}
-              <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
-                <h3 className="font-semibold text-xl text-gray-700 mb-3">Financial Overview</h3>
-                <p className="text-gray-600 text-lg">Total Income: <span className="font-bold text-[#28A745]">BGN {dashboardStats.totalIncome.toFixed(2)}</span></p>
-                <p className="text-gray-600 text-lg">Total Expenses: <span className="font-bold text-[#DC3545]">BGN {dashboardStats.totalExpenses.toFixed(2)}</span></p>
-                <p className="text-gray-600 text-lg">Net Profit/Loss: <span className={`font-bold ${dashboardStats.totalIncome - dashboardStats.totalExpenses >= 0 ? 'text-[#28A745]' : 'text-[#DC3545]'}`}>BGN {(dashboardStats.totalIncome - dashboardStats.totalExpenses).toFixed(2)}</span></p>
-              </div>
-
-              {/* Bus Tour Stats */}
-              <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
-                <h3 className="font-semibold text-xl text-gray-700 mb-3">Bus Tour Performance</h3>
-                <p className="text-gray-600 text-lg">Total Bus Passengers Booked: <span className="font-bold text-gray-800">{dashboardStats.totalBusPassengersBooked}</span></p>
-                <p className="text-gray-600 text-lg">Overall Fulfillment: <span className="font-bold text-gray-800">{dashboardStats.overallBusTourFulfillment.toFixed(1)}%</span></p>
-              </div>
-              
-              {/* --- New Balance Overview Card --- */}
-              <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
-                <h3 className="font-semibold text-xl text-gray-700 mb-3">Balance Overview</h3>
-                <p className="text-gray-600 text-lg">Bank Balance: <span className={`font-bold ${dashboardStats.bankBalance >= 0 ? 'text-gray-800' : 'text-[#DC3545]'}`}>BGN {dashboardStats.bankBalance.toFixed(2)}</span></p>
-                <p className="text-gray-600 text-lg">Cash Balance: <span className={`font-bold ${dashboardStats.cashBalance >= 0 ? 'text-gray-800' : 'text-[#DC3545]'}`}>BGN {dashboardStats.cashBalance.toFixed(2)}</span></p>
-                <p className="text-gray-600 text-lg">Cash 2 Balance: <span className={`font-bold ${dashboardStats.cash2Balance >= 0 ? 'text-gray-800' : 'text-[#DC3545]'}`}>BGN {dashboardStats.cash2Balance.toFixed(2)}</span></p>
-              </div>
-            </div>
-          </div>
-        );
-case 'reservations':
-        return (
-          <div className="p-6 bg-white rounded-xl shadow-lg">
-            <h2 className="text-3xl font-bold mb-8 text-gray-800 border-b pb-4">Hotel Reservations</h2>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4 mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200 shadow-sm">
-              <div>
-                <label htmlFor="filterReservationStatus" className="block text-sm font-medium text-gray-700">Status</label>
-                <select name="filterReservationStatus" id="filterReservationStatus" value={filterReservationStatus} onChange={handleReservationFilterChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2">
-                  <option value="All">All</option>
-                  <option value="Pending">Pending</option>
-                  <option value="Confirmed">Confirmed</option>
-                  <option value="Cancelled">Cancelled</option>
-                  <option value="Past">Past</option>
-                </select>
-              </div>
-              <div>
-                <label htmlFor="filterReservationHotel" className="block text-sm font-medium text-gray-700">Hotel</label>
-                <input type="text" name="filterReservationHotel" id="filterReservationHotel" value={filterReservationHotel} onChange={handleReservationFilterChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" placeholder="Filter by hotel name" />
-              </div>
-              <div>
-                <label htmlFor="filterReservationTourType" className="block text-sm font-medium text-gray-700">Tour Type</label>
-                <select name="filterReservationTourType" id="filterReservationTourType" value={filterReservationTourType} onChange={handleReservationFilterChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2">
-                  <option value="All">All</option>
-                  <option value="PARTNER">PARTNER</option>
-                  <option value="HOTEL ONLY">HOTEL ONLY</option>
-                </select>
-              </div>
-               <div>
-                <label htmlFor="filterReservationCheckInDate" className="block text-sm font-medium text-gray-700">Check-in After</label>
-                <input type="date" name="filterReservationCheckInDate" id="filterReservationCheckInDate" value={filterReservationCheckInDate} onChange={handleReservationFilterChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
-              </div>
-              <div>
-                <label htmlFor="filterReservationCheckOutDate" className="block text-sm font-medium text-gray-700">Check-out Before</label>
-                <input type="date" name="filterReservationCheckOutDate" id="filterReservationCheckOutDate" value={filterReservationCheckOutDate} onChange={handleReservationFilterChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
-              </div>
-              <div className="xl:col-span-2">
-                <label htmlFor="searchReservationTerm" className="block text-sm font-medium text-gray-700">Search by Lead Guest</label>
-                <input type="text" name="searchReservationTerm" id="searchReservationTerm" value={searchReservationTerm} onChange={e => setSearchReservationTerm(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" placeholder="Enter first or last name..." />
-              </div>
-              <div className="md:col-span-full xl:col-span-1 flex items-end">
-                <button type="button" onClick={resetReservationFilters} className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition duration-200 shadow-sm border border-gray-200">
-                  Reset Filters
-                </button>
-              </div>
-            </div>
-
-            {filteredReservations.length === 0 ? (
-              <p className="text-gray-600 text-center py-8">No reservations found.</p>
-            ) : (
-              <div className="overflow-x-auto rounded-xl shadow-md border border-gray-200">
-                <table className="min-w-full bg-white">
-                  <thead className="bg-gray-50 text-gray-700 border-b border-gray-200">
-                    <tr>
-                      <th className="py-3 px-4 text-left font-medium">Reservation Number</th>
-                      <th className="py-3 px-4 text-left font-medium">Hotel</th>
-                      <th className="py-3 px-4 text-left font-medium">Lead Guest</th>
-                      <th className="py-3 px-4 text-left font-medium">Dates</th>
-                      <th className="py-3 px-4 text-left font-medium">Status</th>
-                      <th className="py-3 px-4 text-right font-medium">Profit</th>
-                      <th className="py-3 px-4 text-center font-medium">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredReservations.map(res => {
-                      const linkedPayments = financialTransactions.filter(ft => ft.associatedReservationId === res.reservationNumber);
-                      return (
-                        <React.Fragment key={res.id}>
-                          <tr onClick={() => setExpandedReservationId(expandedReservationId === res.id ? null : res.id)} className="cursor-pointer hover:bg-gray-100">
-                            <td className="py-3 px-4">{res.reservationNumber}</td>
-                            <td className="py-3 px-4">{res.hotel}</td>
-                            <td className="py-3 px-4">{res.tourists && res.tourists.length > 0 ? `${res.tourists[0].firstName} ${res.tourists[0].familyName}` : 'N/A'}</td>
-                            <td className="py-3 px-4 text-gray-600">{res.checkIn} - {res.checkOut}</td>
-                            <td className="py-3 px-4"><span className={`px-3 py-1 rounded-full text-xs font-semibold ${res.status === 'Confirmed' ? 'bg-green-100 text-green-800' : res.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' : res.status === 'Cancelled' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'}`}>{res.status}</span></td>
-                            <td className="py-3 px-4 font-semibold text-right text-gray-800">BGN {res.profit.toFixed(2)}</td>
-                           <td className="py-3 px-4 flex justify-center space-x-2">
-                              <button onClick={(e) => { e.stopPropagation(); setViewingReservation(res); }} className="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-full shadow-md transition duration-200" title="View Details">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-                              </button>
-                              <button onClick={(e) => { e.stopPropagation(); handleEditReservation(res); }} className="bg-[#28A745] hover:bg-[#218838] text-white p-2 rounded-full shadow-md transition duration-200" title="Edit">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zm-5.69 5.69L11.586 7.586 14.414 10.414 11.586 13.242 8.758 10.414l2.828-2.828z" /><path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm-4 8a1 1 0 011-1h1a1 1 0 110 2H7a1 1 0 01-1-1zm10 0a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1zM4 14a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm10 0a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1zM3 18a1 1 0 011-1h1a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" /></svg>
-                              </button>
-                              {/* --- NEW PRINT CONTRACT BUTTON --- */}
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setReservationToGenerateContract(res);
-                                  setActiveTab('customerContract'); // This will trigger rendering of CustomerContractPrint
-                                }}
-                                className="bg-purple-500 hover:bg-purple-600 text-white p-2 rounded-full shadow-md transition duration-200"
-                                title="Print Contract"
-                              >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v6a2 2 0 002 2h12a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clipRule="evenodd" /></svg>
-                              </button>
-                              <button onClick={(e) => { e.stopPropagation(); handleDeleteReservation(res.id); }} className="bg-[#DC3545] hover:bg-[#C82333] text-white p-2 rounded-full shadow-md transition duration-200" title="Delete">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1zm-1 3a1 1 0 011-1h4a1 1 0 110 2H7a1 1 0 01-1-1zm-1 3a1 1 0 011-1h4a1 1 0 110 2H7a1 1 0 01-1-1z" clipRule="evenodd" /></svg>
-                              </button>
-                            </td>
-                          </tr>
-                          {expandedReservationId === res.id && (
-                            <tr className="bg-gray-50">
-                              <td colSpan="7" className="p-4">
-                                <h4 className="font-semibold text-gray-700 mb-2">Linked Financial Transactions:</h4>
-                                {linkedPayments.length > 0 ? (
-                                  <table className="min-w-full bg-white text-sm rounded-lg shadow">
-                                    <thead className="bg-gray-200">
-                                      <tr>
-                                        <th className="py-1 px-2 text-left">Date</th>
-                                        <th className="py-1 px-2 text-left">Type</th>
-                                        <th className="py-1 px-2 text-left">Method</th>
-                                        <th className="py-1 px-2 text-right">Amount</th>
-                                        <th className="py-1 px-2 text-left">Linked Tour</th>
-                                      </tr>
-                                    </thead>
-                                    <tbody>
-                                      {linkedPayments.map(p => (
-                                        <tr key={p.id} className="border-b">
-                                          <td className="py-1 px-2">{p.date}</td>
-                                          <td className="py-1 px-2"><span className={`px-2 py-0.5 rounded-full text-xs ${p.type === 'income' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{p.type}</span></td>
-                                          <td className="py-1 px-2">{p.method}</td>
-                                          <td className="py-1 px-2 text-right font-medium">BGN {p.amount.toFixed(2)}</td>
-                                          <td className="py-1 px-2">{p.associatedTourId || 'N/A'}</td>
-                                        </tr>
-                                      ))}
-                                    </tbody>
-                                  </table>
-                                ) : (
-                                  <p className="text-sm text-gray-500">No payments found for this reservation.</p>
-                                )}
-                              </td>
-                            </tr>
-                          )}
-                        </React.Fragment>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import './BusTourContractPrint.css'; // Import the new CSS file
+
+// This component is for generating a contract based on Tour data.
+// It will dynamically determine lead guest and all tourists from linked reservations.
+const BusTourContractPrint = ({ tourData, allReservations, onPrintFinish }) => {
+    const formRef = useRef(null);
+    const [activeTab, setActiveTab] = useState('tab-1');
+
+    // State to hold derived lead guest and all tourists
+    const [leadGuest, setLeadGuest] = useState(null);
+    const [allTouristsForContract, setAllTouristsForContract] = useState([]);
+
+    // States for form fields - allowing user edits
+    const [contractNumber, setContractNumber] = useState('');
+    const [signingDate, setSigningDate] = useState('');
+
+    // Main Tourist fields
+    const [mainTouristName, setMainTouristName] = useState('');
+    const [mainTouristEGN, setMainTouristEGN] = useState('');
+    const [mainTouristIdCard, setMainTouristIdCard] = useState(''); // Always blank for contract
+    const [mainTouristAddress, setMainTouristAddress] = useState('');
+    const [mainTouristPhone, setMainTouristPhone] = useState('');
+    const [mainTouristEmail, setMainTouristEmail] = useState('');
+
+    // Trip Details fields
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
+    const [tripDuration, setTripDuration] = useState('');
+    const [transportDesc, setTransportDesc] = useState('');
+    const [departureInfo, setDepartureInfo] = useState('');
+    const [returnInfo, setReturnInfo] = useState('');
+    const [accommodationDesc, setAccommodationDesc] = useState('');
+    const [roomType, setRoomType] = useState('');
+    const [mealsDesc, setMealsDesc] = useState('');
+    const [otherServices, setOtherServices] = useState('Водач-представител на фирмата по време на цялото пътуване;'); // Static default
+    const [specialReqs, setSpecialReqs] = useState('');
+
+    // Financial fields
+    const [totalPrice, setTotalPrice] = useState(0);
+    const [otherPayments, setOtherPayments] = useState('');
+    const [childDiscount, setChildDiscount] = useState('');
+    const [adultDiscount, setAdultDiscount] = useState('');
+    const [singleRoomFee, setSingleRoomFee] = useState('');
+    const [extraExcursion, setExtraExcursion] = useState('');
+    const [insurance, setInsurance] = useState('');
+    const [finalAmount, setFinalAmount] = useState(0);
+    const [paymentTerms, setPaymentTerms] = useState('Плащането е по договаряне. За повече информация, моля свържете се с Туроператора.'); // Static default
+    const [depositAmount, setDepositAmount] = useState(0);
+    const [finalPayment, setFinalPayment] = useState('');
+
+
+    // Function to format dates for Bulgarian locale
+    const formatDate = useCallback((dateString) => {
+        if (!dateString) return '..................';
+        const date = new Date(dateString);
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0'); // Months are 0-indexed
+        const year = date.getFullYear();
+        return `${day}.${month}.${year}г.`;
+    }, []);
+
+    // Effect to derive lead guest and all tourists from linked reservations
+    useEffect(() => {
+        if (tourData && allReservations) {
+            const linkedReservations = allReservations.filter(res => res.linkedTourId === tourData.tourId);
             
-            {viewingReservation && (
-              <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 z-50">
-                <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-4xl relative max-h-[90vh] flex flex-col">
-                  <h3 className="text-2xl font-semibold mb-4 text-gray-800 border-b pb-3">Reservation Details: <span className="text-blue-600">{viewingReservation.reservationNumber}</span></h3>
-                  <div className="overflow-y-auto">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-gray-700 mb-6">
-                      <div><strong>Hotel:</strong> <span className="text-gray-600">{viewingReservation.hotel}</span></div>
-                      <div><strong>Place:</strong> <span className="text-gray-600">{viewingReservation.place}</span></div>
-                      <div><strong>Food:</strong> <span className="text-gray-600">{viewingReservation.food}</span></div>
-                      <div><strong>Check-in:</strong> <span className="text-gray-600">{viewingReservation.checkIn}</span></div>
-                      <div><strong>Check-out:</strong> <span className="text-gray-600">{viewingReservation.checkOut}</span></div>
-                      <div><strong>Nights:</strong> <span className="font-semibold">{viewingReservation.totalNights}</span></div>
-                      <div><strong>Status:</strong> <span className={`font-semibold ${viewingReservation.status === 'Confirmed' ? 'text-green-600' : 'text-yellow-600'}`}>{viewingReservation.status}</span></div>
-                      <div><strong>Tour Operator:</strong> <span className="text-gray-600">{viewingReservation.tourOperator}</span></div>
-                      <div><strong>Linked Tour ID:</strong> <span className="text-gray-600">{viewingReservation.linkedTourId || 'N/A'}</span></div>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-gray-700 mb-6 border-t pt-4">
-                      <div className="text-lg"><strong>Final Amount:</strong> <span className="font-bold text-green-600">BGN {viewingReservation.finalAmount.toFixed(2)}</span></div>
-                      <div className="text-lg"><strong>Owed to Hotel:</strong> <span className="font-bold text-red-600">BGN {viewingReservation.owedToHotel.toFixed(2)}</span></div>
-                      <div className="text-lg"><strong>Profit:</strong> <span className="font-bold text-blue-600">BGN {viewingReservation.profit.toFixed(2)}</span></div>
-                    </div>
-                    <h4 className="text-xl font-semibold mb-3 text-gray-800 border-t pt-4">Tourists ({viewingReservation.adults} Adults, {viewingReservation.children} Children)</h4>
-                    <div className="overflow-x-auto max-h-60 rounded-lg border">
-                      <table className="min-w-full bg-white">
-                        <thead className="bg-gray-100 text-gray-700 border-b">
-                          <tr>
-                            <th className="py-2 px-3 text-left text-sm font-medium">Name</th>
-                            <th className="py-2 px-3 text-left text-sm font-medium">ID</th>
-                            <th className="py-2 px-3 text-left text-sm font-medium">Real ID</th>
-                            <th className="py-2 px-3 text-left text-sm font-medium">Email</th>
-                            <th className="py-2 px-3 text-left text-sm font-medium">Phone</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {viewingReservation.tourists.map((t, index) => (
-                            <tr key={index} className="border-b border-gray-100">
-                              <td className="py-2 px-3 text-sm">{t.firstName} {t.familyName}</td>
-                              <td className="py-2 px-3 text-sm">{t.id}</td>
-                              <td className="py-2 px-3 text-sm">{t.realId}</td>
-                              <td className="py-2 px-3 text-sm">{t.email}</td>
-                              <td className="py-2 px-3 text-sm">{t.phone}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                  <div className="flex justify-end mt-6 pt-4 border-t">
-                    <button onClick={() => setViewingReservation(null)} className="px-6 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition duration-200 shadow-md">
-                      Close
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        );
-      case 'addReservation':
+            // Sort linked reservations (e.g., by creationDate or reservationNumber) to consistently pick a "first"
+            linkedReservations.sort((a, b) => {
+                const dateA = new Date(a.creationDate);
+                const dateB = new Date(b.creationDate);
+                return dateA.getTime() - dateB.getTime();
+            });
+
+            // Determine the lead guest for the contract (from the first reservation linked)
+            const firstReservationLeadGuest = linkedReservations.length > 0 && linkedReservations[0].tourists.length > 0
+                ? linkedReservations[0].tourists[0]
+                : null;
+            setLeadGuest(firstReservationLeadGuest);
+
+            // Collect all unique tourists from all linked reservations
+            const uniqueTouristsMap = new Map();
+            linkedReservations.forEach(res => {
+                res.tourists.forEach(t => {
+                    // Use a unique key for each tourist, e.g., combination of name and real ID
+                    const uniqueKey = `${t.firstName || ''}-${t.familyName || ''}-${t.realId || ''}`; // Ensure keys are strings
+                    if (!uniqueTouristsMap.has(uniqueKey)) {
+                        uniqueTouristsMap.set(uniqueKey, {
+                            fullName: `${t.firstName || ''} ${t.fatherName || ''} ${t.familyName || ''}`.trim(),
+                            realId: t.realId || '',
+                            // Passport/ID will be blank as per user request for contracts, or from existing 'id' if available
+                            id: t.id || ''
+                        });
+                    }
+                });
+            });
+            setAllTouristsForContract(Array.from(uniqueTouristsMap.values()));
+        }
+    }, [tourData, allReservations]);
+
+
+    // Effect to populate the VISIBLE form fields with tourData and derived guest info
+    useEffect(() => {
+        if (tourData) {
+            // Populate main tourist details from derived leadGuest
+            if (leadGuest) {
+                setMainTouristName(leadGuest.fullName || '');
+                setMainTouristEGN(leadGuest.realId || '');
+                setMainTouristIdCard(''); // Always blank as requested
+                setMainTouristAddress(`${leadGuest.address || ''}, ${leadGuest.city || ''}, ${leadGuest.postCode || ''}`.trim());
+                setMainTouristPhone(leadGuest.phone || '');
+                setMainTouristEmail(leadGuest.email || '');
+            } else {
+                // Clear lead guest fields if no lead guest is found
+                setMainTouristName('');
+                setMainTouristEGN('');
+                setMainTouristIdCard('');
+                setMainTouristAddress('');
+                setMainTouristPhone('');
+                setMainTouristEmail('');
+            }
+
+            // Populate tour-specific details
+            setContractNumber(tourData.tourId || '');
+            setSigningDate(tourData.departureDate || new Date().toISOString().split('T')[0]);
+            setStartDate(tourData.departureDate || '');
+            setEndDate(tourData.arrivalDate || '');
+            
+            const checkInDate = tourData.departureDate ? new Date(tourData.departureDate) : null;
+            const checkOutDate = tourData.arrivalDate ? new Date(tourData.arrivalDate) : null;
+            if (checkInDate && checkOutDate && checkOutDate >= checkInDate) {
+                const diffTime = Math.abs(checkOutDate.getTime() - checkInDate.getTime());
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                setTripDuration(`${diffDays + 1} дни / ${diffDays} нощувки`);
+            } else {
+                setTripDuration('');
+            }
+
+            setTransportDesc(tourData.transportDescription || 'N/A');
+            setDepartureInfo(tourData.departureDateTimePlace || 'N/A');
+            setReturnInfo(`Около ${tourData.arrivalDate || 'неизвестна дата'} на ${tourData.departureDateTimePlace || 'мястото на тръгване'}`);
+            setAccommodationDesc(tourData.tourHotels || 'N/A');
+            setRoomType(tourData.tourRoomSummary || 'N/A');
+            setMealsDesc(tourData.mealsIncluded || 'N/A');
+            // otherServices has a static default, no need to set here unless it comes from tourData
+            setSpecialReqs(''); // Always starts blank
+            setInsurance(tourData.insuranceDetails || 'НЕ Е ВКЛЮЧЕНА В ЦЕНАТА. ТУРИСТИТЕ СЕ ЗАДЪЛЖАВАТ ДА СКЛЮЧАТ ТАКАВА');
+            
+            // Financials default to blank/zero, as user wants to fill manually
+            setTotalPrice(0);
+            setOtherPayments('');
+            setChildDiscount('');
+            setAdultDiscount('');
+            setSingleRoomFee('');
+            setExtraExcursion('');
+            setFinalAmount(0);
+            // paymentTerms has a static default
+            setDepositAmount(0);
+            setFinalPayment('');
+        }
+    }, [tourData, leadGuest, formatDate]);
+
+
+    // Function to populate the HIDDEN print-only content based on current form values
+    const populatePrintContent = useCallback(() => {
+        // Direct access to state variables
+        const getValue = (val, fallback = '..................', suffix = '') => {
+            return (val !== null && val !== undefined && val !== '' ? val : fallback) + suffix;
+        };
+        const getOptionalValue = (val, fallback = 'Няма.') => val || fallback;
+
+        // Populate contract data in the print-only div
+        document.getElementById('pdf-contractNumber').textContent = getValue(contractNumber, '').replace('..................', '');
+        document.getElementById('pdf-signingDate').textContent = formatDate(signingDate);
+        document.getElementById('pdf-mainTouristName').textContent = getValue(mainTouristName);
+        document.getElementById('pdf-mainTouristEGN').textContent = getValue(mainTouristEGN);
+        document.getElementById('pdf-mainTouristIdCard').textContent = ''; // Always blank
+        document.getElementById('pdf-mainTouristAddress').textContent = getValue(mainTouristAddress);
+        document.getElementById('pdf-mainTouristPhone').textContent = getValue(mainTouristPhone);
+        document.getElementById('pdf-mainTouristEmail').textContent = getValue(mainTouristEmail);
+        
+        // Populate trip details in the print-only div
+        document.getElementById('pdf-startDate').textContent = formatDate(startDate);
+        document.getElementById('pdf-endDate').textContent = formatDate(endDate);
+        document.getElementById('pdf-tripDuration').textContent = getValue(tripDuration);
+        document.getElementById('pdf-transportDesc').textContent = getValue(transportDesc);
+        document.getElementById('pdf-departureInfo').textContent = getValue(departureInfo);
+        document.getElementById('pdf-returnInfo').textContent = getValue(returnInfo);
+        document.getElementById('pdf-accommodationDesc').textContent = getValue(accommodationDesc);
+        document.getElementById('pdf-roomType').textContent = getValue(roomType);
+        document.getElementById('pdf-mealsDesc').textContent = getValue(mealsDesc);
+        document.getElementById('pdf-otherServices').textContent = getOptionalValue(otherServices);
+        document.getElementById('pdf-specialReqs').textContent = getOptionalValue(specialReqs);
+
+        // Populate financials in the print-only div
+        document.getElementById('pdf-totalPrice').innerHTML = getValue(totalPrice, '', ' лв.');
+        document.getElementById('pdf-otherPayments').innerHTML = getOptionalValue(otherPayments);
+        document.getElementById('pdf-childDiscount').innerHTML = getOptionalValue(childDiscount, 'Не е приложимо.');
+        document.getElementById('pdf-adultDiscount').innerHTML = getOptionalValue(adultDiscount, 'Не е приложимо.');
+        document.getElementById('pdf-singleRoomFee').innerHTML = getOptionalValue(singleRoomFee, 'Не е приложимо.');
+        document.getElementById('pdf-extraExcursion').innerHTML = getOptionalValue(extraExcursion);
+        document.getElementById('pdf-insurance').innerHTML = getValue(insurance);
+        document.getElementById('pdf-finalAmount').innerHTML = getValue(finalAmount, '', ' лв.');
+        document.getElementById('pdf-paymentTerms').innerHTML = getValue(paymentTerms);
+        document.getElementById('pdf-depositAmount').textContent = getValue(depositAmount);
+        document.getElementById('pdf-finalPayment').innerHTML = getValue(finalPayment);
+
+        // Populate declarations in the print-only div
+        document.getElementById('pdf-declarationDate1').textContent = formatDate(signingDate);
+        document.getElementById('pdf-declarationDate2').textContent = formatDate(signingDate);
+        document.getElementById('pdf-declarationName').textContent = getValue(mainTouristName);
+        document.getElementById('pdf-declarationEGN').textContent = getValue(mainTouristEGN);
+        document.getElementById('pdf-declarationPhone').textContent = getValue(mainTouristPhone);
+        document.getElementById('pdf-declarationContractNumber').textContent = getValue(contractNumber, '').replace('..................', '');
+
+        // Build and insert the tourist table for the PDF (print-only div)
+        const pdfTableContainer = document.getElementById('pdf-tourists-table-container');
+        let tableHTML = '<h3 style="margin-top: 1em; font-weight: bold; text-align: center;">Данни на всички туристи в пакетното пътуване:</h3><table class="tourist-table-pdf"><thead><tr><th>№</th><th>Трите имена по док. за самоличност</th><th>ЕГН/ЛНЧ</th><th>№ паспорт/л.к.</th></tr></thead><tbody>';
+        
+        allTouristsForContract.forEach((t, index) => {
+            tableHTML += `<tr>
+                <td>${index + 1}</td>
+                <td>${t.fullName || ''}</td>
+                <td>${t.realId || ''}</td>
+                <td></td> 
+            </tr>`;
+        });
+        
+        // Ensure at least 13 rows are present in the PDF table (fill with blanks if less than 13 tourists)
+        const numRowsToAdd = 13 - allTouristsForContract.length;
+        for (let i = 0; i < numRowsToAdd; i++) {
+            tableHTML += `<tr><td>${allTouristsForContract.length + i + 1}</td><td></td><td></td><td></td></tr>`;
+        }
+
+        tableHTML += '</tbody></table>';
+        pdfTableContainer.innerHTML = tableHTML;
+    }, [formatDate, allTouristsForContract, contractNumber, signingDate, mainTouristName, mainTouristEGN, mainTouristAddress, mainTouristPhone, mainTouristEmail, startDate, endDate, tripDuration, transportDesc, departureInfo, returnInfo, accommodationDesc, roomType, mealsDesc, otherServices, specialReqs, totalPrice, otherPayments, childDiscount, adultDiscount, singleRoomFee, extraExcursion, insurance, finalAmount, paymentTerms, depositAmount, finalPayment]);
+
+
+    // Handle native print
+    const handlePrintContract = useCallback(() => {
+        // IMPORTANT: Populate the hidden print-only content just before printing
+        populatePrintContent();
+
+        // Use a timeout to ensure React has finished rendering updates before printing
+        const timer = setTimeout(() => {
+            window.print();
+        }, 100); // Small delay to ensure content is fully rendered
+
+        // Call onPrintFinish when the print dialog is closed or print is completed/cancelled
+        window.onafterprint = () => {
+            onPrintFinish();
+            window.onafterprint = null; // Clean up the event listener
+        };
+
+        return () => {
+            clearTimeout(timer);
+            window.onafterprint = null; // Clean up on component unmount
+        };
+    }, [onPrintFinish, populatePrintContent]);
+
+    const handleTabClick = useCallback((tabId) => {
+        setActiveTab(tabId);
+        // Direct DOM manipulation is necessary here because formRef.current is the actual DOM form element
+        // and we are managing the 'hidden' class for the tab content divs.
+        const tabContents = formRef.current.querySelectorAll('.tab-content');
+        tabContents.forEach(content => {
+            content.classList.toggle('hidden', content.id !== tabId);
+        });
+        const tabButtons = formRef.current.querySelectorAll('.tab-btn');
+        tabButtons.forEach(btn => {
+            btn.classList.remove('active');
+            if (btn.dataset.tab === tabId) {
+                btn.classList.add('active');
+            }
+        });
+    }, []);
+
+    // Show loading or empty state if data is not ready
+    if (!tourData || !allReservations) {
         return (
-          <div className="p-6 bg-white rounded-xl shadow-lg">
-            <h2 className="text-3xl font-bold mb-8 text-gray-800 border-b pb-4">
-              {selectedReservation ? 'Edit Hotel Reservation' : 'Add New Hotel Reservation'}
-            </h2>
-            <form onSubmit={handleSubmitReservation} className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-              {/* Basic Info */}
-              <div className="col-span-full text-lg font-semibold text-gray-800">Basic Information</div>
-              <div>
-                <label htmlFor="creationDate" className="block text-sm font-medium text-gray-700">Creation Date</label>
-                <input
-                  type="date"
-                  name="creationDate"
-                  id="creationDate"
-                  value={reservationForm.creationDate}
-                  onChange={handleReservationFormChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                  required
-                />
-              </div>
-              <div>
-                <label htmlFor="reservationNumber" className="block text-sm font-medium text-gray-700">Reservation Number</label>
-                <input
-                  type="text"
-                  name="reservationNumber"
-                  id="reservationNumber"
-                  value={reservationForm.reservationNumber}
-                  onChange={handleReservationFormChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2 bg-gray-100"
-                  placeholder="Auto-generated or editable"
-                  disabled={!!selectedReservation}
-                />
-              </div>
-              <div>
-                <label htmlFor="tourType" className="block text-sm font-medium text-gray-700">Tour Type</label>
-                <select
-                  name="tourType"
-                  id="tourType"
-                  value={reservationForm.tourType}
-                  onChange={handleReservationFormChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                >
-                  <option value="PARTNER">PARTNER</option>
-                  <option value="HOTEL ONLY">HOTEL ONLY</option>
-                </select>
-              </div>
-              <div>
-                <label htmlFor="hotel" className="block text-sm font-medium text-gray-700">Hotel</label>
-                <input
-                  type="text"
-                  name="hotel"
-                  id="hotel"
-                  value={reservationForm.hotel}
-                  onChange={handleReservationFormChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                  required
-                />
-              </div>
-<div>
-                <label htmlFor="food" className="block text-sm font-medium text-gray-700">Food</label>
-                <input
-                  type="text"
-                  name="food"
-                  id="food"
-                  value={reservationForm.food}
-                  onChange={handleReservationFormChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                />
-              </div>
-              <div>
-                <label htmlFor="roomType" className="block text-sm font-medium text-gray-700">Room Type</label>
-                <input
-                  type="text"
-                  name="roomType"
-                  id="roomType"
-                  value={reservationForm.roomType}
-                  onChange={handleReservationFormChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                  placeholder="e.g., Double Room, Apartment"
-                />
-              </div>
-              <div>
-                <label htmlFor="place" className="block text-sm font-medium text-gray-700">Place</label>
-                <input
-                  type="text"
-                  name="place"
-                  id="place"
-                  value={reservationForm.place}
-                  onChange={handleReservationFormChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                />
-              </div>
-              <div>
-                <label htmlFor="checkIn" className="block text-sm font-medium text-gray-700">Check-In Date</label>
-                <input
-                  type="date"
-                  name="checkIn"
-                  id="checkIn"
-                  value={reservationForm.checkIn}
-                  onChange={handleReservationFormChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                  required
-                />
-              </div>
-              <div>
-                <label htmlFor="checkOut" className="block text-sm font-medium text-gray-700">Check-Out Date</label>
-                <input
-                  type="date"
-                  name="checkOut"
-                  id="checkOut"
-                  value={reservationForm.checkOut}
-                  onChange={handleReservationFormChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                  required
-                />
-              </div>
-              <div>
-                <label htmlFor="totalNights" className="block text-sm font-medium text-gray-700">Total Nights</label>
-                <input
-                  type="number"
-                  name="totalNights"
-                  id="totalNights"
-                  value={reservationForm.totalNights}
-                  readOnly
-                  className="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm px-3 py-2"
-                />
-              </div>
-              <div>
-                <label htmlFor="adults" className="block text-sm font-medium text-gray-700">Adults</label>
-                <input
-                  type="number"
-                  name="adults"
-                  id="adults"
-                  value={reservationForm.adults}
-                  onChange={handleReservationFormChange}
-                  min="0"
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                />
-              </div>
-              <div>
-                <label htmlFor="children" className="block text-sm font-medium text-gray-700">Children</label>
-                <input
-                  type="number"
-                  name="children"
-                  id="children"
-                  value={reservationForm.children}
-                  onChange={handleReservationFormChange}
-                  min="0"
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                />
-              </div>
+            <div className="flex justify-center items-center h-full min-h-[calc(100vh-100px)]">
+                <div className="text-gray-600 text-lg animate-pulse">Loading tour contract data...</div>
+            </div>
+        );
+    }
 
-              {/* Link to Tour */}
-              <div className="col-span-full text-lg font-semibold text-gray-800 pt-4 border-t border-gray-200">Tour Association</div>
-              <div>
-                <label htmlFor="linkedTourId" className="block text-sm font-medium text-gray-700">Select Tour (Optional)</label>
-                <select
-                  name="linkedTourId"
-                  id="linkedTourId"
-                  value={reservationForm.linkedTourId}
-                  onChange={handleReservationFormChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                >
-                  <option value="">-- None --</option>
-                  {tours.map(tour => (
-                    <option key={tour.id} value={tour.tourId}>
-                      {tour.tourId} - {tour.hotel} ({tour.departureDate})
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label htmlFor="approxTransportCost" className="block text-sm font-medium text-gray-700">Approx. Transport Cost</label>
-                <input
-                  type="number"
-                  name="approxTransportCost"
-                  id="approxTransportCost"
-                  value={reservationForm.approxTransportCost}
-                  onChange={handleReservationFormChange}
-                  min="0"
-                  step="0.01"
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                />
-              </div>
+    return (
+        <div className="print-preview-container">
+            <div className="invoice-output">
+                
+                {/* Header - Hidden in print */}
+                <div className="p-8 text-center no-print">
+                    <h1 className="text-3xl font-bold text-gray-800">Генератор на Договор за Автобусен Тур</h1>
+                    <p className="mt-2 text-gray-600">Прегледайте и принтирайте договора за туристически пакет, базиран на данни за тур.</p>
+                </div>
 
-{/* Tourist Details */}
-                  <div className="md:col-span-2 border-t border-gray-200 pt-4 mt-4">
-                    <h3 className="text-lg font-semibold mb-4 text-gray-800">Tourist Details</h3>
-                    {reservationForm.tourists.map((tourist, index) => (
-                      <div key={index} className="border border-gray-200 rounded-lg p-4 mb-4 relative shadow-sm">
-                        <div className="flex justify-between items-center mb-4">
-                          <div className="flex items-center space-x-2">
-                            <h4 className="text-md font-medium text-gray-700">Tourist {index + 1}</h4>
-                            {/* Mode Toggle Buttons */}
-                            <div className="flex p-1 bg-gray-200 rounded-lg">
-                              <button
-                                type="button"
-                                onClick={() => handleTouristModeChange(index, 'new')}
-                                className={`px-3 py-1 text-sm rounded-md transition-colors duration-200 ${tourist.mode === 'new' ? 'bg-white text-gray-800 shadow-sm' : 'bg-transparent text-gray-600'}`}
-                              >
-                                New
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleTouristModeChange(index, 'existing')}
-                                className={`px-3 py-1 text-sm rounded-md transition-colors duration-200 ${tourist.mode === 'existing' ? 'bg-white text-gray-800 shadow-sm' : 'bg-transparent text-gray-600'}`}
-                              >
-                                Existing
-                              </button>
+                {/* Tab Navigation - Hidden in print */}
+                <div className="px-8 border-b border-gray-200 no-print">
+                    <nav className="flex flex-wrap -mb-px" id="tab-nav">
+                        <button type="button" data-tab="tab-1" className={`tab-btn py-4 px-4 text-sm font-medium ${activeTab === 'tab-1' ? 'active' : ''}`} onClick={() => handleTabClick('tab-1')}>1. Основна информация</button>
+                        <button type="button" data-tab="tab-2" className={`tab-btn py-4 px-4 text-sm font-medium ${activeTab === 'tab-2' ? 'active' : ''}`} onClick={() => handleTabClick('tab-2')}>2. Данни за туристите</button>
+                        <button type="button" data-tab="tab-3" className={`tab-btn py-4 px-4 text-sm font-medium ${activeTab === 'tab-3' ? 'active' : ''}`} onClick={() => handleTabClick('tab-3')}>3. Детайли за пътуването</button>
+                        <button type="button" data-tab="tab-4" className={`tab-btn py-4 px-4 text-sm font-medium ${activeTab === 'tab-4' ? 'active' : ''}`} onClick={() => handleTabClick('tab-4')}>4. Финансови условия</button>
+                    </nav>
+                </div>
+
+                {/* Contract Form - Visible on screen, data populated by useEffect */}
+                <div className="p-8">
+                    <form ref={formRef} id="contract-form" onSubmit={(e) => e.preventDefault()}>
+
+                        {/* Tab 1: General Info */}
+                        <div id="tab-1" className={`tab-content ${activeTab === 'tab-1' ? '' : 'hidden'}`}>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label htmlFor="contractNumber" className="block text-sm font-medium text-gray-700 mb-1">Номер на договор</label>
+                                    <input type="text" id="contractNumber" name="contractNumber" className="form-input w-full rounded-md border-gray-300" placeholder="2025/01" value={contractNumber} onChange={(e) => setContractNumber(e.target.value)} />
+                                </div>
+                                <div>
+                                    <label htmlFor="signingDate" className="block text-sm font-medium text-gray-700 mb-1">Дата на подписване</label>
+                                    <input type="date" id="signingDate" name="signingDate" className="form-input w-full rounded-md border-gray-300" value={signingDate} onChange={(e) => setSigningDate(e.target.value)} />
+                                </div>
                             </div>
-                          </div>
-                          {reservationForm.tourists.length > 1 && (
-                            <button
-                              type="button"
-                              onClick={() => removeTourist(index)}
-                              className="bg-red-500 hover:bg-red-600 text-white p-1 rounded-full text-xs transition duration-200"
-                              title="Remove Tourist"
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                              </svg>
-                            </button>
-                          )}
                         </div>
 
-                        {/* Conditional Rendering based on mode */}
-                        {tourist.mode === 'existing' ? (
-                          <div className="col-span-full">
-                            <label htmlFor={`existingCustomer-${index}`} className="block text-sm font-medium text-gray-700">Select Existing Customer</label>
-                            <select
-                              name="existingCustomer"
-                              id={`existingCustomer-${index}`}
-                              value={tourist.id || ''}
-                              onChange={(e) => handleExistingTouristSelect(index, e.target.value)}
-                              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                              required
-                            >
-                              <option value="" disabled>-- Select a customer --</option>
-                              {customers.map(c => (
-                                <option key={c.id} value={c.id}>
-                                  {`${c.firstName} ${c.familyName} (ID: ${c.id})`}
-                                </option>
-                              ))}
-                            </select>
-                            {tourist.id && (
-                               <div className="mt-2 text-sm text-gray-600 bg-gray-50 p-2 rounded-md">
-                                  Selected: {tourist.firstName} {tourist.familyName}, ID: {tourist.id}, Real ID: {tourist.realId}
-                               </div>
-                            )}
-                          </div>
-                        ) : (
-                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {/* Input fields for a new tourist */}
-                            <div>
-                              <label htmlFor={`firstName-${index}`} className="block text-sm font-medium text-gray-700">First Name</label>
-                              <input type="text" name="firstName" id={`firstName-${index}`} value={tourist.firstName} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" required />
+                        {/* Tab 2: Tourist Info */}
+                        <div id="tab-2" className={`tab-content ${activeTab === 'tab-2' ? '' : 'hidden'}`}>
+                            <h3 className="text-lg font-semibold text-gray-800 mb-4 border-b pb-2">Данни на основен потребител</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                                <div>
+                                    <label htmlFor="mainTouristName" className="block text-sm font-medium text-gray-700 mb-1">Трите имена на турист</label>
+                                    <input type="text" id="mainTouristName" name="mainTouristName" className="form-input w-full rounded-md border-gray-300" placeholder="Иван Иванов Иванов" value={mainTouristName} onChange={(e) => setMainTouristName(e.target.value)} />
+                                </div>
+                                <div>
+                                    <label htmlFor="mainTouristEGN" className="block text-sm font-medium text-gray-700 mb-1">ЕГН</label>
+                                    <input type="text" id="mainTouristEGN" name="mainTouristEGN" className="form-input w-full rounded-md border-gray-300" placeholder="0000000000" value={mainTouristEGN} onChange={(e) => setMainTouristEGN(e.target.value)} />
+                                </div>
+                                <div>
+                                    <label htmlFor="mainTouristIdCard" className="block text-sm font-medium text-gray-700 mb-1">Л.К. №</label>
+                                    <input type="text" id="mainTouristIdCard" name="mainTouristIdCard" className="form-input w-full rounded-md border-gray-300" placeholder="600000000" value={mainTouristIdCard} onChange={(e) => setMainTouristIdCard(e.target.value)} />
+                                </div>
+                                <div>
+                                    <label htmlFor="mainTouristAddress" className="block text-sm font-medium text-gray-700 mb-1">Адрес</label>
+                                    <input type="text" id="mainTouristAddress" name="mainTouristAddress" className="form-input w-full rounded-md border-gray-300" placeholder="гр. София, ул. Примерна №1" value={mainTouristAddress} onChange={(e) => setMainTouristAddress(e.target.value)} />
+                                </div>
+                                <div>
+                                    <label htmlFor="mainTouristPhone" className="block text-sm font-medium text-gray-700 mb-1">GSM</label>
+                                    <input type="text" id="mainTouristPhone" name="mainTouristPhone" className="form-input w-full rounded-md border-gray-300" placeholder="0888123456" value={mainTouristPhone} onChange={(e) => setMainTouristPhone(e.target.value)} />
+                                </div>
+                                <div>
+                                    <label htmlFor="mainTouristEmail" className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                                    <input type="email" id="mainTouristEmail" name="mainTouristEmail" className="form-input w-full rounded-md border-gray-300" placeholder="ivan.ivanov@email.com" value={mainTouristEmail} onChange={(e) => setMainTouristEmail(e.target.value)} />
+                                </div>
                             </div>
-                            <div>
-                              <label htmlFor={`fatherName-${index}`} className="block text-sm font-medium text-gray-700">Father's Name</label>
-                              <input type="text" name="fatherName" id={`fatherName-${index}`} value={tourist.fatherName} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
+                            <div className="flex justify-between items-center mb-4 border-b pb-2">
+                                <h3 className="text-lg font-semibold text-gray-800">Придружаващи туристи</h3>
+                                {/* Add Tourist button for future functionality, current implementation derives from linked reservations */}
+                                <button type="button" id="add-tourist-btn" className="flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-500 hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" /></svg>
+                                    Добави
+                                </button>
                             </div>
-                            <div>
-                              <label htmlFor={`familyName-${index}`} className="block text-sm font-medium text-gray-700">Family Name</label>
-                              <input type="text" name="familyName" id={`familyName-${index}`} value={tourist.familyName} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" required />
+                            <div className="overflow-x-auto rounded-lg border border-gray-200">
+                                <table className="w-full text-sm text-left text-gray-600">
+                                    <thead className="text-xs text-gray-700 uppercase bg-gray-50">
+                                        <tr>
+                                            <th scope="col" className="px-4 py-3 w-12 text-center">№</th>
+                                            <th scope="col" className="px-6 py-3">Трите имена</th>
+                                            <th scope="col" className="px-6 py-3">ЕГН/ЛНЧ</th>
+                                            <th scope="col" className="px-6 py-3">№ паспорт/л.к.</th>
+                                            <th scope="col" className="px-4 py-3 text-center">Действие</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tourists-table-body">
+                                        {allTouristsForContract.map((t, index) => ( // Use allTouristsForContract
+                                            <tr key={index}>
+                                                <td className="px-4 py-3 text-center font-medium text-gray-700">{index + 1}</td>
+                                                <td className="px-6 py-2"><input type="text" className="form-input w-full rounded-md border-gray-300 text-sm bg-gray-100 cursor-not-allowed" value={t.fullName} readOnly /></td>
+                                                <td className="px-6 py-2"><input type="text" className="form-input w-full rounded-md border-gray-300 text-sm bg-gray-100 cursor-not-allowed" value={t.realId} readOnly /></td>
+                                                <td className="px-6 py-2"><input type="text" className="form-input w-full rounded-md border-gray-300 text-sm bg-gray-100 cursor-not-allowed" value={mainTouristIdCard} readOnly /></td> {/* ID is always blank on print and here */}
+                                                <td className="px-4 py-2 text-center">
+                                                    {/* No remove button for pre-filled tourists */}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
                             </div>
-                            <div>
-                              <label htmlFor={`id-${index}`} className="block text-sm font-medium text-gray-700">ID</label>
-                              <input type="text" name="id" id={`id-${index}`} value={tourist.id} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" placeholder="e.g., Passport/National ID" required />
+                        </div>
+
+                        {/* Tab 3: Trip Details */}
+                        <div id="tab-3" className={`tab-content ${activeTab === 'tab-3' ? '' : 'hidden'}`}>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                <div>
+                                    <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 mb-1">Начална дата</label>
+                                    <input type="date" id="startDate" name="startDate" className="form-input w-full rounded-md border-gray-300" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+                                </div>
+                                <div>
+                                    <label htmlFor="endDate" className="block text-sm font-medium text-gray-700 mb-1">Крайна дата</label>
+                                    <input type="date" id="endDate" name="endDate" className="form-input w-full rounded-md border-gray-300" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+                                </div>
+                                <div>
+                                    <label htmlFor="tripDuration" className="block text-sm font-medium text-gray-700 mb-1">Продължителност</label>
+                                    <input type="text" id="tripDuration" name="tripDuration" className="form-input w-full rounded-md border-gray-300 bg-gray-100" readOnly placeholder="Автоматично" value={tripDuration} />
+                                </div>
+                                <div className="lg:col-span-3">
+                                    <label htmlFor="transportDesc" className="block text-sm font-medium text-gray-700 mb-1">1. Транспорт</label>
+                                    <textarea id="transportDesc" name="transportDesc" rows="2" className="form-textarea w-full rounded-md border-gray-300" placeholder="Напр. Комфортен туристически автобус" value={transportDesc} onChange={(e) => setTransportDesc(e.target.value)}></textarea>
+                                </div>
+                                <div>
+                                    <label htmlFor="departureInfo" className="block text-sm font-medium text-gray-700 mb-1">Час и място на тръгване</label>
+                                    <input type="text" id="departureInfo" name="departureInfo" className="form-input w-full rounded-md border-gray-300" placeholder="06:00, гр. София, пл. Ал. Невски" value={departureInfo} onChange={(e) => setDepartureInfo(e.target.value)} />
+                                </div>
+                                <div>
+                                    <label htmlFor="returnInfo" className="block text-sm font-medium text-gray-700 mb-1">Час и място на връщане</label>
+                                    <input type="text" id="returnInfo" name="returnInfo" className="form-input w-full rounded-md border-gray-300" placeholder="Около 22:00, гр. София, пл. Ал. Невски" value={returnInfo} onChange={(e) => setReturnInfo(e.target.value)} />
+                                </div>
+                                <div className="lg:col-span-2">
+                                    <label htmlFor="accommodationDesc" className="block text-sm font-medium text-gray-700 mb-1">2. Настаняване</label>
+                                    <textarea id="accommodationDesc" name="accommodationDesc" rows="3" className="form-textarea w-full rounded-md border-gray-300" placeholder="Напр. Хотел 'Планина' 3*, гр. Банско, 2 нощувки" value={accommodationDesc} onChange={(e) => setAccommodationDesc(e.target.value)}></textarea>
+                                </div>
+                                <div>
+                                    <label htmlFor="roomType" className="block text-sm font-medium text-gray-700 mb-1">Брой и вид стаи</label>
+                                    <input type="text" id="roomType" name="roomType" className="form-input w-full rounded-md border-gray-300" placeholder="1 двойна стая" value={roomType} onChange={(e) => setRoomType(e.target.value)} />
+                                </div>
+                                <div className="lg:col-span-3">
+                                    <label htmlFor="mealsDesc" className="block text-sm font-medium text-gray-700 mb-1">3. Брой и вид на храненията, включени в пакетната цена</label>
+                                    <input type="text" id="mealsDesc" name="mealsDesc" className="form-input w-full rounded-md border-gray-300" placeholder="2 закуски и 2 вечери" value={mealsDesc} onChange={(e) => setMealsDesc(e.target.value)} />
+                                </div>
+                                <div className="lg:col-span-3">
+                                    <label htmlFor="otherServices" className="block text-sm font-medium text-gray-700 mb-1">3.3. Други услуги, включени в общата цена</label>
+                                    <textarea id="otherServices" name="otherServices" rows="3" className="form-textarea w-full rounded-md border-gray-300" placeholder="Водач-представител на фирмата по време на цялото пътуване;" value={otherServices} onChange={(e) => setOtherServices(e.target.value)}></textarea>
+                                </div>
+                                <div className="lg:col-span-3">
+                                    <label htmlFor="specialReqs" className="block text-sm font-medium text-gray-700 mb-1">3.4. Специални изисквания на потребителя</label>
+                                    <textarea id="specialReqs" name="specialReqs" rows="2" className="form-textarea w-full rounded-md border-gray-300" placeholder="Вегетарианско меню, настаняване на висок етаж..." value={specialReqs} onChange={(e) => setSpecialReqs(e.target.value)}></textarea>
+                                </div>
                             </div>
-                            <div>
-                              <label htmlFor={`realId-${index}`} className="block text-sm font-medium text-gray-700">Real ID</label>
-                              <input type="text" name="realId" id={`realId-${index}`} value={tourist.realId} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" placeholder="e.g., ЕГН/ЛНЧ" />
+                        </div>
+                        
+                        {/* Tab 4: Financials */}
+                        <div id="tab-4" className={`tab-content ${activeTab === 'tab-4' ? '' : 'hidden'}`}>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label htmlFor="totalPrice" className="block text-sm font-medium text-gray-700 mb-1">3.5 Обща цена в лева на пътуването</label>
+                                    <input type="number" id="totalPrice" name="totalPrice" className="form-input w-full rounded-md border-gray-300" placeholder="0.00" step="0.01" value={totalPrice} onChange={(e) => setTotalPrice(parseFloat(e.target.value) || 0)} />
+                                </div>
+                                <div>
+                                    <label htmlFor="otherPayments" className="block text-sm font-medium text-gray-700 mb-1">3.5.1 Други плащания, включени в цената</label>
+                                    <input type="text" id="otherPayments" name="otherPayments" className="form-input w-full rounded-md border-gray-300" placeholder="Пътни и гранични такси" value={otherPayments} onChange={(e) => setOtherPayments(e.target.value)} />
+                                </div>
+                                <div>
+                                    <label htmlFor="childDiscount" className="block text-sm font-medium text-gray-700 mb-1">3.5.1.1 Отстъпки за деца до 10/12 г.</label>
+                                    <input type="text" id="childDiscount" name="childDiscount" className="form-input w-full rounded-md border-gray-300" placeholder="50 лв." value={childDiscount} onChange={(e) => setChildDiscount(e.target.value)} />
+                                </div>
+                                <div>
+                                    <label htmlFor="adultDiscount" className="block text-sm font-medium text-gray-700 mb-1">3.5.1.2 Отстъпки за трети възрастен</label>
+                                    <input type="text" id="adultDiscount" name="adultDiscount" className="form-input w-full rounded-md border-gray-300" placeholder="20 лв." value={adultDiscount} onChange={(e) => setAdultDiscount(e.target.value)} />
+                                </div>
+                                <div>
+                                    <label htmlFor="singleRoomFee" className="block text-sm font-medium text-gray-700 mb-1">3.5.1.3 Доплащане за единична стая</label>
+                                    <input type="text" id="singleRoomFee" name="singleRoomFee" className="form-input w-full rounded-md border-gray-300" placeholder="60 лв." value={singleRoomFee} onChange={(e) => setSingleRoomFee(e.target.value)} />
+                                </div>
+                                <div>
+                                    <label htmlFor="extraExcursion" className="block text-sm font-medium text-gray-700 mb-1">3.5.1.4 Други - допълнителна екскурзия</label>
+                                    <input type="text" id="extraExcursion" name="extraExcursion" className="form-input w-full rounded-md border-gray-300" placeholder="Екскурзия до ... - 30 лв." value={extraExcursion} onChange={(e) => setExtraExcursion(e.target.value)} />
+                                </div>
+                                <div className="md:col-span-2">
+                                    <label htmlFor="insurance" className="block text-sm font-medium text-gray-700 mb-1">3.5.1.5 Застраховка</label>
+                                    <input type="text" id="insurance" name="insurance" className="form-input w-full rounded-md border-gray-300" placeholder="Медицинска застраховка 'Помощ при пътуване' с лимит 5000 евро" value={insurance} onChange={(e) => setInsurance(e.target.value)} />
+                                </div>
+                                <div>
+                                    <label htmlFor="finalAmount" className="block text-sm font-medium text-gray-700 mb-1">3.6 Крайна обща дължима сума</label>
+                                    <input type="number" id="finalAmount" name="finalAmount" className="form-input w-full rounded-md border-gray-300" placeholder="0.00" step="0.01" value={finalAmount} onChange={(e) => setFinalAmount(parseFloat(e.target.value) || 0)} />
+                                </div>
+                                <div className="md:col-span-2">
+                                    <label htmlFor="paymentTerms" className="block text-sm font-medium text-gray-700 mb-1">3.7 Начин и срок за плащане</label>
+                                    <textarea id="paymentTerms" name="paymentTerms" rows="3" className="form-textarea w-full rounded-md border-gray-300" placeholder="По банков път до ДД.ММ.ГГГГ" value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value)}></textarea>
+                                </div>
+                                <div>
+                                    <label htmlFor="depositAmount" className="block text-sm font-medium text-gray-700 mb-1">Депозит (лв.)</label>
+                                    <input type="number" id="depositAmount" name="depositAmount" className="form-input w-full rounded-md border-gray-300" placeholder="0.00" step="0.01" value={depositAmount} onChange={(e) => setDepositAmount(parseFloat(e.target.value) || 0)} />
+                                </div>
+                                <div>
+                                    <label htmlFor="finalPayment" className="block text-sm font-medium text-gray-700 mb-1">Остатък от пълната сума в размер на</label>
+                                    <input type="text" id="finalPayment" name="finalPayment" className="form-input w-full rounded-md border-gray-300" placeholder="... лв. до ДД.ММ.ГГГГ" value={finalPayment} onChange={(e) => setFinalPayment(e.target.value)} />
+                                </div>
                             </div>
-                            <div>
-                              <label htmlFor={`address-${index}`} className="block text-sm font-medium text-gray-700">Address</label>
-                              <input type="text" name="address" id={`address-${index}`} value={tourist.address} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
-                            </div>
-                            <div>
-                              <label htmlFor={`city-${index}`} className="block text-sm font-medium text-gray-700">City</label>
-                              <input type="text" name="city" id={`city-${index}`} value={tourist.city} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
-                            </div>
-                            <div>
-                              <label htmlFor={`postCode-${index}`} className="block text-sm font-medium text-gray-700">Post Code</label>
-                              <input type="text" name="postCode" id={`postCode-${index}`} value={tourist.postCode} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
-                            </div>
-                            <div>
-                              <label htmlFor={`email-${index}`} className="block text-sm font-medium text-gray-700">Email</label>
-                              <input type="email" name="email" id={`email-${index}`} value={tourist.email} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
-                            </div>
-                            <div>
-                              <label htmlFor={`phone-${index}`} className="block text-sm font-medium text-gray-700">Phone</label>
-                              <input type="tel" name="phone" id={`phone-${index}`} value={tourist.phone} onChange={(e) => handleTouristChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                    <button
-                      type="button"
-                      onClick={addTourist}
-                      className="mt-4 px-6 py-2 bg-[#28A745] text-white rounded-lg hover:bg-[#218838] transition duration-200 shadow-md"
-                    >
-                      Add Another Tourist
+                        </div>
+
+                    </form>
+                </div>
+                
+                {/* Action Buttons - Hidden in print */}
+                <div className="px-8 pb-8 flex justify-between items-center no-print">
+                    <button type="button" onClick={onPrintFinish} className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition duration-200 shadow-sm">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 inline-block mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+                        Назад
                     </button>
-                  </div>
-
-              {/* Financial Info */}
-              <div className="md:col-span-2 border-t border-gray-200 pt-4 mt-4">
-                <h3 className="text-lg font-semibold mb-4 text-gray-800">Financial Info</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="flex items-center">
-                    <input
-                      type="checkbox"
-                      name="depositPaid"
-                      id="depositPaid"
-                      checked={reservationForm.depositPaid}
-                      onChange={handleReservationFormChange}
-                      className="h-5 w-5 text-[#28A745] focus:ring-[#28A745] border-gray-300 rounded" // Checkbox accent green
-                    />
-                    <label htmlFor="depositPaid" className="ml-2 block text-sm font-medium text-gray-700">Deposit Paid</label>
-                  </div>
-                  <div>
-                    <label htmlFor="depositAmount" className="block text-sm font-medium text-gray-700">Deposit Amount</label>
-                    <input
-                      type="number"
-                      name="depositAmount"
-                      id="depositAmount"
-                      value={reservationForm.depositAmount}
-                      onChange={handleReservationFormChange}
-                      min="0"
-                      step="0.01"
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="finalAmount" className="block text-sm font-medium text-gray-700">Final Amount</label>
-                    <input
-                      type="number"
-                      name="finalAmount"
-                      id="finalAmount"
-                      value={reservationForm.finalAmount}
-                      onChange={handleReservationFormChange}
-                      min="0"
-                      step="0.01"
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="owedToHotel" className="block text-sm font-medium text-gray-700">Owed to Hotel</label>
-                    <input
-                      type="number"
-                      name="owedToHotel"
-                      id="owedToHotel"
-                      value={reservationForm.owedToHotel}
-                      onChange={handleReservationFormChange}
-                      min="0"
-                      step="0.01"
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="profit" className="block text-sm font-medium text-gray-700">Profit</label>
-                    <input
-                      type="number"
-                      name="profit"
-                      id="profit"
-                      value={reservationForm.profit.toFixed(2)}
-                      readOnly
-                      className="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm px-3 py-2 font-semibold text-gray-800"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="tourOperator" className="block text-sm font-medium text-gray-700">Tour Operator</label>
-                    <input
-                      type="text"
-                      name="tourOperator"
-                      id="tourOperator"
-                      value={reservationForm.tourOperator}
-                      onChange={handleReservationFormChange}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="status" className="block text-sm font-medium text-gray-700">Status</label>
-                    <select
-                      name="status"
-                      id="status"
-                      value={reservationForm.status}
-                      onChange={handleReservationFormChange}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                    >
-                      <option value="Pending">Pending</option>
-                      <option value="Confirmed">Confirmed</option>
-                      <option value="Cancelled">Cancelled</option>
-                      <option value="Past">Past</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              <div className="md:col-span-2 flex justify-end space-x-3 mt-8">
-                <button
-                  type="button"
-                  onClick={() => {
-                    resetReservationForm();
-                    setActiveTab('reservations');
-                  }}
-                  className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition duration-200 shadow-sm"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-6 py-2 bg-[#28A745] text-white rounded-lg hover:bg-[#218838] transition duration-200 shadow-md"
-                  disabled={loading}
-                >
-                  {loading ? 'Saving...' : selectedReservation ? 'Update Reservation' : 'Add Reservation'}
-                </button>
-              </div>
-            </form>
-          </div>
-        );
-
-case 'customers':
-        return (
-          <div className="p-6 bg-white rounded-xl shadow-lg">
-            <div className="flex flex-col md:flex-row justify-between items-center mb-8 pb-4 border-b">
-              <h2 className="text-3xl font-bold text-gray-800">Customers List</h2>
-              {/* New Search Input */}
-              <div className="relative mt-4 md:mt-0">
-                <input
-                  type="text"
-                  placeholder="Search by name..."
-                  value={searchCustomerTerm}
-                  onChange={(e) => setSearchCustomerTerm(e.target.value)}
-                  className="w-full md:w-64 pl-10 pr-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-                />
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
-                  </svg>
-                </div>
-              </div>
-            </div>
-
-            {filteredCustomers.length === 0 ? (
-              <p className="text-gray-600 text-center py-8">No customers found. Customers are automatically added when you create a reservation.</p>
-            ) : (
-              <div className="overflow-x-auto rounded-xl shadow-md border border-gray-200">
-                <table className="min-w-full bg-white">
-                  <thead className="bg-gray-50 text-gray-700 border-b border-gray-200">
-                    <tr>
-                      <th className="py-3 px-4 text-left font-medium">Name</th>
-                      <th className="py-3 px-4 text-left font-medium">ID</th>
-                      <th className="py-3 px-4 text-left font-medium">Email</th>
-                      <th className="py-3 px-4 text-left font-medium">Phone</th>
-                      <th className="py-3 px-4 text-center font-medium">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="text-gray-700">
-                    {filteredCustomers.map(cust => (
-                      <tr key={cust.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors duration-150">
-                        <td className="py-3 px-4">{cust.firstName} {cust.fatherName ? cust.fatherName + ' ' : ''}{cust.familyName}</td>
-                        <td className="py-3 px-4 text-gray-500">{cust.id}</td>
-                        <td className="py-3 px-4">{cust.email}</td>
-                        <td className="py-3 px-4">{cust.phone}</td>
-                        <td className="py-3 px-4 flex justify-center">
-                          <button
-                            onClick={() => handleEditCustomer(cust)}
-                            className="bg-[#28A745] hover:bg-[#218838] text-white p-2 rounded-full shadow-md transition duration-200"
-                            title="Edit Customer"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                              <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zm-5.69 5.69L11.586 7.586 14.414 10.414 11.586 13.242 8.758 10.414l2.828-2.828z" />
-                              <path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm-4 8a1 1 0 011-1h1a1 1 0 110 2H7a1 1 0 01-1-1zm10 0a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1zM4 14a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm10 0a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1zM3 18a1 1 0 011-1h1a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
-                            </svg>
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-            {/* Customer Edit Modal */}
-            {showCustomerEditModal && (
-              <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 z-50">
-                <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md relative">
-                  <h3 className="text-2xl font-semibold mb-4 text-gray-800">Edit Customer Details</h3>
-                  <form onSubmit={handleUpdateCustomer} className="grid grid-cols-1 gap-4">
-                    <div>
-                      <label htmlFor="edit-firstName" className="block text-sm font-medium text-gray-700">First Name</label>
-                      <input type="text" name="firstName" id="edit-firstName" value={customerEditForm.firstName} onChange={handleCustomerEditFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" required />
-                    </div>
-                    <div>
-                      <label htmlFor="edit-fatherName" className="block text-sm font-medium text-gray-700">Father's Name</label>
-                      <input type="text" name="fatherName" id="edit-fatherName" value={customerEditForm.fatherName} onChange={handleCustomerEditFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
-                    </div>
-                    <div>
-                      <label htmlFor="edit-familyName" className="block text-sm font-medium text-gray-700">Family Name</label>
-                      <input type="text" name="familyName" id="edit-familyName" value={customerEditForm.familyName} onChange={handleCustomerEditFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" required />
-                    </div>
-                    <div>
-                      <label htmlFor="edit-id" className="block text-sm font-medium text-gray-700">ID</label>
-                      <input type="text" name="id" id="edit-id" value={customerEditForm.id} readOnly className="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm px-3 py-2" />
-                    </div>
-                    <div>
-                      <label htmlFor="edit-realId" className="block text-sm font-medium text-gray-700">Real ID</label>
-                      <input type="text" name="realId" id="edit-realId" value={customerEditForm.realId} onChange={handleCustomerEditFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" placeholder="e.g., ЕГН/ЛНЧ" />
-                    </div>
-                    <div>
-                      <label htmlFor="edit-address" className="block text-sm font-medium text-gray-700">Address</label>
-                      <input type="text" name="address" id="edit-address" value={customerEditForm.address} onChange={handleCustomerEditFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
-                    </div>
-                    <div>
-                      <label htmlFor="edit-city" className="block text-sm font-medium text-gray-700">City</label>
-                      <input type="text" name="city" id="edit-city" value={customerEditForm.city} onChange={handleCustomerEditFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
-                    </div>
-                    <div>
-                      <label htmlFor="edit-postCode" className="block text-sm font-medium text-gray-700">Post Code</label>
-                      <input type="text" name="postCode" id="edit-postCode" value={customerEditForm.postCode} onChange={handleCustomerEditFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
-                    </div>
-                    <div>
-                      <label htmlFor="edit-email" className="block text-sm font-medium text-gray-700">Email</label>
-                      <input type="email" name="email" id="edit-email" value={customerEditForm.email} onChange={handleCustomerEditFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
-                    </div>
-                    <div>
-                      <label htmlFor="edit-phone" className="block text-sm font-medium text-gray-700">Phone</label>
-                      <input type="tel" name="phone" id="edit-phone" value={customerEditForm.phone} onChange={handleCustomerEditFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
-                    </div>
-                    <div className="flex justify-end space-x-3 mt-4 col-span-full">
-                      <button
-                        type="button"
-                        onClick={() => setShowCustomerEditModal(false)}
-                        className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition duration-200 shadow-sm"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="submit"
-                        className="px-4 py-2 bg-[#28A745] text-white rounded-lg hover:bg-[#218838] transition duration-200 shadow-md"
-                        disabled={loading}
-                      >
-                        {loading ? 'Updating...' : 'Update Customer'}
-                      </button>
-                    </div>
-                  </form>
-                </div>
-              </div>
-            )}
-          </div>
-        );
-
-      case 'tours':
-        return (
-          <div className="p-6 bg-white rounded-xl shadow-lg">
-            <h2 className="text-3xl font-bold mb-8 text-gray-800 border-b pb-4">Bus Tours</h2>
-
-            {/* Filters for Tours */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200 shadow-sm">
-              <div>
-                <label htmlFor="filterTourHotel" className="block text-sm font-medium text-gray-700">Hotel</label>
-                <input
-                  type="text"
-                  name="filterTourHotel"
-                  id="filterTourHotel"
-                  value={filterTourHotel}
-                  onChange={handleTourFilterChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                  placeholder="Filter by hotel name"
-                />
-              </div>
-              <div>
-                <label htmlFor="filterTourTransportCompany" className="block text-sm font-medium text-gray-700">Transport Company</label>
-                <input
-                  type="text"
-                  name="filterTourTransportCompany"
-                  id="filterTourTransportCompany"
-                  value={filterTourTransportCompany}
-                  onChange={handleTourFilterChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                  placeholder="Filter by company"
-                />
-              </div>
-              <div>
-                <label htmlFor="filterTourDepartureDate" className="block text-sm font-medium text-gray-700">Departure After</label>
-                <input
-                  type="date"
-                  name="filterTourDepartureDate"
-                  id="filterTourDepartureDate"
-                  value={filterTourDepartureDate}
-                  onChange={handleTourFilterChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                />
-              </div>
-              <div>
-                <label htmlFor="filterTourArrivalDate" className="block text-sm font-medium text-gray-700">Arrival Before</label>
-                <input
-                  type="date"
-                  name="filterTourArrivalDate"
-                  id="filterTourArrivalDate"
-                  value={filterTourArrivalDate}
-                  onChange={handleTourFilterChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                />
-              </div>
-              <div className="md:col-span-full flex justify-end">
-                <button
-                  type="button"
-                  onClick={resetTourFilters}
-                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition duration-200 shadow-sm border border-gray-200"
-                >
-                  Reset Filters
-                </button>
-              </div>
-            </div>
-
-            {filteredTours.length === 0 ? (
-              <p className="text-gray-600 text-center py-8">No bus tours found matching your criteria. Add a new tour to get started!</p>
-            ) : (
-              <div className="overflow-x-auto rounded-xl shadow-md border border-gray-200">
-                <table className="min-w-full bg-white">
-                  <thead className="bg-gray-50 text-gray-700 border-b border-gray-200">
-                    <tr>
-                      <th className="py-3 px-4 text-left font-medium">Tour ID</th>
-                      <th className="py-3 px-4 text-left font-medium">Hotel</th>
-                      <th className="py-3 px-4 text-left font-medium">Departure Date</th>
-                      <th className="py-3 px-4 text-left font-medium">Arrival Date</th>
-                      <th className="py-3 px-4 text-right font-medium">Max Passengers</th>
-                      <th className="py-3 px-4 text-right font-medium">Booked Passengers</th>
-                      <th className="py-3 px-4 text-right font-medium">Fulfillment %</th>
-                      <th className="py-3 px-4 text-center font-medium">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="text-gray-700">
-                    {filteredTours.map(tour => {
-                      const linkedReservations = getLinkedReservations(tour.tourId);
-                      const bookedPassengers = linkedReservations.reduce((sum, res) => sum + (res.adults || 0) + (res.children || 0), 0);
-                      const fulfillment = tour.maxPassengers > 0 ? (bookedPassengers / tour.maxPassengers) * 100 : 0;
-                      return (
-                        <tr key={tour.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors duration-150">
-                          <td className="py-3 px-4 font-mono text-sm text-gray-600">{tour.tourId}</td> {/* Styled tour ID */}
-                          <td className="py-3 px-4">{tour.hotel}</td>
-                          <td className="py-3 px-4 text-gray-600">{tour.departureDate}</td>
-                          <td className="py-3 px-4 text-gray-600">{tour.arrivalDate}</td>
-                          <td className="py-3 px-4 text-right">{tour.maxPassengers}</td>
-                          <td className="py-3 px-4 text-right">{bookedPassengers}</td>
-                          <td className="py-3 px-4 text-right">{fulfillment.toFixed(1)}%</td>
-                          <td className="py-3 px-4 flex justify-center space-x-2">
-                            <button
-                              onClick={() => setSelectedTour(tour)}
-                              className="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-full shadow-md transition duration-200" // Blue button for view
-                              title="View Tour Details"
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                <path fillRule="evenodd" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" clipRule="evenodd" />
-                              </svg>
-                            </button>
-                            <button
-                              onClick={() => handleEditTour(tour)}
-                              className="bg-[#28A745] hover:bg-[#218838] text-white p-2 rounded-full shadow-md transition duration-200"
-                              title="Edit Tour"
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zm-5.69 5.69L11.586 7.586 14.414 10.414 11.586 13.242 8.758 10.414l2.828-2.828z" />
-                                <path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm-4 8a1 1 0 011-1h1a1 1 0 110 2H7a1 1 0 01-1-1zm10 0a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1zM4 14a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm10 0a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1zM3 18a1 1 0 011-1h1a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
-                              </svg>
-                            </button>
-                            {/* --- NEW PRINT TOUR CONTRACT BUTTON --- */}
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setTourToGenerateContract(tour);
-                                  setActiveTab('busTourContract'); // This will trigger rendering of BusTourContractPrint
-                                }}
-                                className="bg-purple-500 hover:bg-purple-600 text-white p-2 rounded-full shadow-md transition duration-200"
-                                title="Print Tour Contract"
-                              >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v6a2 2 0 002 2h12a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clipRule="evenodd" /></svg>
-                              </button>
-                            <button
-                              onClick={() => handleDeleteTour(tour.tourId)}
-                              className="bg-[#DC3545] hover:bg-[#C82333] text-white p-2 rounded-full shadow-md transition duration-200"
-                              title="Delete"
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1zm-1 3a1 1 0 011-1h4a1 1 0 110 2H7a1 1 0 01-1-1zm-1 3a1 1 0 011-1h4a1 1 0 110 2H7a1 1 0 01-1-1z" clipRule="evenodd" />
-                              </svg>
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                      })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-            {/* Tour Details Modal */}
-            {selectedTour && (
-              <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 z-50">
-                <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-2xl relative">
-                  <h3 className="text-2xl font-semibold mb-4 text-gray-800">Tour Details: <span className="text-blue-600">{selectedTour.tourId}</span></h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-700 mb-6">
-                    <div><strong>Departure:</strong> <span className="text-gray-600">{selectedTour.departureDate}</span></div>
-                    <div><strong>Arrival:</strong> <span className="text-gray-600">{selectedTour.arrivalDate}</span></div>
-                    <div><strong>Nights:</strong> <span className="font-semibold">{selectedTour.nights}</span></div>
-                    <div><strong>Days (incl. Travel):</strong> <span className="font-semibold">{selectedTour.daysInclTravel}</span></div>
-                    <div><strong>Transport Company:</strong> <span className="text-gray-600">{selectedTour.transportCompany || 'N/A'}</span></div>
-                    <div><strong>Hotel:</strong> <span className="font-semibold">{selectedTour.hotel || 'N/A'}</span></div>
-                    <div><strong>Max Passengers:</strong> <span className="font-semibold">{selectedTour.maxPassengers}</span></div>
-                {/* NEW TOUR DETAIL DISPLAY FIELDS */}
-                <div className="md:col-span-2"><strong>Час и място на тръгване:</strong> <span className="text-gray-600">{selectedTour.departureDateTimePlace || 'N/A'}</span></div>
-                <div className="md:col-span-2"><strong>Описание на транспорта:</strong> <span className="text-gray-600">{selectedTour.transportDescription || 'N/A'}</span></div>
-                <div className="md:col-span-2"><strong>Информация за застраховка:</strong> <span className="text-gray-600">{selectedTour.insuranceDetails || 'N/A'}</span></div>
-                <div className="md:col-span-2"><strong>Хотели по тура:</strong> <span className="text-gray-600">{selectedTour.tourHotels || 'N/A'}</span></div>
-                <div className="md:col-span-2"><strong>Обобщение стаи по тура:</strong> <span className="text-gray-600">{selectedTour.tourRoomSummary || 'N/A'}</span></div>
-                <div className="md:col-span-2"><strong>Включени хранения:</strong> <span className="text-gray-600">{selectedTour.mealsIncluded || 'N/A'}</span></div>
-                {/* END OF NEW TOUR DETAIL DISPLAY FIELDS */}
-                    <div><strong>Booked Passengers:</strong> <span className="font-semibold">{getLinkedReservations(selectedTour.tourId).reduce((sum, res) => sum + (res.adults || 0) + (res.children || 0), 0)}</span></div>
-                    <div><strong>Fulfillment %:</strong> <span className="font-semibold text-[#28A745]">{((getLinkedReservations(selectedTour.tourId).reduce((sum, res) => sum + (res.adults || 0) + (res.children || 0), 0) / selectedTour.maxPassengers) * 100 || 0).toFixed(1)}%</span></div>
-                  </div>
-                  <h4 className="text-xl font-semibold mb-3 text-gray-800">Linked Reservations</h4>
-                  {getLinkedReservations(selectedTour.tourId).length === 0 ? (
-                    <p className="text-gray-600">No reservations linked to this tour.</p>
-                  ) : (
-                    <div className="overflow-x-auto max-h-60 rounded-lg border border-gray-100 shadow-sm">
-                      <table className="min-w-full bg-white">
-                        <thead className="bg-gray-100 text-gray-700 border-b border-gray-200">
-                          <tr>
-                            <th className="py-2 px-3 text-left text-sm font-medium">Res. No.</th>
-                            <th className="py-2 px-3 text-left text-sm font-medium">Lead Guest</th>
-                            <th className="py-2 px-3 text-left text-sm font-medium">Dates</th>
-                            <th className="py-2 px-3 text-right text-sm font-medium">Adults/Children</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {getLinkedReservations(selectedTour.tourId).map(res => (
-                            <tr key={res.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors duration-150">
-                              <td className="py-2 px-3 text-sm text-gray-600">{res.reservationNumber}</td>
-                              <td className="py-2 px-3 text-sm">{res.tourists && res.tourists.length > 0 ? `${res.tourists[0].firstName} ${res.tourists[0].familyName}` : 'N/A'}</td>
-                              <td className="py-2 px-3 text-sm text-gray-600">{res.checkIn} - {res.checkOut}</td>
-                              <td className="py-2 px-3 text-right text-sm">{res.adults}/{res.children}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                  <div className="flex justify-end mt-6">
                     <button
-                      onClick={() => setSelectedTour(null)}
-                      className="px-6 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition duration-200 shadow-md" // Dark button
-                    >
-                      Close
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        );
-
-      case 'addTour':
-        return (
-          <div className="p-6 bg-white rounded-xl shadow-lg">
-            <h2 className="text-3xl font-bold mb-8 text-gray-800 border-b pb-4">
-              {selectedTour ? 'Edit Bus Tour' : 'Create New Bus Tour'}
-            </h2>
-            <form onSubmit={handleSubmitTour} className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-              <div>
-                <label htmlFor="tourId" className="block text-sm font-medium text-gray-700">Tour ID</label>
-                <input
-                  type="text"
-                  name="tourId"
-                  id="tourId"
-                  value={tourForm.tourId}
-                  onChange={handleTourFormChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2 bg-gray-100"
-                  placeholder="Auto-generated or editable"
-                  disabled={!!selectedTour}
-                />
-              </div>
-              <div>
-                <label htmlFor="departureDate" className="block text-sm font-medium text-gray-700">Departure Date</label>
-                <input
-                  type="date"
-                  name="departureDate"
-                  id="departureDate"
-                  value={tourForm.departureDate}
-                  onChange={handleTourFormChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                  required
-                />
-              </div>
-              <div>
-                <label htmlFor="arrivalDate" className="block text-sm font-medium text-gray-700">Arrival Date</label>
-                <input
-                  type="date"
-                  name="arrivalDate"
-                  id="arrivalDate"
-                  value={tourForm.arrivalDate}
-                  onChange={handleTourFormChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                  required
-                />
-              </div>
-              <div>
-                <label htmlFor="nights" className="block text-sm font-medium text-gray-700">Nights</label>
-                <input
-                  type="number"
-                  name="nights"
-                  id="nights"
-                  value={tourForm.nights}
-                  onChange={handleTourFormChange}
-                  min="0"
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                />
-              </div>
-              <div>
-                <label htmlFor="daysInclTravel" className="block text-sm font-medium text-gray-700">Days (incl. Travel)</label>
-                <input
-                  type="number"
-                  name="daysInclTravel"
-                  id="daysInclTravel"
-                  value={tourForm.daysInclTravel}
-                  readOnly
-                  className="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm px-3 py-2"
-                />
-              </div>
-        <div>
-           <label htmlFor="transportCompany" className="block text-sm font-medium text-gray-700">Transport Company</label>
-           <input
-             type="text"
-             name="transportCompany"
-             id="transportCompany"
-             value={tourForm.transportCompany}
-             onChange={handleTourFormChange}
-             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-           />
-         </div>
-         {/* NEW BUS TOUR FIELDS BELOW */}
-         <div>
-           <label htmlFor="departureDateTimePlace" className="block text-sm font-medium text-gray-700">Час и място на тръгване</label>
-           <input
-             type="text" // Using text for flexibility (e.g., "06:00, Sofia, Nevsky Sq.")
-             name="departureDateTimePlace"
-             id="departureDateTimePlace"
-             value={tourForm.departureDateTimePlace}
-             onChange={handleTourFormChange}
-             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-             placeholder="Напр. 06:00, гр. София, пл. Ал. Невски"
-           />
-         </div>
-         <div className="md:col-span-2"> {/* Span 2 columns for textarea */}
-           <label htmlFor="transportDescription" className="block text-sm font-medium text-gray-700">2. Транспорт</label>
-           <textarea
-             name="transportDescription"
-             id="transportDescription"
-             rows="2"
-             value={tourForm.transportDescription}
-             onChange={handleTourFormChange}
-             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-             placeholder="Напр. Комфортен туристически автобус"
-           ></textarea>
-         </div>
-         <div className="md:col-span-2"> {/* Span 2 columns for textarea */}
-           <label htmlFor="insuranceDetails" className="block text-sm font-medium text-gray-700">Застраховка (описание)</label>
-           <textarea
-             name="insuranceDetails"
-             id="insuranceDetails"
-             rows="2"
-             value={tourForm.insuranceDetails}
-             onChange={handleTourFormChange}
-             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-             placeholder="Напр. Медицинска застраховка 'Помощ при пътуване'"
-           ></textarea>
-         </div>
-         <div className="md:col-span-2"> {/* Span 2 columns for textarea */}
-           <label htmlFor="tourHotels" className="block text-sm font-medium text-gray-700">Хотели (множество)</label>
-           <textarea
-             name="tourHotels"
-             id="tourHotels"
-             rows="2"
-             value={tourForm.tourHotels}
-             onChange={handleTourFormChange}
-             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-             placeholder="Напр. Хотел 'Планина', Хотел 'Изгрев'"
-           ></textarea>
-         </div>
-         <div className="md:col-span-2"> {/* Span 2 columns for textarea */}
-           <label htmlFor="tourRoomSummary" className="block text-sm font-medium text-gray-700">Брой и вид стаи (общо за тура)</label>
-           <textarea
-             name="tourRoomSummary"
-             id="tourRoomSummary"
-             rows="2"
-             value={tourForm.tourRoomSummary}
-             onChange={handleTourFormChange}
-             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-             placeholder="Напр. 10 двойни стаи, 5 тройни стаи"
-           ></textarea>
-         </div>
-         <div className="md:col-span-2"> {/* Span 2 columns for textarea */}
-           <label htmlFor="mealsIncluded" className="block text-sm font-medium text-gray-700">Брой и вид на храненията, включени в пакетната цена</label>
-           <textarea
-             name="mealsIncluded"
-             id="mealsIncluded"
-             rows="2"
-             value={tourForm.mealsIncluded}
-             onChange={handleTourFormChange}
-             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-             placeholder="Напр. 2 закуски и 2 вечери"
-           ></textarea>
-         </div>
-         {/* END OF NEW BUS TOUR FIELDS */}
-              <div>
-                <label htmlFor="hotelTour" className="block text-sm font-medium text-gray-700">Hotel (Primary for Tour)</label>
-                <input
-                  type="text"
-                  name="hotel"
-                  id="hotelTour"
-                  value={tourForm.hotel}
-                  onChange={handleTourFormChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                />
-              </div>
-              <div>
-                <label htmlFor="maxPassengers" className="block text-sm font-medium text-gray-700">Max Passengers</label>
-                <input
-                  type="number"
-                  name="maxPassengers"
-                  id="maxPassengers"
-                  value={tourForm.maxPassengers}
-                  onChange={handleTourFormChange}
-                  min="0"
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                  required
-                />
-              </div>
-
-              <div className="md:col-span-2 flex justify-end space-x-3 mt-8">
-                <button
-                  type="button"
-                  onClick={() => {
-                    resetTourForm();
-                    setActiveTab('tours');
-                  }}
-                  className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition duration-200 shadow-sm"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-6 py-2 bg-[#28A745] text-white rounded-lg hover:bg-[#218838] transition duration-200 shadow-md"
-                  disabled={loading}
-                >
-                  {loading ? 'Saving...' : selectedTour ? 'Update Tour' : 'Create Tour'}
-                </button>
-              </div>
-            </form>
-          </div>
-        );
-
-      case 'payments':
-        return (
-          <div className="p-6 bg-white rounded-xl shadow-lg">
-            <h2 className="text-3xl font-bold mb-8 text-gray-800 border-b pb-4">Financial Transactions</h2>
-            {financialTransactions.length === 0 ? (
-              <p className="text-gray-600 text-center py-8">No financial transactions found. Add income or expenses to get started!</p>
-            ) : (
-              <div className="overflow-x-auto rounded-xl shadow-md border border-gray-200">
-                <table className="min-w-full bg-white">
-                  <thead className="bg-gray-50 text-gray-700 border-b border-gray-200">
-                    <tr>
-                      <th className="py-3 px-4 text-left font-medium">Date</th>
-                      <th className="py-3 px-4 text-left font-medium">Type</th>
-                      <th className="py-3 px-4 text-left font-medium">Method</th>
-                      <th className="py-3 px-4 text-left font-medium">Amount</th>
-                      <th className="py-3 px-4 text-left font-medium">VAT</th>
-                      <th className="py-3 px-4 text-left font-medium">Description</th>
-                      <th className="py-3 px-4 text-left font-medium">Linked To</th>
-                      <th className="py-3 px-4 text-center font-medium">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="text-gray-700">
-                    {filteredFinancialTransactions.map(ft => (
-                      <tr key={ft.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors duration-150">
-                        <td className="py-3 px-4 text-gray-600">{ft.date}</td>
-                        <td className="py-3 px-4">
-                          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                            ft.type === 'income' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                          }`}>
-                            {ft.type.charAt(0).toUpperCase() + ft.type.slice(1)}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4">{ft.method}</td>
-                        <td className="py-3 px-4 text-right font-semibold">BGN {(ft.amount || 0).toFixed(2)}</td>
-                        <td className="py-3 px-4 text-right text-gray-600">BGN {(ft.vat || 0).toFixed(2)}</td>
-                        <td className="py-3 px-4 text-gray-600">{ft.reasonDescription}</td>
-                        <td className="py-3 px-4 text-gray-500">
-                          {ft.associatedReservationId ? `Res: ${ft.associatedReservationId}` :
-                            ft.associatedTourId ? `Tour: ${ft.associatedTourId}` : 'N/A'}
-                        </td>
-                        <td className="py-3 px-4 flex justify-center space-x-2">
-                          <button
-                            onClick={() => handleEditFinancialTransaction(ft)}
-                            className="bg-[#28A745] hover:bg-[#218838] text-white p-2 rounded-full shadow-md transition duration-200"
-                            title="Edit"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                              <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zm-5.69 5.69L11.586 7.586 14.414 10.414 11.586 13.242 8.758 10.414l2.828-2.828z" />
-                              <path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm-4 8a1 1 0 011-1h1a1 1 0 110 2H7a1 1 0 01-1-1zm10 0a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1zM4 14a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm10 0a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1zM3 18a1 1 0 011-1h1a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
-                            </svg>
-                          </button>
-                          <button
-                            onClick={() => handleDeleteFinancialTransaction(ft.id)}
-                            className="bg-[#DC3545] hover:bg-[#C82333] text-white p-2 rounded-full shadow-md transition duration-200"
-                            title="Delete"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                              <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1zm-1 3a1 1 0 011-1h4a1 1 0 110 2H7a1 1 0 01-1-1zm-1 3a1 1 0 011-1h4a1 1 0 110 2H7a1 1 0 01-1-1z" clipRule="evenodd" />
-                            </svg>
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        );
-
-    case 'addFinancialTransaction':
-        return (
-          <div className="p-6 bg-white rounded-xl shadow-lg">
-            <h2 className="text-3xl font-bold mb-8 text-gray-800 border-b pb-4">
-              {selectedFinancialTransaction ? 'Edit Financial Transaction' : 'Add Financial Transaction'}
-            </h2>
-            <form onSubmit={handleSubmitFinancialTransaction} className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-              <div>
-                <label htmlFor="transactionDate" className="block text-sm font-medium text-gray-700">Date</label>
-                <input
-                  type="date"
-                  name="date"
-                  id="transactionDate"
-                  value={financialTransactionForm.date}
-                  onChange={handleFinancialTransactionFormChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                  required
-                />
-              </div>
-              <div>
-                <label htmlFor="transactionType" className="block text-sm font-medium text-gray-700">Type</label>
-                <select
-                  name="type"
-                  id="transactionType"
-                  value={financialTransactionForm.type}
-                  onChange={handleFinancialTransactionFormChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                >
-                  <option value="income">Income</option>
-                  <option value="expense">Expense</option>
-                </select>
-              </div>
-              <div>
-                <label htmlFor="method" className="block text-sm font-medium text-gray-700">Payment Method</label>
-                <select
-                  name="method"
-                  id="method"
-                  value={financialTransactionForm.method}
-                  onChange={handleFinancialTransactionFormChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                >
-                  <option value="Bank">Bank</option>
-                  <option value="Cash">Cash</option>
-                  <option value="Cash 2">Cash 2</option>
-                </select>
-              </div>
-              <div>
-                <label htmlFor="amount" className="block text-sm font-medium text-gray-700">Amount</label>
-                <input
-                  type="number"
-                  name="amount"
-                  id="amount"
-                  value={financialTransactionForm.amount}
-                  onChange={handleFinancialTransactionFormChange}
-                  min="0"
-                  step="0.01"
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                  required
-                />
-              </div>
-              <div className="md:col-span-2">
-                <label htmlFor="reasonDescription" className="block text-sm font-medium text-gray-700">Reason/Description</label>
-                <textarea
-                  name="reasonDescription"
-                  id="reasonDescription"
-                  value={financialTransactionForm.reasonDescription}
-                  onChange={handleFinancialTransactionFormChange}
-                  rows="3"
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                ></textarea>
-              </div>
-
-              {/* Association fields */}
-              <div>
-                <label htmlFor="associatedReservationId" className="block text-sm font-medium text-gray-700">Associate with Reservation</label>
-                <select
-                  name="associatedReservationId"
-                  id="associatedReservationId"
-                  value={financialTransactionForm.associatedReservationId}
-                  onChange={handleFinancialTransactionFormChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                >
-                  <option value="">-- None --</option>
-                  {reservations.map(res => (
-                    <option key={res.id} value={res.reservationNumber}>
-                      {res.reservationNumber} - {res.hotel} ({res.checkIn})
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label htmlFor="associatedTourId" className="block text-sm font-medium text-gray-700">Associate with Tour</label>
-                <select
-                  name="associatedTourId"
-                  id="associatedTourId"
-                  value={financialTransactionForm.associatedTourId}
-                  onChange={handleFinancialTransactionFormChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                >
-                  <option value="">-- None --</option>
-                  {tours.map(tour => (
-                    <option key={tour.id} value={tour.tourId}>
-                      {tour.tourId} - {tour.hotel} ({tour.departureDate})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="md:col-span-2 flex justify-end space-x-3 mt-8">
-                <button
-                  type="button"
-                  onClick={() => {
-                    resetFinancialTransactionForm();
-                    setActiveTab('payments');
-                  }}
-                  className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition duration-200 shadow-sm"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-6 py-2 bg-[#28A745] text-white rounded-lg hover:bg-[#218838] transition duration-200 shadow-md"
-                  disabled={loading}
-                >
-                  {loading ? 'Saving...' : selectedFinancialTransaction ? 'Update Transaction' : 'Add Transaction'}
-                </button>
-              </div>
-            </form>
-          </div>
-        );
-
-case 'financialReports':
-        return (
-          <div className="p-6 bg-white rounded-xl shadow-lg">
-            <h2 className="text-3xl font-bold mb-8 text-gray-800 border-b pb-4">Financial Reports</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200 shadow-sm">
-              <div>
-                <label htmlFor="reportStartDate" className="block text-sm font-medium text-gray-700">Start Date</label>
-                <input type="date" name="reportStartDate" id="reportStartDate" value={reportStartDate} onChange={handleReportFilterChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
-              </div>
-              <div>
-                <label htmlFor="reportEndDate" className="block text-sm font-medium text-gray-700">End Date</label>
-                <input type="date" name="reportEndDate" id="reportEndDate" value={reportEndDate} onChange={handleReportFilterChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
-              </div>
-              <div>
-                <label htmlFor="reportFilterType" className="block text-sm font-medium text-gray-700">Type</label>
-                <select name="reportFilterType" id="reportFilterType" value={reportFilterType} onChange={handleReportFilterChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2">
-                  <option value="all">All</option>
-                  <option value="income">Income</option>
-                  <option value="expense">Expense</option>
-                </select>
-              </div>
-              <div>
-                <label htmlFor="reportFilterMethod" className="block text-sm font-medium text-gray-700">Method</label>
-                <select name="reportFilterMethod" id="reportFilterMethod" value={reportFilterMethod} onChange={handleReportFilterChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2">
-                  <option value="all">All Methods</option>
-                  <option value="Bank">Bank</option>
-                  <option value="Cash">Cash</option>
-                  <option value="Cash 2">Cash 2</option>
-                </select>
-              </div>
-              <div className="xl:col-span-2">
-                <label htmlFor="reportFilterAssociation" className="block text-sm font-medium text-gray-700">Associated With (ID)</label>
-                <input type="text" name="reportFilterAssociation" id="reportFilterAssociation" value={reportFilterAssociation} onChange={handleReportFilterChange} placeholder="Res/Tour ID" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
-              </div>
-              <div className="md:col-span-full xl:col-span-1 flex items-end">
-                <button type="button" onClick={resetFinancialReportsFilters} className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition duration-200 shadow-sm border border-gray-200">
-                  Reset Filters
-                </button>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-              <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100 text-center">
-                <h3 className="font-semibold text-xl text-gray-700">Total Income</h3>
-                <p className="text-2xl font-bold text-[#28A745]">BGN {reportTotals.totalIncome.toFixed(2)}</p>
-              </div>
-              <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100 text-center">
-                <h3 className="font-semibold text-xl text-gray-700">Total Expenses</h3>
-                <p className="text-2xl font-bold text-[#DC3545]">BGN {reportTotals.totalExpenses.toFixed(2)}</p>
-              </div>
-              <div className={`p-6 rounded-xl shadow-md border ${reportTotals.netProfit >= 0 ? 'bg-white border-gray-100' : 'bg-red-50 border-red-200'} text-center`}>
-                <h3 className="font-semibold text-xl text-gray-700">Net Profit/Loss</h3>
-                <p className={`text-2xl font-bold ${reportTotals.netProfit >= 0 ? 'text-[#28A745]' : 'text-[#DC3545]'}`}>BGN {reportTotals.netProfit.toFixed(2)}</p>
-              </div>
-            </div>
-
-            {filteredFinancialTransactions.length === 0 ? (
-              <p className="text-gray-600 text-center py-8">No transactions match the selected filters.</p>
-            ) : (
-              <div className="overflow-x-auto rounded-xl shadow-md border border-gray-200">
-                <table className="min-w-full bg-white">
-                  <thead className="bg-gray-50 text-gray-700 border-b border-gray-200">
-                    <tr>
-                      <th className="py-3 px-4 text-left"><button onClick={() => requestSort('date')} className="font-medium flex items-center space-x-1 hover:text-gray-900"><span>Date</span><span className="w-4">{sortConfig.key === 'date' ? (sortConfig.direction === 'ascending' ? '▲' : '▼') : ''}</span></button></th>
-                      <th className="py-3 px-4 text-left font-medium">Type</th>
-                      <th className="py-3 px-4 text-left"><button onClick={() => requestSort('method')} className="font-medium flex items-center space-x-1 hover:text-gray-900"><span>Method</span><span className="w-4">{sortConfig.key === 'method' ? (sortConfig.direction === 'ascending' ? '▲' : '▼') : ''}</span></button></th>
-                      <th className="py-3 px-4 text-right"><button onClick={() => requestSort('amount')} className="font-medium flex items-center space-x-1 hover:text-gray-900"><span>Amount</span><span className="w-4">{sortConfig.key === 'amount' ? (sortConfig.direction === 'ascending' ? '▲' : '▼') : ''}</span></button></th>
-                      <th className="py-3 px-4 text-left font-medium">Description</th>
-                      <th className="py-3 px-4 text-left font-medium">Linked To</th>
-                    </tr>
-                  </thead>
-                  <tbody className="text-gray-700">
-                    {filteredFinancialTransactions.map(ft => (
-                      <tr key={ft.id} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="py-3 px-4 text-gray-600">{ft.date}</td>
-                        <td className="py-3 px-4"><span className={`px-3 py-1 rounded-full text-xs font-semibold ${ft.type === 'income' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{ft.type.charAt(0).toUpperCase() + ft.type.slice(1)}</span></td>
-                        <td className="py-3 px-4">{ft.method}</td>
-                        <td className="py-3 px-4 text-right font-semibold">BGN {(ft.amount || 0).toFixed(2)}</td>
-                        <td className="py-3 px-4 text-gray-600">{ft.reasonDescription}</td>
-                        <td className="py-3 px-4 text-gray-500 text-xs">
-                           {[ft.associatedReservationId && `Res: ${ft.associatedReservationId}`, ft.associatedTourId && `Tour: ${ft.associatedTourId}`].filter(Boolean).join(', ') || 'N/A'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        );
-
-      case 'invoicingDashboard':
-        return (
-          <div className="p-6 bg-white rounded-xl shadow-lg">
-            <h2 className="text-3xl font-bold mb-8 text-gray-800 border-b pb-4">Invoicing Dashboard</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {/* Total Invoices */}
-              <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
-                <h3 className="font-semibold text-xl text-gray-700 mb-3">Total Invoices</h3>
-                <p className="text-gray-600 text-lg">Sales Invoices: <span className="font-bold text-gray-800">{invoicingDashboardStats.totalSalesInvoices}</span></p>
-                <p className="text-gray-600 text-lg">Expense Invoices: <span className="font-bold text-gray-800">{invoicingDashboardStats.totalExpenseInvoices}</span></p>
-              </div>
-
-              {/* Total Sales */}
-              <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
-                <h3 className="font-semibold text-xl text-gray-700 mb-3">Total Sales (Income)</h3>
-                <p className="text-gray-600 text-lg">Amount: <span className="font-bold text-[#28A745]">BGN {invoicingDashboardStats.totalSalesAmount} (EUR {invoicingDashboardStats.totalSalesAmountEUR})</span></p>
-                <p className="text-gray-600 text-lg">VAT: <span className="font-bold text-[#28A745]">BGN {invoicingDashboardStats.totalSalesVAT} (EUR {invoicingDashboardStats.totalSalesVATEUR})</span></p>
-              </div>
-
-              {/* Total Expenses */}
-              <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
-                <h3 className="font-semibold text-xl text-gray-700 mb-3">Total Expenses</h3>
-                <p className="text-gray-600 text-lg">Amount: <span className="font-bold text-[#DC3545]">BGN {invoicingDashboardStats.totalExpenseAmount} (EUR {invoicingDashboardStats.totalExpenseAmountEUR})</span></p>
-                <p className="text-gray-600 text-lg">VAT: <span className="font-bold text-[#DC3545]">BGN {invoicingDashboardStats.totalExpenseVAT} (EUR {invoicingDashboardStats.totalExpenseVATEUR})</span></p>
-              </div>
-
-              {/* Net Profit/Loss */}
-              <div className={`p-6 rounded-xl shadow-md border ${invoicingDashboardStats.netProfitInvoicing >= 0 ? 'bg-white border-gray-100' : 'bg-red-50 border-red-200'}`}>
-                <h3 className="font-semibold text-xl text-gray-700 mb-3">Net Profit/Loss</h3>
-                <p className={`text-2xl font-bold ${invoicingDashboardStats.netProfitInvoicing >= 0 ? 'text-[#28A745]' : 'text-[#DC3545]'}`}>BGN {invoicingDashboardStats.netProfitInvoicing} (EUR {invoicingDashboardStats.netProfitInvoicingEUR})</p>
-              </div>
-
-              {/* Net VAT */}
-              <div className={`p-6 rounded-xl shadow-md border ${invoicingDashboardStats.netVAT >= 0 ? 'bg-white border-gray-100' : 'bg-red-50 border-red-200'}`}>
-                <h3 className="font-semibold text-xl text-gray-700 mb-3">Net VAT</h3>
-                <p className={`text-2xl font-bold ${invoicingDashboardStats.netVAT >= 0 ? 'text-[#28A745]' : 'text-[#DC3545]'}`}>BGN {invoicingDashboardStats.netVAT} (EUR {invoicingDashboardStats.netVATEUR})</p>
-              </div>
-            </div>
-          </div>
-        );
-
-      // Expense Invoices List and Form
-      case 'invoicingExpenses':
-      case 'addExpenseInvoice': // Combined for add/edit
-        return (
-          <div className="p-6 bg-white rounded-xl shadow-lg">
-            <h2 className="text-3xl font-bold mb-8 text-gray-800 border-b pb-4">
-              {activeTab === 'addExpenseInvoice' ? (selectedExpenseInvoice ? 'Edit Expense Invoice' : 'Add New Expense Invoice') : 'Expense Invoices'}
-            </h2>
-
-            {activeTab === 'addExpenseInvoice' ? (
-              // Expense Invoice Add/Edit Form
-              <form onSubmit={handleSubmitExpenseInvoice} className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-                <div className="col-span-full text-lg font-semibold text-gray-800">Supplier Details</div>
-                <div>
-                  <label htmlFor="companyName" className="block text-sm font-medium text-gray-700">Company Name</label>
-                  <input
-                    type="text"
-                    name="companyName"
-                    id="companyName"
-                    value={expenseInvoiceForm.companyName}
-                    onChange={handleExpenseInvoiceFormChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                    required
-                  />
-                </div>
-                <div>
-                  <label htmlFor="companyID" className="block text-sm font-medium text-gray-700">Company ID</label>
-                  <input
-                    type="text"
-                    name="companyID"
-                    id="companyID"
-                    value={expenseInvoiceForm.companyID}
-                    onChange={handleExpenseInvoiceFormChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="vatID" className="block text-sm font-medium text-gray-700">VAT ID</label>
-                  <input
-                    type="text"
-                    name="vatID"
-                    id="vatID"
-                    value={expenseInvoiceForm.vatID}
-                    onChange={handleExpenseInvoiceFormChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="invoiceNumber" className="block text-sm font-medium text-gray-700">Invoice Number</label>
-                  <input
-                    type="text"
-                    name="invoiceNumber"
-                    id="invoiceNumber"
-                    value={expenseInvoiceForm.invoiceNumber}
-                    onChange={handleExpenseInvoiceFormChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                    required
-                  />
-                </div>
-                <div>
-                  <label htmlFor="invoiceDate" className="block text-sm font-medium text-gray-700">Invoice Date</label>
-                  <input
-                    type="date"
-                    name="invoiceDate"
-                    id="invoiceDate"
-                    value={expenseInvoiceForm.invoiceDate}
-                    onChange={handleExpenseInvoiceFormChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                    required
-                  />
-                </div>
-                <div>
-                  <label htmlFor="dueDate" className="block text-sm font-medium text-gray-700">Due Date</label>
-                  <input
-                    type="date"
-                    name="dueDate"
-                    id="dueDate"
-                    value={expenseInvoiceForm.dueDate}
-                    onChange={handleExpenseInvoiceFormChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                  />
-                </div>
-                <div className="col-span-full">
-                  <label htmlFor="productsServices" className="block text-sm font-medium text-gray-700">Products/Services Description</label>
-                  <textarea
-                    name="productsServices"
-                    id="productsServices"
-                    value={expenseInvoiceForm.productsServices}
-                    onChange={handleExpenseInvoiceFormChange}
-                    rows="3"
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                  ></textarea>
-                </div>
-                <div>
-                  <label htmlFor="paymentMethod" className="block text-sm font-medium text-gray-700">Payment Method</label>
-                  <select
-                    name="paymentMethod"
-                    id="paymentMethod"
-                    value={expenseInvoiceForm.paymentMethod}
-                    onChange={handleExpenseInvoiceFormChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                  >
-                    <option value="Bank">Bank</option>
-                    <option value="Cash">Cash</option>
-                    <option value="Cash 2">Cash 2</option>
-                  </select>
-                </div>
-                <div>
-                  <label htmlFor="totalAmount" className="block text-sm font-medium text-gray-700">Total Amount (BGN)</label>
-                  <input
-                    type="number"
-                    name="totalAmount"
-                    id="totalAmount"
-                    value={expenseInvoiceForm.totalAmount}
-                    onChange={handleExpenseInvoiceFormChange}
-                    min="0"
-                    step="0.01"
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                    required
-                  />
-                </div>
-                <div>
-                  <label htmlFor="totalVAT" className="block text-sm font-medium text-gray-700">Total VAT (BGN)</label>
-                  <input
-                    type="number"
-                    name="totalVAT"
-                    id="totalVAT"
-                    value={expenseInvoiceForm.totalVAT}
-                    onChange={handleExpenseInvoiceFormChange}
-                    min="0"
-                    step="0.01"
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                  />
-                </div>
-                <div className="col-span-full">
-                  <label htmlFor="notes" className="block text-sm font-medium text-gray-700">Notes</label>
-                  <textarea
-                    name="notes"
-                    id="notes"
-                    value={expenseInvoiceForm.notes}
-                    onChange={handleExpenseInvoiceFormChange}
-                    rows="2"
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                  ></textarea>
-                </div>
-
-                <div className="md:col-span-2 flex justify-end space-x-3 mt-8">
-                  <button
-                    type="button"
-                    onClick={() => { resetExpenseInvoiceForm(); setActiveTab('invoicingExpenses'); }}
-                    className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition duration-200 shadow-sm"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-6 py-2 bg-[#28A745] text-white rounded-lg hover:bg-[#218838] transition duration-200 shadow-md"
-                    disabled={loading}
-                  >
-                    {loading ? 'Saving...' : selectedExpenseInvoice ? 'Update Expense Invoice' : 'Add Expense Invoice'}
-                  </button>
-                </div>
-              </form>
-            ) : (
-              // Expense Invoices List
-              <>
-                <div className="flex justify-end mb-4">
-                  <button
-                    onClick={() => { resetExpenseInvoiceForm(); setActiveTab('addExpenseInvoice'); }}
-                    className="px-6 py-2 bg-[#28A745] text-white rounded-lg hover:bg-[#218838] transition duration-200 shadow-md"
-                  >
-                    Add New Expense Invoice
-                  </button>
-                </div>
-                {expenseInvoices.length === 0 ? (
-                  <p className="text-gray-600 text-center py-8">No expense invoices found. Add a new one to get started!</p>
-                ) : (
-                  <div className="overflow-x-auto rounded-xl shadow-md border border-gray-200">
-                    <table className="min-w-full bg-white">
-                      <thead className="bg-gray-50 text-gray-700 border-b border-gray-200">
-                        <tr>
-                          <th className="py-3 px-4 text-left font-medium">Invoice No.</th>
-                          <th className="py-3 px-4 text-left font-medium">Company Name</th>
-                          <th className="py-3 px-4 text-left font-medium">Date</th>
-                          <th className="py-3 px-4 text-right font-medium">Amount (BGN)</th>
-                          <th className="py-3 px-4 text-right font-medium">VAT (BGN)</th>
-                          <th className="py-3 px-4 text-left font-medium">Payment Method</th>
-                          <th className="py-3 px-4 text-center font-medium">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="text-gray-700">
-                        {expenseInvoices.map(inv => (
-                          <tr key={inv.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors duration-150">
-                            <td className="py-3 px-4 text-gray-600 font-mono text-sm">{inv.invoiceNumber}</td>
-                            <td className="py-3 px-4">{inv.companyName}</td>
-                            <td className="py-3 px-4 text-gray-600">{inv.invoiceDate}</td>
-                            <td className="py-3 px-4 text-right font-semibold text-[#DC3545]">BGN {parseFloat(inv.totalAmount).toFixed(2)}</td> {/* Expenses in red */}
-                            <td className="py-3 px-4 text-right text-gray-600">BGN {parseFloat(inv.totalVAT).toFixed(2)}</td>
-                            <td className="py-3 px-4 text-gray-600">{inv.paymentMethod}</td>
-                            <td className="py-3 px-4 flex justify-center space-x-2">
-                              <button
-                                onClick={() => handleEditExpenseInvoice(inv)}
-                                className="bg-[#28A745] hover:bg-[#218838] text-white p-2 rounded-full shadow-md transition duration-200"
-                                title="Edit"
-                              >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                  <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zm-5.69 5.69L11.586 7.586 14.414 10.414 11.586 13.242 8.758 10.414l2.828-2.828z" />
-                                  <path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm-4 8a1 1 0 011-1h1a1 1 0 110 2H7a1 1 0 01-1-1zm10 0a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1zM4 14a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm10 0a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1zM3 18a1 1 0 011-1h1a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
-                                </svg>
-                              </button>
-                              <button
-                                onClick={() => handleDeleteExpenseInvoice(inv.id)}
-                                className="bg-[#DC3545] hover:bg-[#C82333] text-white p-2 rounded-full shadow-md transition duration-200"
-                                title="Delete"
-                              >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                  <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1zm-1 3a1 1 0 011-1h4a1 1 0 110 2H7a1 1 0 01-1-1zm-1 3a1 1 0 011-1h4a1 1 0 110 2H7a1 1 0 01-1-1z" clipRule="evenodd" />
-                                </svg>
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        );
-
-case 'invoicingSales':
-      case 'addSalesInvoice': // Handle both list and add/edit form in one case
-        // Create a sorted copy of the sales invoices array for display
-        const sortedSalesInvoices = [...salesInvoices].sort((a, b) => {
-            const numA = parseInt(a.invoiceNumber?.substring(3) || '0', 10);
-            const numB = parseInt(b.invoiceNumber?.substring(3) || '0', 10);
-            return numB - numA;
-        });
-
-        return (
-          <div className="p-6 bg-white rounded-xl shadow-lg">
-            <h2 className="text-3xl font-bold mb-8 text-gray-800 border-b pb-4">
-              {activeTab === 'addSalesInvoice' ? (selectedSalesInvoice ? 'Edit Sales Invoice' : 'Add New Sales Invoice') : 'Sales Invoices'}
-            </h2>
-
-            {activeTab === 'addSalesInvoice' ? (
-              // Sales Invoice Add/Edit Form
-              <form onSubmit={handleSubmitSalesInvoice} className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-                <div className="col-span-full text-lg font-semibold text-gray-800">Client Details</div>
-                <div>
-                  <label htmlFor="invoiceNumber" className="block text-sm font-medium text-gray-700">Invoice Number</label>
-                  <input
-                    type="text"
-                    name="invoiceNumber"
-                    id="invoiceNumber"
-                    value={salesInvoiceForm.invoiceNumber}
-                    onChange={handleSalesInvoiceFormChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2 bg-gray-100"
-                    placeholder="Auto-generated or editable"
-                    required
-                  />
-                </div>
-                <div>
-                  <label htmlFor="invoiceDate" className="block text-sm font-medium text-gray-700">Invoice Date</label>
-                  <input
-                    type="date"
-                    name="invoiceDate"
-                    id="invoiceDate"
-                    value={salesInvoiceForm.invoiceDate}
-                    onChange={handleSalesInvoiceFormChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                    required
-                  />
-                </div>
-                <div>
-                  <label htmlFor="clientName" className="block text-sm font-medium text-gray-700">Client Name</label>
-                  <input
-                    type="text"
-                    name="clientName"
-                    id="clientName"
-                    value={salesInvoiceForm.clientName}
-                    onChange={handleSalesInvoiceFormChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                    required
-                  />
-                </div>
-                <div>
-                  <label htmlFor="clientMOL" className="block text-sm font-medium text-gray-700">Client MOL</label>
-                  <input
-                    type="text"
-                    name="clientMOL"
-                    id="clientMOL"
-                    value={salesInvoiceForm.clientMOL}
-                    onChange={handleSalesInvoiceFormChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="clientID" className="block text-sm font-medium text-gray-700">Client ID</label>
-                  <input
-                    type="text"
-                    name="clientID"
-                    id="clientID"
-                    value={salesInvoiceForm.clientID}
-                    onChange={handleSalesInvoiceFormChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="clientVATID" className="block text-sm font-medium text-gray-700">Client VAT ID</label>
-                  <input
-                    type="text"
-                    name="clientVATID"
-                    id="clientVATID"
-                    value={salesInvoiceForm.clientVATID}
-                    onChange={handleSalesInvoiceFormChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="clientAddress" className="block text-sm font-medium text-gray-700">Client Address</label>
-                  <input
-                    type="text"
-                    name="clientAddress"
-                    id="clientAddress"
-                    value={salesInvoiceForm.clientAddress}
-                    onChange={handleSalesInvoiceFormChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="clientCity" className="block text-sm font-medium text-gray-700">Client City</label>
-                  <input
-                    type="text"
-                    name="clientCity"
-                    id="clientCity"
-                    value={salesInvoiceForm.clientCity}
-                    onChange={handleSalesInvoiceFormChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="clientPostCode" className="block text-sm font-medium text-gray-700">Client Post Code</label>
-                  <input
-                    type="text"
-                    name="clientPostCode"
-                    id="clientPostCode"
-                    value={salesInvoiceForm.clientPostCode}
-                    onChange={handleSalesInvoiceFormChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                  />
-                </div>
-
-                {/* Products Section */}
-                <div className="md:col-span-2 border-t border-gray-200 pt-4 mt-4">
-                  <h3 className="text-lg font-semibold mb-4 text-gray-800">Products/Services</h3>
-                  {salesInvoiceForm.products.map((product, index) => (
-                    <div key={index} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 border border-gray-200 rounded-lg p-4 mb-4 relative shadow-sm">
-                      <h4 className="col-span-full text-md font-medium text-gray-700 mb-2">Item {index + 1}</h4>
-                      <button
                         type="button"
-                        onClick={() => removeSalesInvoiceProduct(index)}
-                        className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white p-1 rounded-full text-xs transition duration-200"
-                        title="Remove Product"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                      </button>
-                      <div>
-                        <label htmlFor={`productCode-${index}`} className="block text-sm font-medium text-gray-700">Product Code</label>
-                        <select name="productCode" id={`productCode-${index}`} value={product.productCode} onChange={(e) => handleSalesInvoiceProductChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" required>
-                          <option value="">Select Product</option>
-                          {products.map(p => (<option key={p.id} value={p.productCode}>{p.productName} ({p.productCode})</option>))}
-                        </select>
-                      </div>
-                      <div>
-                        <label htmlFor={`productName-${index}`} className="block text-sm font-medium text-gray-700">Product Name</label>
-                        <input type="text" name="productName" id={`productName-${index}`} value={product.productName} onChange={(e) => handleSalesInvoiceProductChange(index, e)} className="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm px-3 py-2" readOnly />
-                      </div>
-                      <div>
-                        <label htmlFor={`quantity-${index}`} className="block text-sm font-medium text-gray-700">Quantity</label>
-                        <input type="number" name="quantity" id={`quantity-${index}`} value={product.quantity} onChange={(e) => handleSalesInvoiceProductChange(index, e)} min="1" step="1" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" required />
-                      </div>
-                      <div>
-                        <label htmlFor={`price-${index}`} className="block text-sm font-medium text-gray-700">Price (per unit)</label>
-                        <input type="number" name="price" id={`price-${index}`} value={product.price} onChange={(e) => handleSalesInvoiceProductChange(index, e)} min="0" step="0.01" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" required />
-                      </div>
-                      <div>
-                        <label htmlFor={`vatRate-${index}`} className="block text-sm font-medium text-gray-700">VAT Rate (%)</label>
-                        <input type="number" name="vatRate" id={`vatRate-${index}`} value={product.vatRate} onChange={(e) => handleSalesInvoiceProductChange(index, e)} min="0" step="0.01" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" required />
-                      </div>
-                      <div>
-                        <label htmlFor={`lineTotal-${index}`} className="block text-sm font-medium text-gray-700">Line Total (BGN)</label>
-                        <input type="number" name="lineTotal" id={`lineTotal-${index}`} value={(product.lineTotal || 0).toFixed(2)} readOnly className="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm px-3 py-2" />
-                      </div>
-                      <div>
-                        <label htmlFor={`lineVAT-${index}`} className="block text-sm font-medium text-gray-700">Line VAT (BGN)</label>
-                        <input type="number" name="lineVAT" id={`lineVAT-${index}`} value={(product.lineVAT || 0).toFixed(2)} readOnly className="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm px-3 py-2" />
-                      </div>
-                      <div>
-                        <label htmlFor={`lineGrandTotal-${index}`} className="block text-sm font-medium text-gray-700">Line Grand Total (BGN)</label>
-                        <input type="number" name="lineGrandTotal" id={`lineGrandTotal-${index}`} value={(product.lineGrandTotal || 0).toFixed(2)} readOnly className="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm px-3 py-2" />
-                      </div>
-                    </div>
-                  ))}
-                  <button type="button" onClick={addSalesInvoiceProduct} className="mt-4 px-6 py-2 bg-[#28A745] text-white rounded-lg hover:bg-[#218838] transition duration-200 shadow-md">
-                    Add Product
-                  </button>
+                        onClick={handlePrintContract}
+                        className="inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all transform hover:scale-105"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v6a2 2 0 002 2h12a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clipRule="evenodd" /></svg>
+                        Принтирай Договор
+                    </button>
+                </div>
+            </div>
+
+            {/* This section contains the ACTUAL content to be printed. It's hidden on screen by CSS. */}
+            <div className="print-only">
+                {/* Section 1: Main Contract Header */}
+                <div className="pdf-logical-page">
+                    <h1>ДОГОВОР ЗА ТУРИСТИЧЕСКИ ПАКЕТ № <span id="pdf-contractNumber"></span></h1>
+                    <p style={{textAlign: 'center'}}>съгласно разпоредбите на Закона за туризма</p>
+                    <p>Днес, <span id="pdf-signingDate"></span> в гр. Ракитово, се подписа настоящия договор за пътуване между:</p>
+                    <p>
+                        <b>“ДАЙНАМЕКС ТУР” ЕООД</b> с удостоверение за туроператор № РК-01-8569/15.04.2025г., с адрес на управление гр. Ракитово, ул. "Васил Куртев" №12А, тел. 0879976446, Булстат № BG208193140 , представлявана и управлявана от КРАСИМИР ЕМИЛОВ АНАНОВ, наричан по долу за краткост <b>ТУРОПЕРАТОР</b> от една страна и
+                    </p>
+                    <p>
+                        ИМЕНА: <b id="pdf-mainTouristName"></b>, ЕГН: <b id="pdf-mainTouristEGN"></b>, Л.К. №: <b id="pdf-mainTouristIdCard"></b>,
+                        АДРЕС: <b id="pdf-mainTouristAddress"></b>, GSM: <b id="pdf-mainTouristPhone"></b>, EMAIL: <b id="pdf-mainTouristEmail"></b>
+                    </p>
+                    <p>от друга страна, наричан за краткост <b>ПОТРЕБИТЕЛ</b> се сключи настоящият договор за следното:</p>
+                    <div id="pdf-tourists-table-container"></div>
                 </div>
 
-                {/* Totals & Other Details */}
-   {/* Totals & Other Details */}
-                <div className="md:col-span-2 border-t border-gray-200 pt-4 mt-4">
-                  <h3 className="text-lg font-semibold mb-4 text-gray-800">Payment & Other Details</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label htmlFor="paymentMethodSales" className="block text-sm font-medium text-gray-700">Payment Method</label>
-                      <select name="paymentMethod" id="paymentMethodSales" value={salesInvoiceForm.paymentMethod} onChange={handleSalesInvoiceFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2">
-                        <option value="Cash">Cash</option>
-                        <option value="Bank">Bank</option>
-                        <option value="Cash 2">Cash 2</option>
-                      </select>
+                {/* Section 2: Subject of the Contract & Financials */}
+                <div className="pdf-logical-page">
+                    <h2>І. ПРЕДМЕТ НА ДОГОВОРА</h2>
+                    <p>1. Потребителят възлага и заплаща на Туроператора да му предостави туристическо пътуване при определен маршрут и платена от него цена при условията на настоящия договор.</p>
+                    <p>2. Туроператорът приема да организира туристическото пътуване на Потребителя по определен маршрут заплащане на договорената цена при условията на настоящия договор.</p>
+                    <p>3. Организирано туристическо пътуване е при следните условия:</p>
+                    <p><b>3.1. Маршрут на пътуването</b><br/>
+                        Начална дата на пътуването: <span id="pdf-startDate"></span> &nbsp;&nbsp;Крайна дата на пътуването: <span id="pdf-endDate"></span><br/>
+                        Продължителност на пътуването: <span id="pdf-tripDuration"></span>
+                    </p>
+                    <p><b>3.2. Основни услуги, включени в общата цена</b><br/>
+                        1. Транспорт: <span id="pdf-transportDesc"></span><br/>
+                        Час и място на тръгване: <span id="pdf-departureInfo"></span><br/>
+                        Час и място на връщане: <span id="pdf-returnInfo"></span><br/>
+                        2. Настаняване: <span id="pdf-accommodationDesc"></span><br/>
+                        Брой и вид стаи: <span id="pdf-roomType"></span><br/>
+                        3. Брой и вид на храненията, включени в пакетната цена: <span id="pdf-mealsDesc"></span>
+                    </p>
+                    <p><b>3.3. Други услуги, включени в общата цена:</b> <span id="pdf-otherServices"></span></p>
+                    <p><b>3.4. Специални изисквания на потребителя, за които е постигнато съгласие между двете страни по този договор:</b> <span id="pdf-specialReqs"></span></p>
+                    <p><b>3.5. Обща цена в лева на пътуването:</b> <span id="pdf-totalPrice"></span></p>
+                    <p><b>3.5.1. Други плащания, включени в цената:</b> <span id="pdf-otherPayments"></span></p>
+                    <p><b>3.5.1.1. Отстъпки за деца до 10/12 г., настанени с двама възрастни в двойна стая:</b> <span id="pdf-childDiscount"></span></p>
+                    <p><b>3.5.1.2. Отстъпки за трети възрастен в тройна стая, общо:</b> <span id="pdf-adultDiscount"></span></p>
+                    <p><b>3.5.1.3. Доплащане за единична стая:</b> <span id="pdf-singleRoomFee"></span></p>
+                    <p><b>3.5.1.4. Други - допълнителна екскурзия:</b> <span id="pdf-extraExcursion"></span></p>
+                    <p><b>3.5.1.5. Застраховка:</b> <span id="pdf-insurance"></span></p>
+                    <p><b>3.6 Крайна обща дължима сума:</b> <span id="pdf-finalAmount"></span></p>
+                    <p><b>3.7 Начин и срок за плащане на пълната сума по пътуването:</b> <span id="pdf-paymentTerms"></span></p>
+                    <p>ПОТВЪРЖДАВАМ от свое име и от името на гореизброените туристи, че съм запознат с условията за записване и програмата на пътуването и внасям депозит от <span id="pdf-depositAmount"></span> лв.</p>
+                    <p>Потребителят се задължава да заплати остатъка от пълната сума в размер на <span id="pdf-finalPayment"></span>.</p>
+                    <div className="signatures">
+                        <span>ЗА ТУРОПЕРАТОРА</span>
+                        <span>ЗА ПОТРЕБИТЕЛЯ</span>
                     </div>
-                    <div>
-                      <label htmlFor="dueDateSales" className="block text-sm font-medium text-gray-700">Due Date</label>
-                      <input type="date" name="dueDate" id="dueDateSales" value={salesInvoiceForm.dueDate} onChange={handleSalesInvoiceFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"/>
+                    <div className="signatures" style={{marginTop: '80px'}}>
+                        <span>.........................</span>
+                        <span>.........................</span>
                     </div>
-                    <div>
-                      <label htmlFor="transactionBasis" className="block text-sm font-medium text-gray-700">Основание на сделката</label>
-                      <input type="text" name="transactionBasis" id="transactionBasis" value={salesInvoiceForm.transactionBasis} onChange={handleSalesInvoiceFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
-                    </div>
-                    <div>
-                      <label htmlFor="transactionDescription" className="block text-sm font-medium text-gray-700">Описание на сделката</label>
-                      <input type="text" name="transactionDescription" id="transactionDescription" value={salesInvoiceForm.transactionDescription} onChange={handleSalesInvoiceFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
-                    </div>
-                    <div>
-                      <label htmlFor="transactionPlace" className="block text-sm font-medium text-gray-700">Място на сделката</label>
-                      <input type="text" name="transactionPlace" id="transactionPlace" value={salesInvoiceForm.transactionPlace} onChange={handleSalesInvoiceFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
-                    </div>
-                     <div>
-                      <label htmlFor="receivedBy" className="block text-sm font-medium text-gray-700">Получил (име)</label>
-                      <input type="text" name="receivedBy" id="receivedBy" value={salesInvoiceForm.receivedBy} onChange={handleSalesInvoiceFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2" />
-                    </div>
-                    <div className="flex items-center">
-                      <input type="checkbox" name="isCopy" id="isCopy" checked={salesInvoiceForm.isCopy} onChange={handleSalesInvoiceFormChange} className="h-5 w-5 text-[#28A745] focus:ring-[#28A745] border-gray-300 rounded" />
-                      <label htmlFor="isCopy" className="ml-2 block text-sm font-medium text-gray-700">Is Copy</label>
-                    </div>
-                    <div>
-                      <label htmlFor="grandTotalDisplay" className="block text-sm font-medium text-gray-700">Grand Total (incl. VAT)</label>
-                      <input type="text" id="grandTotalDisplay" value={`BGN ${salesInvoiceForm.grandTotal.toFixed(2)}`} readOnly className="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm px-3 py-2 font-bold text-lg text-[#28A745]" />
-                    </div>
-                  </div>
-                </div>
-                <div className="col-span-full">
-                  <label htmlFor="notesSales" className="block text-sm font-medium text-gray-700">Notes</label>
-                  <textarea name="notes" id="notesSales" value={salesInvoiceForm.notes} onChange={handleSalesInvoiceFormChange} rows="2" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"></textarea>
                 </div>
 
-                <div className="md:col-span-2 flex justify-end space-x-3 mt-8">
-                  <button type="button" onClick={() => { resetSalesInvoiceForm(); setActiveTab('invoicingSales'); }} className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition duration-200 shadow-sm">
-                    Cancel
-                  </button>
-                  <button type="submit" className="px-6 py-2 bg-[#28A745] text-white rounded-lg hover:bg-[#218838] transition duration-200 shadow-md" disabled={loading}>
-                    {loading ? 'Saving...' : selectedSalesInvoice ? 'Update Sales Invoice' : 'Add Sales Invoice'}
-                  </button>
-                </div>
-              </form>
-            ) : (
-              // Sales Invoices List
-              <>
-                <div className="flex justify-end mb-4">
-                  <button onClick={async () => { const newNumber = await generateSalesInvoiceNumber(); resetSalesInvoiceForm(); setSalesInvoiceForm(prev => ({...prev, invoiceNumber: newNumber})); setActiveTab('addSalesInvoice'); }} className="px-6 py-2 bg-[#28A745] text-white rounded-lg hover:bg-[#218838] transition duration-200 shadow-md">
-                    Add New Sales Invoice
-                  </button>
-                </div>
-                {sortedSalesInvoices.length === 0 ? (
-                  <p className="text-gray-600 text-center py-8">No sales invoices found.</p>
-                ) : (
-                  <div className="overflow-x-auto rounded-xl shadow-md border border-gray-200">
-                    <table className="min-w-full bg-white">
-                      <thead className="bg-gray-50 text-gray-700 border-b border-gray-200">
-                        <tr>
-                          <th className="py-3 px-4 text-left font-medium">Invoice No.</th>
-                          <th className="py-3 px-4 text-left font-medium">Date</th>
-                          <th className="py-3 px-4 text-left font-medium">Client Name</th>
-                          <th className="py-3 px-4 text-right font-medium">Grand Total</th>
-                          <th className="py-3 px-4 text-left font-medium">Payment Method</th>
-                          <th className="py-3 px-4 text-center font-medium">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="text-gray-700">
-                        {sortedSalesInvoices.map(inv => (
-                          <tr key={inv.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors duration-150">
-                            <td className="py-3 px-4 text-gray-600 font-mono text-sm">{inv.invoiceNumber}</td>
-                            <td className="py-3 px-4 text-gray-600">{inv.invoiceDate}</td>
-                            <td className="py-3 px-4">{inv.clientName}</td>
-                            <td className="py-3 px-4 text-right text-[#28A745] font-bold">BGN {parseFloat(inv.grandTotal).toFixed(2)}</td>
-                            <td className="py-3 px-4 text-gray-600">{inv.paymentMethod}</td>
-                            <td className="py-3 px-4 flex justify-center space-x-2">
-                              <button onClick={() => setInvoiceToPrint(inv)} className="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-full shadow-md transition duration-200" title="Print">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v6a2 2 0 002 2h12a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clipRule="evenodd" /></svg>
-                              </button>
-                              <button onClick={() => handleEditSalesInvoice(inv)} className="bg-[#28A745] hover:bg-[#218838] text-white p-2 rounded-full shadow-md transition duration-200" title="Edit">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zm-5.69 5.69L11.586 7.586 14.414 10.414 11.586 13.242 8.758 10.414l2.828-2.828z" /><path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm-4 8a1 1 0 011-1h1a1 1 0 110 2H7a1 1 0 01-1-1zm10 0a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1zM4 14a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm10 0a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1zM3 18a1 1 0 011-1h1a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" /></svg>
-                              </button>
-                              <button onClick={() => handleDeleteSalesInvoice(inv.id)} className="bg-[#DC3545] hover:bg-[#C82333] text-white p-2 rounded-full shadow-md transition duration-200" title="Delete">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1zm-1 3a1 1 0 011-1h4a1 1 0 110 2H7a1 1 0 01-1-1zm-1 3a1 1 0 011-1h4a1 1 0 110 2H7a1 1 0 01-1-1z" clipRule="evenodd" /></svg>
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        );
-        
-      case 'invoicingProducts':
-      case 'addProduct': // Combined for add/edit
-        return (
-          <div className="p-6 bg-white rounded-xl shadow-lg">
-            <h2 className="text-3xl font-bold mb-8 text-gray-800 border-b pb-4">
-              {activeTab === 'addProduct' ? (selectedProduct ? 'Edit Product' : 'Add New Product') : 'Product Management'}
-            </h2>
-
-            {activeTab === 'addProduct' ? (
-              // Product Add/Edit Form
-              <form onSubmit={handleSubmitProduct} className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-                <div>
-                  <label htmlFor="productCode" className="block text-sm font-medium text-gray-700">Product Code</label>
-                  <input
-                    type="text"
-                    name="productCode"
-                    id="productCode"
-                    value={productForm.productCode}
-                    onChange={handleProductFormChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2 bg-gray-100"
-                    placeholder="Auto-generated or editable"
-                    disabled={!!selectedProduct}
-                    required
-                  />
-                </div>
-                <div>
-                  <label htmlFor="productName" className="block text-sm font-medium text-gray-700">Product Name</label>
-                  <input
-                    type="text"
-                    name="productName"
-                    id="productName"
-                    value={productForm.productName}
-                    onChange={handleProductFormChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                    required
-                  />
-                </div>
-                <div>
-                  <label htmlFor="price" className="block text-sm font-medium text-gray-700">Price (BGN)</label>
-                  <input
-                    type="number"
-                    name="price"
-                    id="price"
-                    value={productForm.price}
-                    onChange={handleProductFormChange}
-                    min="0"
-                    step="0.01"
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                    required
-                  />
-                </div>
-                <div>
-                  <label htmlFor="vatRate" className="block text-sm font-medium text-gray-700">VAT Rate (%)</label>
-                  <input
-                    type="number"
-                    name="vatRate"
-                    id="vatRate"
-                    value={productForm.vatRate}
-                    onChange={handleProductFormChange}
-                    min="0"
-                    step="0.01"
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#28A745] focus:ring-[#28A745] px-3 py-2"
-                    required
-                  />
+                {/* Section 3: General Conditions Part 1 */}
+                <div className="pdf-logical-page">
+                    <p><b>Туристическа програма</b> - означава разглеждане на посещаваното селище пеша и/или с градски транспорт, като обектите се разглеждат отвън, освен ако в програмата не с упоменато изрично „посещение" на туристическия обект или друго. Екскурзоводът от фирмата няма право да води групата в музеи , където това право имат само местни оторизирани екскурзоводи, които при желание от страна на групата могат да бъдат наети срещу допълнително заплащане. В някои от посещаваните градове се налага ползването на обществен транспорт, който Потребителят плаща за своя сметка.</p>
+                    <p><b>8.2. Панорамна обиколка</b> -означава разглеждане на посещаваното селище с автобуса, като в някои случаи може да се спре и за пешеходно разглеждане по преценка на водача/екскурзовода.</p>
+                    <p><b>8.3. Свободно време</b> -означава време, косто се дава от водача/екскурзовода на групата обикновено след предварително запознаване със съответното селище и което потребителят сам преценява как да оползотвори. През това време водачът/екскурзоводът на групата и автобусът не са на разположение на туристите.</p>
+                    <p><b>8.4. Екскурзия по желание</b> -означава допълнителна факултативна екскурзия, алтернативна на свободното време, цената на която не е включена в общата цена, освен ако в програмата не е упоменато друго. Цената на екскурзията по желание се вписва в графа „цената не включва" в съответната програма.</p>
+                    <p><b>8.5. Екскурзия без нощен преход</b> - означава организирано туристическо пътуване с обща цена по време на което няма предвидени нощувки в използваното превозно средство.</p>
+                    <p><b>8.6. Екскурзия с нощен преход</b> - означава организирано туристическо пътуване с обща цена по време на което има предвидена поне една нощувка в използваното превозно средство.</p>
+                    <p><b>8.7. Закуска / вечеря / друг вид хранене на блок маса (шведска маса, открит бюфет)</b> -означава хранене при което храната е поставена на общ плот или маса от която потребителят може да избере и консумира различни храни и питиета по своя преценка. Блок масата обикновено включва: колбас, кашкавал, масло, конфитюр, чай, кафе и др. Разнообразието и богатството на храните и напитките зависи от съответното заведение за хранене и развлечение.</p>
+                    <p><b>8.8. Посещение на туристически обект</b> означава разглеждане отвътре на посочения обект, като в програмата изрично е посочено понятието „ПОСЕЩЕНИЕ". В повечето случаи посещенията на туристически обекти изискват заплащане на входна такса (закупуване на билет), освен ако в програмата не е упоменато друго.Препоръчваме: потребителят да осигури още в България сумите, които предвижда да похарчи в съответните валути за посещаваните държави. Музейните такси се плащат само в местна валута</p>
                 </div>
 
-                <div className="md:col-span-2 flex justify-end space-x-3 mt-8">
-                  <button
-                    type="button"
-                    onClick={() => { resetProductForm(); setActiveTab('invoicingProducts'); }}
-                    className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition duration-200 shadow-sm"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-6 py-2 bg-[#28A745] text-white rounded-lg hover:bg-[#218838] transition duration-200 shadow-md"
-                    disabled={loading}
-                  >
-                    {loading ? 'Saving...' : selectedProduct ? 'Update Product' : 'Add Product'}
-                  </button>
+                {/* Section 4: General Conditions Part 2 */}
+                <div className="pdf-logical-page">
+                    <p><b>8.9. Нощувка в</b> - означава, че нощувката е в рамките на обявеното селище.</p>
+                    <p><b>8.10.Нощувка в района на</b> - означава, че нощувката е в друго селище в близост до обявеното селище.</p>
+                    <p><b>9. Спорове и рекламации:</b></p>
+                    <p>9.1. Всички рекламации, свързани с качеството на платените услуги, в т.ч. конкретните условия в хотелите и хотелските вериги, трябва да бъдат предявени от потребителя на място пред доставчика на услугите и представител/екскурзовод на туроператора или пред обслужващата фирма туроператор за отстраняване на слабостите. В случай, че заинтересованите страни не са удовлетворени, предявяването на рекламацията става в писмена или друга подходяща форма, позволяваща то да бъде възпроизведено в срок до 14 календарни дни след крайната дата на организираното пътуване.</p>
+                    <p>9.2. Туроператорът се задължава в срок от 10 дни след получаване на рекламацията да даде своето писмено становище по нея.</p>
+                    <p>Забележка: Потребителят не трябва да забравя, че категорията на хотелите и автобусите се определя от оторизираните власти на съответната страна, а не от туроператора.</p>
+                    <p><b>10. Ред за изменение и прекратяване на договора:</b></p>
+                    <p>10.1. Настоящият договор може да бъде отменян, изменян и допълван с двустранни писмени анекси и при спазване разпоредбите на 3Т.</p>
+                    <p>10.2.Всяка от страните има право да поиска изменение или да прекрати Договора във връзка със съществени изменения на обстоятелствата,</p>
+                    <p>10.3.Споразумение за изменение или уведомление за прекратяване на Договора се извършва в писмена форма.</p>
+                    <p>10.4. При изменение на Договора задълженията на страните се запазват в изменен вид. При прекратяване на Договора задълженията на страните се прекратяват след уреждане на финансовите взаимоотношения</p>
+                    <p>10.5. За неуредени в договора выпроси се прилагат разпоредбите на 3Т, 33П, Търговския закон, Закона за задълженията и договорите и останалото действащо законодателство на Р...България.</p>
+                    <p>10.6. Анекс към Договора за организирано пътуване е подробно описание на туристическата програма.</p>
+                    <p>10.7. Потребителят декларира с подписа си, че той и записаните от него туристи са запознати с програмата на екскурзията и общите условия на организираното пътуване, описани в настоящия договор и ги приемат.</p>
+                    <p>10.8. Този договор се изготви в два екземпляра, по един за всяка от страните и се подписа на всяка страница, както следва:</p>
+                    <div className="signatures">
+                        <span>ЗА ТУРОПЕРАТОРА</span>
+                        <span>ЗА ПОТРЕБИТЕЛЯ</span>
+                    </div>
+                    <div className="signatures" style={{marginTop: '80px'}}>
+                        <span>.........................</span>
+                        <span>.........................</span>
+                    </div>
                 </div>
-              </form>
-            ) : (
-              // Product List
-              <>
-                <div className="flex justify-end mb-4">
-                  <button
-                    onClick={() => { resetProductForm(); setActiveTab('addProduct'); }}
-                    className="px-6 py-2 bg-[#28A745] text-white rounded-lg hover:bg-[#218838] transition duration-200 shadow-md"
-                  >
-                    Add New Product
-                  </button>
+                
+                {/* Section 5: GDPR Declaration */}
+                <div className="pdf-logical-page">
+                    <h2>ПРИЛОЖЕНИЕ Nº 1 КЪМ ДОГОВОР ЗА ТУРИСТИЧЕСКИ ПАКЕТ</h2>
+                    <h2 style={{marginTop:0}}>ДЕКЛАРАЦИЯ - СЪГЛАСИЕ ЗА ОБРАБОТКА НА ЛИЧНИ ДАННИ</h2>
+                    <p>В качеството си на администратор на лични данни, „ДАЙНАМЕКС ТУР" ЕООД, ЕИК 208193140, следва да е получило и/или ще получи от Вас лични данни, които ще обработва, за да предостави услугите си. В случай, че не предоставите личните си данни, „ДАЙНАМЕКС ТУР" няма да може да предостави услугите си, включително да направи резервация от Ваше име за желания период и място.</p>
+                    <p>С подписа си по-долу Вие потвърждавате, че:</p>
+                    <p>- Сте получили на хартиен носител Политиката ни за поверителност с подробна информация за това какви Ваши лични данни събиране и обработваме, за каква цел, за какъв срок и на какво основание ги обработваме, на кого ги представяме и какви са Вашите права във връзка с тази обработка;</p>
+                    <p>- Сме Ви информирали, че посочената Политика за поверителност е налична и онлайн на интернет адрес http://dynamextour.com;</p>
+                    <p>- Ако за целите на предоставянето на услугата, която се закупили, сте ни предоставили или ще ни предоставите лични данни на трети лица (например приятели, познати или членове на семейството, които ще пътуват с Вас), Вие декларирате, че ще информирате тези трети лица за това, че сте ни предоставили техните лични данни, както и да им предоставите екземпляр от Политиката за поверителност или да ги насочите към посочения по-горе адрес, на който то е достъпно чрез уеб-страницата;</p>
+                    <p>- Декларирате истинността на предоставената ни информация, включително актуалността и верността на личните данни.</p>
+                    <br/><br/>
+                    <p>........................................................................</p>
+                    <p>ТРИ ИМЕНА И ПОДПИС</p>
+                    <p>ДАТА: <span id="pdf-declarationDate1"></span></p>
                 </div>
-                {products.length === 0 ? (
-                  <p className="text-gray-600 text-center py-8">No products found. Add a new product to get started!</p>
-                ) : (
-                  <div className="overflow-x-auto rounded-xl shadow-md border border-gray-200">
-                    <table className="min-w-full bg-white">
-                      <thead className="bg-gray-50 text-gray-700 border-b border-gray-200">
-                        <tr>
-                          <th className="py-3 px-4 text-left font-medium">Code</th>
-                          <th className="py-3 px-4 text-left font-medium">Name</th>
-                          <th className="py-3 px-4 text-right font-medium">Price (BGN)</th>
-                          <th className="py-3 px-4 text-right font-medium">VAT Rate (%)</th>
-                          <th className="py-3 px-4 text-center font-medium">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="text-gray-700">
-                        {products.map(prod => (
-                          <tr key={prod.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors duration-150">
-                            <td className="py-3 px-4 text-gray-600 font-mono text-sm">{prod.productCode}</td>
-                            <td className="py-3 px-4">{prod.productName}</td>
-                            <td className="py-3 px-4 text-right font-semibold">BGN {parseFloat(prod.price).toFixed(2)}</td>
-                            <td className="py-3 px-4 text-right text-gray-600">{parseFloat(prod.vatRate).toFixed(2)}%</td>
-                            <td className="py-3 px-4 flex justify-center space-x-2">
-                              <button
-                                onClick={() => handleEditProduct(prod)}
-                                className="bg-[#28A745] hover:bg-[#218838] text-white p-2 rounded-full shadow-md transition duration-200"
-                                title="Edit"
-                              >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                  <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zm-5.69 5.69L11.586 7.586 14.414 10.414 11.586 13.242 8.758 10.414l2.828-2.828z" />
-                                  <path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm-4 8a1 1 0 011-1h1a1 1 0 110 2H7a1 1 0 01-1-1zm10 0a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1zM4 14a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm10 0a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1zM3 18a1 1 0 011-1h1a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
-                                </svg>
-                              </button>
-                              <button
-                                onClick={() => handleDeleteProduct(prod.id)}
-                                className="bg-[#DC3545] hover:bg-[#C82333] text-white p-2 rounded-full shadow-md transition duration-200"
-                                title="Delete"
-                              >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                  <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1zm-1 3a1 1 0 011-1h4a1 1 0 110 2H7a1 1 0 01-1-1zm-1 3a1 1 0 011-1h4a1 1 0 110 2H7a1 1 0 01-1-1z" clipRule="evenodd" />
-                                </svg>
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        );
-case 'transportContract':
-        return (
-          <div className="p-0 bg-white rounded-xl shadow-lg h-full">
-            <iframe
-              src="/transportcontract.html" // This loads the contract.html from your 'public' folder
-              title="Transport Contract Generator"
-              className="w-full h-full border-0 rounded-xl"
-              style={{ minHeight: '80vh' }} // Ensures the frame has a good height
-            />
-          </div>
-        );
-case 'makeOffer':
-        return (
-          <div className="p-0 bg-white rounded-xl shadow-lg h-full">
-            <iframe
-              src="/offer.html" // Loads offer.html from the 'public' folder
-              title="Offer Generator"
-              className="w-full h-full border-0 rounded-xl"
-              style={{ minHeight: '80vh' }}
-            />
-          </div>
-        );
-     case 'confirmation':
-        return (
-          <div className="p-0 bg-white rounded-xl shadow-lg h-full">
-            <iframe
-              src="/confirmation.html" // Loads confirmation.html from the 'public' folder
-              title="Confirmation Generator"
-              className="w-full h-full border-0 rounded-xl"
-              style={{ minHeight: '80vh' }}
-            />
-          </div>
-        );
-case 'customerContract':
-    if (reservationToGenerateContract) {
-      // If a reservation was specifically selected from the list for printing
-      // Render the dynamic CustomerContractPrint component
-      return (
-        <CustomerContractPrint
-          reservationData={reservationToGenerateContract}
-          onPrintFinish={() => {
-            setReservationToGenerateContract(null); // Clear the selected reservation
-            setActiveTab('reservations'); // Go back to the reservations list
-          }}
-        />
-      );
-    } else {
-      // If user clicked 'Customer Contract' from sidebar directly (no reservation selected)
-      // Render the original static ccontract.html in an iframe
-      return (
-        <div className="p-0 bg-white rounded-xl shadow-lg h-full relative">
-          <iframe
-            src="/ccontract.html"
-            title="Static Customer Contract Generator"
-            className="w-full h-full border-0 rounded-xl"
-            style={{ minHeight: '80vh' }}
-          />
-          {/* Optional: Add a button to go back to dashboard/reservations from here if desired */}
-          <div className="absolute top-4 right-4 z-10">
-            <button
-                onClick={() => setActiveTab('dashboard')} // Or 'reservations'
-                className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-800 transition duration-200 shadow-md flex items-center"
-            >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
-                Назад към Начало
-            </button>
-          </div>
+
+                {/* Section 6: Information Confirmation Declaration */}
+                <div className="pdf-logical-page">
+                    <h2 style={{marginTop: 0}}>ДЕКЛАРАЦИЯ - ПОТВЪРЖДЕНИЕ ЗА ИНФОРМИРАНОСТ ОТНОСНО УСЛОВИЯТА И ОСНОВНИТЕ ХАРАКТЕРИСТИКИ НА ПАКЕТА</h2>
+                    <p>Долуподписаният <b id="pdf-declarationName"></b>, ЕГН: <b id="pdf-declarationEGN"></b>, телефон за връзка, <b id="pdf-declarationPhone"></b> в качеството ми на Потребител по Договор Nº <b id="pdf-declarationContractNumber"></b></p>
+                    <p>ДЕКЛАРИРАМ, ЧЕ:</p>
+                    <p>Преди да подпиша договора за туристически пакет, от Туроператора и/ или Турагента, в това число и чрез електронния сайт на Дружеството, съм получил цялата съпътстваща информация за условията на пакета, който желая да закупя, съответно и всички данни за моето пътуване и почивка, получил съм подробна и пълна информация на всички поставени от мен вьпроси, предлаганият туристически пакет съм избрал доброволно и съм съгласен изцяло с неговите условия и характеристики, в това число, но не само и с условията за плащане, минималния брой участници, за които ще се осъществи програмата, получил съм информация и за възможността си да сключа договор за доброволна застраховка за покриване на разходи в случай, че прекратя туристическия пакет, като цялата получена от мен преддоговорната информация ме удовлетворява напълно и в знак на съгласие от мое име и от името на записаните от мен лица, полагам подписа си под настоящата Декларация и подписвам Договора за туристически пакет, заедно с всички негови приложения.</p>
+                    <br/><br/>
+                    <p>ДАТА: <span id="pdf-declarationDate2"></span></p>
+                    <p style={{textAlign: 'right', marginTop: '20px'}}>(подпис) ................................</p>
+                </div>
+            </div>
         </div>
-      );
-    }
-case 'busTourContract': // NEW CASE FOR BUS TOUR CONTRACT
-    if (tourToGenerateContract) {
-      return (
-        <BusTourContractPrint
-          tourData={tourToGenerateContract}
-          allReservations={reservations} // Pass all reservations so the component can filter
-          onPrintFinish={() => {
-            setTourToGenerateContract(null); // Clear the selected tour
-            setActiveTab('tours'); // Go back to the tours list
-          }}
-        />
-      );
-    } else {
-      // If user clicked 'Bus Tour Contract' from sidebar directly (no tour selected), or if tourToGenerateContract is null
-      return (
-        <div className="p-6 bg-white rounded-xl shadow-lg h-full text-center">
-            <p className="text-gray-600 text-lg mb-4">Please select a tour from the "Bus Tours" list to generate a contract.</p>
-            <button
-                onClick={() => setActiveTab('tours')}
-                className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition duration-200 shadow-md"
-            >
-                Go to Bus Tours
-            </button>
-        </div>
-      );
-    }
-    return (
-        <CustomerContractPrint
-            reservationData={reservationToGenerateContract}
-            onPrintFinish={() => {
-                setReservationToGenerateContract(null); // Clear the selected reservation
-                setActiveTab('reservations'); // Go back to the reservations list
-            }}
-        />
     );
-      case 'createInvoice':
-        return (
-          <div className="p-0 bg-white rounded-xl shadow-lg h-full">
-            <iframe
-              src="/createinvoice.html" // Loads createinvoice.html from the 'public' folder
-              title="Invoice Generator"
-              className="w-full h-full border-0 rounded-xl"
-              style={{ minHeight: '80vh' }}
-            />
-          </div>
-        );
-      default:
-        return <div>Select a module from the sidebar.</div>;
-    }
-  };
-
-  const handlePrintFinish = () => {
-    setInvoiceToPrint(null);
-  };
-
-  // If an invoice has been selected for printing, render only the print component.
-  if (invoiceToPrint) {
-    return <InvoicePrint invoiceData={invoiceToPrint} onPrintFinish={handlePrintFinish} />;
-  }
-
-
-
-  if (invoiceToPrint) {
-    return <InvoicePrint invoiceData={invoiceToPrint} onPrintFinish={handlePrintFinish} />;
-  }
-
-  return (
-    <div className="font-sans antialiased bg-gray-100 min-h-screen text-gray-900" style={{ fontFamily: 'Inter, sans-serif' }}>
-      <div className="flex flex-col md:flex-row min-h-screen">
-        {/* Sidebar Navigation */}
-        <aside className="w-full md:w-64 bg-white text-gray-800 p-4 rounded-b-xl md:rounded-r-xl md:rounded-b-none shadow-lg border-r border-gray-100">
-          <div className="flex items-center justify-center md:justify-start mb-6">
-            <img src={Logo} alt="Dynamex Logo" className="h-40 w-auto mr-3" />
-            <span className="font-semibold text-xl text-gray-900"></span>
-          </div>
-          <nav>
-            <ul>
-              {userId && (
-                <>
-                  <li className="mb-2">
-                    <button onClick={() => { setActiveTab('dashboard'); }} className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base ${activeTab === 'dashboard' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}`}>
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" /></svg>
-                      Dashboard
-                    </button>
-                  </li>
-                  <li className="mb-2">
-                    <button onClick={() => { setActiveTab('reservations'); resetReservationForm(); }} className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base ${activeTab === 'reservations' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}`}>
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v2m-7 13v-3a2 2 0 012-2h2a2 2 0 012 2v3m-7 0H9m-7 0h4" /></svg>
-                      Reservations
-                    </button>
-                  </li>
-                  <li className="mb-2">
-                    <button onClick={() => { setActiveTab('addReservation'); resetReservationForm(); }} className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base ${activeTab === 'addReservation' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}`}>
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                      Add Reservation
-                    </button>
-                  </li>
-                  <li className="mb-2">
-                    <button onClick={() => { setActiveTab('customers'); resetReservationForm(); }} className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base ${activeTab === 'customers' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}`}>
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h2a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2h2m3-2v2m0-7V11m0 4h.01M17 12h.01M12 12h.01M7 12h.01M6 16h9a2 2 0 002-2V7H6v9z" /></svg>
-                      Customers
-                    </button>
-                  </li>
-                  <li className="mb-2">
-                    <button onClick={() => setActiveTab('tours')} className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base ${activeTab === 'tours' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}`}>
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z" /></svg>
-                      Bus Tours
-                    </button>
-                  </li>
-                  <li className="mb-2">
-                    <button onClick={() => { setActiveTab('addTour'); resetTourForm(); }} className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base ${activeTab === 'addTour' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}`}>
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                      Create Tour
-                    </button>
-                  </li>
-                  <li className="mb-2">
-                    <button onClick={() => setActiveTab('payments')} className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base ${activeTab === 'payments' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}`}>
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M7 11h10a1 1 0 011 1v5a1 1 0 01-1 1H7a1 1 0 01-1-1v-5a1 1 0 011-1zM12 5V4m0 20v-1m-4-11H3m18 0h-1" /></svg>
-                      Payments
-                    </button>
-                  </li>
-                  <li className="mb-2">
-                    <button onClick={() => { setActiveTab('addFinancialTransaction'); resetFinancialTransactionForm(); }} className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base ${activeTab === 'addFinancialTransaction' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}`}>
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                      Add Payment/Expense
-                    </button>
-                  </li>
-                  <li className="mb-2">
-                    <button onClick={() => { setActiveTab('financialReports'); resetFinancialReportsFilters(); }} className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base ${activeTab === 'financialReports' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}`}>
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17v-4m0 0h3m-3 0H7m-1 0v4m-2-4h2a2 2 0 012 2v2a2 2 0 01-2 2H4a2 2 0 01-2-2V7a2 2 0 012-2h4m2 10h.01M17 17v-4m0 0h3m-3 0H17m-1 0v4m-2-4h2a2 2 0 012 2v2a2 2 0 01-2 2H14a2 2 0 01-2-2V7a2 2 0 012-2h4m2 10h.01M7 11a1 1 0 01-1 1H4a1 1 0 01-1-1V9a1 1 0 011-1h2a1 1 0 011 1v2z" /></svg>
-                      Financial Reports
-                    </button>
-                  </li>
-                  <li className="mb-2 mt-6 border-t border-gray-200 pt-6">
-                    <h3 className="text-sm font-bold mb-3 text-gray-500 uppercase tracking-wider">Invoicing</h3>
-                  </li>
-                  <li className="mb-2">
-                    <button onClick={() => setActiveTab('invoicingDashboard')} className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base ${activeTab === 'invoicingDashboard' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}`}>
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" /></svg>
-                      Invoicing Dashboard
-                    </button>
-                  </li>
-                  <li className="mb-2">
-                    <button onClick={() => setActiveTab('invoicingSales')} className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base ${activeTab === 'invoicingSales' || activeTab === 'addSalesInvoice' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}`}>
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M7 11h10a1 1 0 011 1v5a1 1 0 01-1 1H7a1 1 0 01-1-1v-5a1 1 0 011-1zM12 5V4m0 20v-1m-4-11H3m18 0h-1" /></svg>
-                      Sales Invoices
-                    </button>
-                  </li>
-                  <li className="mb-2">
-                    <button onClick={() => setActiveTab('invoicingExpenses')} className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base ${activeTab === 'invoicingExpenses' || activeTab === 'addExpenseInvoice' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}`}>
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M7 11h10a1 1 0 011 1v5a1 1 0 01-1 1H7a1 1 0 01-1-1v-5a1 1 0 011-1zM12 5V4m0 20v-1m-4-11H3m18 0h-1" /></svg>
-                      Expense Invoices
-                    </button>
-                  </li>
-                  <li className="mb-2">
-                    <button onClick={() => setActiveTab('invoicingProducts')} className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base ${activeTab === 'invoicingProducts' || activeTab === 'addProduct' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}`}>
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h.01M7 3h.01M7 11h.01M7 15h.01M7 19h.01M17 7h.01M17 3h.01M17 11h.01M17 15h.01M17 19h.01M3 7h.01M3 3h.01M3 11h.01M3 15h.01M3 19h.01M21 7h.01M21 3h.01M21 11h.01M21 15h.01M21 19h.01M12 7h.01M12 3h.01M12 11h.01M12 15h.01M12 19h.01" /></svg>
-                      Product Management
-                    </button>
-                  </li>
-                  <li className="mb-2">
-                    <button onClick={() => setActiveTab('transportContract')} className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base ${activeTab === 'transportContract' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}`}>
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" viewBox="0 0 20 20" fill="currentColor"><path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" /><path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" /></svg>
-                      Transport Contract
-                    </button>
-                  </li>
-                  <li className="mb-2">
-                    <button onClick={() => setActiveTab('makeOffer')} className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base ${activeTab === 'makeOffer' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}`}>
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V7.414A2 2 0 0015.414 6L12 2.586A2 2 0 0010.586 2H6zm5 6a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V8z" clipRule="evenodd" /></svg>
-                      Make Offer
-                    </button>
-                  </li>
-                  <li className="mb-2">
-                    <button onClick={() => setActiveTab('confirmation')} className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base ${activeTab === 'confirmation' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}`}>
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
-                      Confirmation
-                    </button>
-                  </li>
-                  <li className="mb-2">
-                    <button onClick={() => setActiveTab('customerContract')} className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base ${activeTab === 'customerContract' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}`}>
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-6-3a2 2 0 11-4 0 2 2 0 014 0zm-2 4a5 5 0 00-4.546 2.916A5.986 5.986 0 0010 16a5.986 5.986 0 004.546-2.084A5 5 0 0010 11z" clipRule="evenodd" /></svg>
-                      Customer Contract
-                    </button>
-                  </li>
-                  <li className="mb-2">
-                    <button onClick={() => setActiveTab('createInvoice')} className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base ${activeTab === 'createInvoice' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}`}>
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" viewBox="0 0 20 20" fill="currentColor">
-                         <path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z" /><path fillRule="evenodd" d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" clipRule="evenodd" />
-                      </svg>
-                      Create Invoice
-                    </button>
-                  </li>
-                  {isEmailPasswordUser && (
-                    <li className="mb-2 mt-auto pt-6 border-t border-gray-200">
-                      <button onClick={handleLogout} className="flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base hover:bg-red-50 text-[#DC3545]">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
-                        Logout
-                      </button>
-                    </li>
-                  )}
-                </>
-              )}
-            </ul>
-          </nav>
-          {userId && (
-            <div className="mt-8 pt-4 border-t border-gray-200 text-sm text-gray-500">
-              <p>Logged in as:</p>
-              <p className="break-all font-mono text-xs">{auth.currentUser?.email || 'Anonymous'}</p>
-            </div>
-          )}
-        </aside>
-
-        {/* Main Content Area */}
-        <main className="flex-1 p-6 md:p-8 overflow-y-auto bg-gray-100">
-          <NotificationDisplay notifications={notifications} onDismiss={removeNotification} />
-          {renderContent()}
-        </main>
-      </div>
-
-      <ConfirmationModal
-        show={showConfirmModal}
-        message={confirmMessage}
-        onConfirm={() => {
-          if (confirmAction) {
-            confirmAction();
-          }
-          setShowConfirmModal(false);
-          setConfirmAction(null);
-          setConfirmMessage('');
-        }}
-        onCancel={() => {
-          setShowConfirmModal(false);
-          setConfirmAction(null);
-          setConfirmMessage('');
-        }}
-      />
-    </div>
-  );
 };
 
-export default App;
+export default BusTourContractPrint;
