@@ -150,26 +150,60 @@
 
 /* Print-specific styles */
 @media print {
-    html, body { /* Now applies only in print context and won't affect live app body */
-        background-color: #ffffff !important; /* White background for print */
+    /* Hide everything on the page by default */
+    body * {
+        visibility: hidden !important;
+        height: 0 !important; /* Collapse height to avoid empty space */
+        overflow: hidden !important; /* Hide any overflowing content */
+        margin: 0 !important;
+        padding: 0 !important;
+        box-shadow: none !important;
+        border: none !important;
+    }
+
+    /* Make the specific print-only container and its children visible */
+    .print-only, .print-only * {
+        visibility: visible !important;
+        height: auto !important; /* Restore auto height */
+        overflow: visible !important; /* Restore visible overflow */
+        margin: 0 !important;
+        padding: 0 !important;
+        box-shadow: none !important;
+        border: none !important;
+    }
+
+    /* Position the print-only container to take up the full print area */
+    .print-only {
+        position: absolute !important;
+        left: 0 !important;
+        top: 0 !important;
+        width: 100% !important;
+        /* The height will be controlled by page-break-after on .pdf-logical-page if you had one, but for voucher, it should fill vertically too */
+    }
+
+    /* General print layout resets for html, body, and the main content area for print */
+    html, body {
+        background-color: #ffffff !important;
         padding: 0 !important;
         margin: 0 !important;
-        width: 100% !important; /* Ensure full width for printing */
-        height: auto !important; /* Allow content to dictate height */
-        overflow: visible !important; /* Ensure content is not cut off */
-        display: block !important; /* Revert flex for print layout */
-        font-size: 0.8rem !important; /* Smaller base font size for print */
-        -webkit-print-color-adjust: exact !important; /* Crucial for background colors to print */
+        width: 100% !important;
+        height: auto !important; /* Allow height to adjust */
+        overflow: visible !important;
+        display: block !important; /* Essential for print */
+        font-size: 0.8rem !important;
+        -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
     }
 
-    .voucher-container {
-        box-shadow: none !important; /* Remove shadow for print */
-        border-radius: 0 !important; /* Remove border-radius for print */
-        max-width: none !important; /* Allow full width for the voucher content */
-        margin: 0 !important; /* Remove any container margins */
-        padding: 0 !important; /* Remove padding if it was added */
+    .voucher-container { /* This targets the actual content wrapper within print-only */
+        box-shadow: none !important;
+        border-radius: 0 !important;
+        max-width: none !important; /* Allow full width */
+        margin: 0 !important;
+        padding: 0 !important;
+        height: auto !important; /* Ensure content determines height */
     }
+
     .print-button, .add-button, .remove-button {
         display: none !important; /* Hide buttons when printing */
     }
