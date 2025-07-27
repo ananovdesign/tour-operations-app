@@ -174,7 +174,7 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
     }
 
     return (
-        <div className="print-preview-container w-full">
+        <div className="print-preview-container w-full flex flex-col justify-center items-center min-h-screen p-20"> {/* Added flex classes and padding here */}
             <div className="voucher-container">
                 {/* Logo Section */}
                 <div className="logo-section">
