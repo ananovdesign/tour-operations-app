@@ -4480,26 +4480,22 @@ case 'customerContract':
       </div>
     );
   }
-      case 'createInvoice':
-        return (
-          <div className="p-0 bg-white rounded-xl shadow-lg h-full">
-            <iframe
-              src="/createinvoice.html" // Loads createinvoice.html from the 'public' folder
-              title="Invoice Generator"
-              className="w-full h-full border-0 rounded-xl"
-              style={{ minHeight: '80vh' }}
-            />
-          </div>
-        );
-        case 'marketingHub': // NEW: Render Marketing Hub module
+case 'createInvoice':
+  return (
+    <div className="p-0 bg-white rounded-xl shadow-lg h-full">
+      <iframe
+        src="/createinvoice.html" // Loads createinvoice.html from the 'public' folder
+        title="Invoice Generator"
+        className="w-full h-full border-0 rounded-xl"
+        style={{ minHeight: '80vh' }}
+      />
+    </div>
+  );
+case 'marketingHub': // NEW: Render Marketing Hub module
   return <MarketingHubModule db={db} userId={userId} isAuthReady={isAuthReady} campaigns={campaigns} appId={appId} />;
 default:
   return <div>Select a module from the sidebar.</div>;
-}
-      default:
-        return <div>Select a module from the sidebar.</div>;
-    }
-  };
+} // This closes the 'switch' statement
 
  const handlePrintFinish = () => {
     setInvoiceToPrint(null);
