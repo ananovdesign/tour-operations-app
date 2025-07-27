@@ -4625,3 +4625,4 @@ case 'customerContract':
   );
 };
 
+export default App;
