@@ -1,296 +1,148 @@
+/* src/VoucherPrint.css */
+
 /* Import Inter font for a modern look */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
-/* Basic setup for the print preview page - visible on screen */
-.print-preview-container {
+/* Basic setup for the Voucher container when it's rendered */
+/* This is primarily for the print output, but also defines the basic look if seen on screen */
+.voucher-container {
     font-family: 'Inter', sans-serif;
-    background-color: #f9fafb; /* Very light gray background */
-    display: flex; /* Added flex to match original BusTourContractPrint */
-    justify-content: center; /* Added justify-content to match original */
-    padding: 2rem; /* Added padding to match original */
-    margin: 0;
+    background-color: #ffffff;
+    border-radius: 12px; /* Rounded corners for screen display, might be ignored by print */
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); /* Shadow for screen display */
+    width: 210mm; /* A4 width */
+    min-height: 297mm; /* A4 height */
+    margin: 0 auto;
+    padding: 15mm; /* A4 margins */
     box-sizing: border-box;
-    min-height: 100vh;
+    font-size: 10pt; /* Adjusted font size for print legibility */
+    line-height: 1.5;
+    color: #000; /* Default text color to black for print */
 }
 
-/* Voucher Output (main container for the form content) */
-.voucher-container {
-    background-color: #ffffff;
-    border-radius: 12px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    width: 100%;
-    max-width: 800px;
-    overflow: hidden;
-}
+/* Specific styling for elements within the voucher */
 .logo-section {
-    padding: 20px;
+    padding: 10px;
     display: flex;
     justify-content: center;
     align-items: center;
-    background-color: #f9fafb;
+    background-color: #f9fafb; /* Light background for logo area */
+}
+.logo-section img {
+    height: 60px; /* Adjust height for print */
+    width: auto;
+    object-fit: contain;
 }
 .info-table {
     width: 100%;
     border-collapse: collapse;
+    margin-top: 20px; /* Space after logo */
 }
 .info-table th, .info-table td {
-    border: 1px solid #e5e7eb;
-    padding: 12px;
+    border: 1px solid black; /* Solid black borders for print clarity */
+    padding: 5px 8px; /* Compact padding for print */
     text-align: left;
-    font-size: 0.95rem;
-    color: #374151;
+    font-size: 0.85rem; /* Slightly smaller text for tables */
+    color: #000; /* Ensure text is black */
 }
 .info-table th {
     background-color: #f3f4f6;
-    font-weight: 600;
+    font-weight: 700; /* Bold headers for print */
     width: 50%; /* Equal width for Bulgarian and English columns */
-}
-.info-table td {
-    background-color: #ffffff;
+    -webkit-print-color-adjust: exact; /* Print background color */
+    print-color-adjust: exact;
 }
 .header-row {
     background-color: #e0e7ff; /* Light blue background for header rows */
     font-weight: 700;
     text-align: center !important;
-    color: #1f2937;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
 }
-.input-field, .select-field, .textarea-field {
-    width: 100%;
-    padding: 8px;
-    border: 1px solid #d1d5db;
-    border-radius: 6px;
-    box-sizing: border-box;
-    font-size: 0.95rem;
+.info-table span {
+    font-weight: normal; /* Labels within cells should not be bold by default */
 }
-.flex-container {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-.flex-container input, .flex-container textarea {
-    flex-grow: 1;
-}
-.add-button {
-    background-color: #4f46e5;
-    color: white;
-    padding: 8px 16px;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: background-color 0.2s;
-    font-size: 0.9rem;
-    margin-top: 10px;
-    display: inline-block;
-}
-.add-button:hover {
-    background-color: #4338ca;
-}
-.remove-button {
-    background-color: #ef4444; /* Red color for remove */
-    color: white;
-    padding: 8px 12px;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: background-color 0.2s;
-    font-size: 0.85rem;
-    flex-shrink: 0; /* Prevent button from shrinking */
-}
-.remove-button:hover {
-    background-color: #dc2626;
-}
-.number-input-container {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    width: 100%;
-}
-.number-input-container input[type="number"] {
-    width: 60px; /* Smaller width for number inputs */
-    text-align: center;
-    -moz-appearance: textfield; /* Firefox */
-}
-/* Hide arrows for Chrome, Safari, Edge */
-.number-input-container input::-webkit-outer-spin-button,
-.number-input-container input::-webkit-inner-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
-}
-.date-time-container {
-    display: flex;
-    flex-direction: column; /* Stack date and time vertically */
-    gap: 5px;
-    width: 100%;
-}
-.date-time-container input {
-    width: 100%;
-}
-.date-range-container {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    width: 100%;
-}
-.date-range-container input[type="date"] {
-    flex-grow: 1;
-}
-.payment-doc-container {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-    width: 100%;
-}
-.payment-doc-container input {
-    width: 100%;
-}
+
+/* Specific styling for signature lines for print */
 .signature-line {
     height: 1px;
-    background-color: #e5e7eb;
-    margin-top: 20px;
+    background-color: black !important; /* Ensure black line for signatures */
+    margin-top: 30px; /* Space before signature line */
     margin-bottom: 5px;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
 }
 .signature-text {
     text-align: center;
-    font-size: 0.85rem;
-    color: #6b7280;
-    padding-bottom: 10px;
+    font-size: 0.75rem; /* Smaller font for signature text */
+    color: #000 !important;
 }
 
-/* Rule to hide print-only content on screen by default */
-.print-only {
-    display: none; 
-}
+/* --------------------------------------------------- */
+/* Print-specific styles to hide interactive elements */
+/* --------------------------------------------------- */
 
-/* Print-specific styles (now unified to match working BusTourContractPrint.css) */
+/* This rule applies only in print mode */
 @media print {
-    /* Hide everything on the page by default */
-    body * {
-        visibility: hidden !important;
-        height: 0 !important; /* Collapse height to avoid empty space */
-        overflow: hidden !important; /* Hide any overflowing content */
-        margin: 0 !important;
-        padding: 0 !important;
+    /* Hide all elements that are marked as no-print */
+    .no-print {
+        display: none !important;
+    }
+
+    /* Force all elements to be visible within the print output */
+    /* This is critical for nested elements whose parents might have display: none */
+    body, html {
+        margin: 0;
+        padding: 0;
+        /* Ensure A4 size and page breaks for multi-page content if needed */
+        width: 100%; /* Or 210mm */
+        height: auto; /* Or 297mm if you want exactly one page */
+        overflow: visible;
+        background-color: white; /* Ensure white background for print */
+        -webkit-print-color-adjust: exact; /* Ensure backgrounds/colors are printed */
+        print-color-adjust: exact;
+    }
+
+    /* Ensure the main voucher container takes up the page and prints correctly */
+    .voucher-container {
+        /* Already defined for A4 in general styles above, mostly overrides shadows/borders for print */
         box-shadow: none !important;
         border: none !important;
+        border-radius: 0 !important;
+        page-break-after: always; /* If your voucher can span multiple pages, this would break it */
+        page-break-inside: avoid; /* Prevent breaking inside the main container */
     }
 
-    /* Make the specific print-only container and its children visible */
-    .print-only, .print-only * {
-        visibility: visible !important;
-        height: auto !important; /* Restore auto height */
-        overflow: visible !important; /* Restore visible overflow */
-        margin: 0 !important;
-        padding: 0 !important;
-        box-shadow: none !important;
-        border: none !important;
-    }
-
-    /* Position the print-only container to take up the full print area */
-    .print-only {
-        position: absolute !important;
-        left: 0 !important;
-        top: 0 !important;
-        width: 100% !important;
-    }
-
-    /* Ensure specific elements inside print-only are formatted for print */
-    /* These rules are copied from your BusTourContractPrint.css and adapted for VoucherPrint.css */
-    /* General document styling for print */
-    html, body {
-        background-color: white !important; /* Force white background for printing */
-        margin: 0 !important;
-        padding: 0 !important;
-        width: 100% !important;
-        height: auto !important;
-        overflow: visible !important;
+    /* Override any flex/grid display for simple block layout in print */
+    .flex-container, .number-input-container, .date-range-container, .date-time-container, .payment-doc-container {
         display: block !important;
-        font-family: 'Inter', sans-serif !important; /* Use Inter for print */
-        font-size: 0.8rem !important;
-        line-height: 1.5 !important;
-        color: #000 !important; /* Default text to black for print */
+        gap: 0 !important;
+    }
+
+    /* Ensure inputs and textareas show their content as plain text */
+    .input-field, .textarea-field, .select-field {
+        border: none !important;
+        background-color: transparent !important;
+        color: #000 !important;
+        padding: 0 !important;
+        margin: 0 !important;
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
     }
     
-    /* Specific styling for the voucher content within .print-only */
-    .voucher-container { /* This targets the actual content wrapper inside .print-only */
-        width: 210mm !important; /* Standard A4 width */
-        min-height: 297mm !important; /* Standard A4 height */
-        box-shadow: none !important;
-        border-radius: 0 !important;
-        margin: 0 auto !important; /* Center the A4 content on the page */
-        padding: 15mm !important; /* A4 margins */
-        box-sizing: border-box !important; /* Include padding in width/height */
-        overflow: hidden !important; /* Do not show scrollbars for the container itself */
-        background-color: white !important;
+    /* Remove input/select specific styling for print */
+    .input-field::-webkit-outer-spin-button,
+    .input-field::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
     }
-    .logo-section {
-        padding: 10px !important;
+    input[type="number"] {
+        -moz-appearance: textfield; /* Firefox */
     }
-    .logo-section img {
-        height: 60px !important;
-        width: auto !important;
-    }
-    .info-table {
-        width: 100% !important;
-        font-size: 0.85rem !important;
-    }
-    .info-table th, .info-table td {
-        padding: 5px 8px !important;
-        border: 1px solid black !important; /* Ensure borders print */
-    }
-    .info-table th {
-        background-color: #f3f4f6 !important; /* Print background colors */
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
-        color: #000 !important; /* Ensure black text */
-    }
-    .header-row {
-        background-color: #e0e7ff !important;
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
-        color: #000 !important;
-    }
-    .input-field, .select-field, .textarea-field {
-        border: none !important;
-        background-color: transparent !important;
-        padding: 0 !important;
-        font-size: 0.85rem !important;
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
-        color: #000 !important;
-    }
-    /* Ensure text is readable in flex items for print */
-    .flex-container span {
-        white-space: normal !important; /* Allow wrapping */
-        display: inline !important; /* Make labels flow with text */
-        margin-right: 0px !important;
-    }
-    .flex-container input, .flex-container textarea, .flex-container select {
-        display: inline !important; /* Allow inputs to flow in line */
-        width: auto !important;
-        flex-grow: 0 !important;
-        min-width: unset !important;
-    }
-    .date-time-container, .payment-doc-container {
-        display: block !important; /* Stack vertically for print */
-        gap: 0 !important;
-    }
-    .date-range-container {
-        display: inline !important; /* Should still flow inline but compactly */
-        gap: 0 !important;
-    }
-    .signature-line {
-        background-color: black !important; /* Make sure signature lines are visible black */
-        height: 1px !important;
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
-    }
-    .signature-text {
-        color: #000 !important; /* Ensure text is black */
-        font-size: 0.7rem !important;
-    }
-
-    /* Hide the print button for the print version */
-    .print-button, .add-button, .remove-button {
-        display: none !important;
+    select {
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        appearance: none;
+        background-image: none;
     }
 }
