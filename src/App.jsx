@@ -410,10 +410,7 @@ const [tourForm, setTourForm] = useState({
     } finally {
       setLoading(false);
     }
-    const handlePrintVoucherFinish = useCallback(() => {
-    setReservationToPrintVoucher(null); // Clear the selected reservation for voucher
-    setActiveTab('reservations'); // Go back to the reservations list
-}, []);
+   
   };
 
   // --- Firestore Data Listeners (user-specific) ---
@@ -4468,6 +4465,12 @@ case 'customerContract':
     setInvoiceToPrint(null);
     // Note: For other contracts/vouchers, their onPrintFinish callbacks
     // already handle setting null and navigating back to their lists.
+};
+
+// NEW LOCATION for handlePrintVoucherFinish - defined alongside handlePrintFinish
+const handlePrintVoucherFinish = () => { // Removed useCallback for simpler hoisting/scope
+    setReservationToPrintVoucher(null); // Clear the selected reservation for voucher
+    setActiveTab('reservations'); // Go back to the reservations list
 };
 
 // TOP-LEVEL CONDITIONAL RENDERING FOR PRINT COMPONENTS
