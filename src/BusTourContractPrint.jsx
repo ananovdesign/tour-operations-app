@@ -286,7 +286,7 @@ const BusTourContractPrint = ({ tourData, allReservations, onPrintFinish }) => {
     }
 
     return (
-        <div className="print-preview-container">
+        <div className="print-preview-container w-full"> {/* ADD w-full HERE */}
             <div className="invoice-output">
                 
                 {/* Header - Hidden in print */}
