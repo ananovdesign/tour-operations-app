@@ -11,6 +11,45 @@ const BusTourContractPrint = ({ tourData, allReservations, onPrintFinish }) => {
     const [leadGuest, setLeadGuest] = useState(null);
     const [allTouristsForContract, setAllTouristsForContract] = useState([]);
 
+    // States for form fields - allowing user edits
+    const [contractNumber, setContractNumber] = useState('');
+    const [signingDate, setSigningDate] = useState('');
+
+    // Main Tourist fields
+    const [mainTouristName, setMainTouristName] = useState('');
+    const [mainTouristEGN, setMainTouristEGN] = useState('');
+    const [mainTouristIdCard, setMainTouristIdCard] = useState(''); // Always blank for contract
+    const [mainTouristAddress, setMainTouristAddress] = useState('');
+    const [mainTouristPhone, setMainTouristPhone] = useState('');
+    const [mainTouristEmail, setMainTouristEmail] = useState('');
+
+    // Trip Details fields
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
+    const [tripDuration, setTripDuration] = useState('');
+    const [transportDesc, setTransportDesc] = useState('');
+    const [departureInfo, setDepartureInfo] = useState('');
+    const [returnInfo, setReturnInfo] = useState('');
+    const [accommodationDesc, setAccommodationDesc] = useState('');
+    const [roomType, setRoomType] = useState('');
+    const [mealsDesc, setMealsDesc] = useState('');
+    const [otherServices, setOtherServices] = useState('Водач-представител на фирмата по време на цялото пътуване;'); // Static default
+    const [specialReqs, setSpecialReqs] = useState('');
+
+    // Financial fields
+    const [totalPrice, setTotalPrice] = useState(0);
+    const [otherPayments, setOtherPayments] = useState('');
+    const [childDiscount, setChildDiscount] = useState('');
+    const [adultDiscount, setAdultDiscount] = useState('');
+    const [singleRoomFee, setSingleRoomFee] = useState('');
+    const [extraExcursion, setExtraExcursion] = useState('');
+    const [insurance, setInsurance] = useState('');
+    const [finalAmount, setFinalAmount] = useState(0);
+    const [paymentTerms, setPaymentTerms] = useState('Плащането е по договаряне. За повече информация, моля свържете се с Туроператора.'); // Static default
+    const [depositAmount, setDepositAmount] = useState(0);
+    const [finalPayment, setFinalPayment] = useState('');
+
+
     // Function to format dates for Bulgarian locale
     const formatDate = useCallback((dateString) => {
         if (!dateString) return '..................';
@@ -62,134 +101,117 @@ const BusTourContractPrint = ({ tourData, allReservations, onPrintFinish }) => {
 
     // Effect to populate the VISIBLE form fields with tourData and derived guest info
     useEffect(() => {
-        if (tourData && formRef.current && leadGuest) { // Only populate if leadGuest is determined
-            const form = formRef.current;
-
+        if (tourData) {
             // Populate main tourist details from derived leadGuest
-            form.elements.mainTouristName.value = leadGuest.fullName || '';
-            form.elements.mainTouristEGN.value = leadGuest.realId || '';
-            form.elements.mainTouristIdCard.value = ''; // BLANK as requested
-            form.elements.mainTouristAddress.value = `${leadGuest.address || ''}, ${leadGuest.city || ''}, ${leadGuest.postCode || ''}`.trim();
-            form.elements.mainTouristPhone.value = leadGuest.phone || '';
-            form.elements.mainTouristEmail.value = leadGuest.email || '';
+            if (leadGuest) {
+                setMainTouristName(leadGuest.fullName || '');
+                setMainTouristEGN(leadGuest.realId || '');
+                setMainTouristIdCard(''); // Always blank as requested
+                setMainTouristAddress(`${leadGuest.address || ''}, ${leadGuest.city || ''}, ${leadGuest.postCode || ''}`.trim());
+                setMainTouristPhone(leadGuest.phone || '');
+                setMainTouristEmail(leadGuest.email || '');
+            } else {
+                // Clear lead guest fields if no lead guest is found
+                setMainTouristName('');
+                setMainTouristEGN('');
+                setMainTouristIdCard('');
+                setMainTouristAddress('');
+                setMainTouristPhone('');
+                setMainTouristEmail('');
+            }
 
             // Populate tour-specific details
-            form.elements.contractNumber.value = tourData.tourId || ''; // Using Tour ID as contract number
-            form.elements.signingDate.value = tourData.departureDate || new Date().toISOString().split('T')[0]; // Use tour departure date for signing
-            form.elements.startDate.value = tourData.departureDate || '';
-            form.elements.endDate.value = tourData.arrivalDate || '';
+            setContractNumber(tourData.tourId || '');
+            setSigningDate(tourData.departureDate || new Date().toISOString().split('T')[0]);
+            setStartDate(tourData.departureDate || '');
+            setEndDate(tourData.arrivalDate || '');
             
             const checkInDate = tourData.departureDate ? new Date(tourData.departureDate) : null;
             const checkOutDate = tourData.arrivalDate ? new Date(tourData.arrivalDate) : null;
             if (checkInDate && checkOutDate && checkOutDate >= checkInDate) {
                 const diffTime = Math.abs(checkOutDate.getTime() - checkInDate.getTime());
                 const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                form.elements.tripDuration.value = `${diffDays + 1} дни / ${diffDays} нощувки`;
+                setTripDuration(`${diffDays + 1} дни / ${diffDays} нощувки`);
             } else {
-                form.elements.tripDuration.value = '';
+                setTripDuration('');
             }
 
-            // Map new tour fields to contract fields
-            form.elements.transportDesc.value = tourData.transportDescription || 'N/A'; // From tourData
-            form.elements.departureInfo.value = tourData.departureDateTimePlace || 'N/A'; // From tourData
-            form.elements.returnInfo.value = `Около ${tourData.arrivalDate || 'неизвестна дата'} на ${tourData.departureDateTimePlace || 'мястото на тръгване'}`; // Derived return info
-            form.elements.accommodationDesc.value = tourData.tourHotels || 'N/A'; // From tourData
-            form.elements.roomType.value = tourData.tourRoomSummary || 'N/A'; // From tourData
-            form.elements.mealsDesc.value = tourData.mealsIncluded || 'N/A'; // From tourData
-            form.elements.otherServices.value = 'Водач-представител на фирмата по време на цялото пътуване;'; // Static
-            form.elements.specialReqs.value = ''; // Not in tourData, keep blank or N/A
+            setTransportDesc(tourData.transportDescription || 'N/A');
+            setDepartureInfo(tourData.departureDateTimePlace || 'N/A');
+            setReturnInfo(`Около ${tourData.arrivalDate || 'неизвестна дата'} на ${tourData.departureDateTimePlace || 'мястото на тръгване'}`);
+            setAccommodationDesc(tourData.tourHotels || 'N/A');
+            setRoomType(tourData.tourRoomSummary || 'N/A');
+            setMealsDesc(tourData.mealsIncluded || 'N/A');
+            // otherServices has a static default, no need to set here unless it comes from tourData
+            setSpecialReqs(''); // Always starts blank
+            setInsurance(tourData.insuranceDetails || 'НЕ Е ВКЛЮЧЕНА В ЦЕНАТА. ТУРИСТИТЕ СЕ ЗАДЪЛЖАВАТ ДА СКЛЮЧАТ ТАКАВА');
             
-            form.elements.totalPrice.value = ''; // Not in tourData, leave blank for manual fill or N/A
-            form.elements.otherPayments.value = ''; // Not in tourData
-            form.elements.childDiscount.value = ''; // Not in tourData
-            form.elements.adultDiscount.value = ''; // Not in tourData
-            form.elements.singleRoomFee.value = ''; // Not in tourData
-            form.elements.extraExcursion.value = ''; // Not in tourData
-            form.elements.insurance.value = tourData.insuranceDetails || 'НЕ Е ВКЛЮЧЕНА В ЦЕНАТА. ТУРИСТИТЕ СЕ ЗАДЪЛЖАВАТ ДА СКЛЮЧАТ ТАКАВА'; // From tourData or default
-            form.elements.finalAmount.value = ''; // Not in tourData
-            form.elements.depositAmount.value = ''; // Not in tourData
-            form.elements.finalPayment.value = ''; // Not in tourData
-            form.elements.paymentTerms.value = 'Плащането е по договаряне. За повече информация, моля свържете се с Туроператора.'; // Static for tours
-
-            // Set all form fields to read-only and add grey background
-            Object.keys(form.elements).forEach(key => {
-                const element = form.elements[key];
-                if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA' || element.tagName === 'SELECT') {
-                    // List fields that should REMAIN editable for manual input for tour contract
-                    const editableForTour = ['totalPrice', 'otherPayments', 'childDiscount', 'adultDiscount', 'singleRoomFee', 'extraExcursion', 'finalAmount', 'paymentTerms', 'depositAmount', 'finalPayment'];
-                    if (!editableForTour.includes(element.id)) {
-                        element.readOnly = true;
-                        element.classList.add('bg-gray-100', 'cursor-not-allowed');
-                    } else {
-                        element.readOnly = false; // Ensure they are not readonly
-                        element.classList.remove('bg-gray-100', 'cursor-not-allowed');
-                    }
-                }
-            });
-            // Hide the 'Add Tourist' button as tourists come from reservation data
-            const addTouristBtn = form.querySelector('#add-tourist-btn');
-            if (addTouristBtn) {
-                addTouristBtn.style.display = 'none';
-            }
+            // Financials default to blank/zero, as user wants to fill manually
+            setTotalPrice(0);
+            setOtherPayments('');
+            setChildDiscount('');
+            setAdultDiscount('');
+            setSingleRoomFee('');
+            setExtraExcursion('');
+            setFinalAmount(0);
+            // paymentTerms has a static default
+            setDepositAmount(0);
+            setFinalPayment('');
         }
-    }, [tourData, leadGuest, formatDate]); // Re-run when tourData or leadGuest changes
+    }, [tourData, leadGuest, formatDate]);
 
 
     // Function to populate the HIDDEN print-only content based on current form values
     const populatePrintContent = useCallback(() => {
-        if (!formRef.current) return;
-        const form = formRef.current;
-
-        // Helper to get value from form elements and provide fallback or suffix
-        const getValue = (name, fallback = '..................', suffix = '') => {
-            const element = form.elements[name];
-            return (element && element.value !== '' ? element.value : fallback) + suffix;
+        // Direct access to state variables
+        const getValue = (val, fallback = '..................', suffix = '') => {
+            return (val !== null && val !== undefined && val !== '' ? val : fallback) + suffix;
         };
-        const getOptionalValue = (name, fallback = 'Няма.') => form.elements[name].value || fallback;
+        const getOptionalValue = (val, fallback = 'Няма.') => val || fallback;
 
         // Populate contract data in the print-only div
-        document.getElementById('pdf-contractNumber').textContent = getValue('contractNumber', '').replace('..................', '');
-        document.getElementById('pdf-signingDate').textContent = formatDate(form.elements.signingDate.value);
-        document.getElementById('pdf-mainTouristName').textContent = getValue('mainTouristName');
-        document.getElementById('pdf-mainTouristEGN').textContent = getValue('mainTouristEGN');
-        document.getElementById('pdf-mainTouristIdCard').textContent = ''; // BLANK as requested
-        document.getElementById('pdf-mainTouristAddress').textContent = getValue('mainTouristAddress');
-        document.getElementById('pdf-mainTouristPhone').textContent = getValue('mainTouristPhone');
-        document.getElementById('pdf-mainTouristEmail').textContent = getValue('mainTouristEmail');
+        document.getElementById('pdf-contractNumber').textContent = getValue(contractNumber, '').replace('..................', '');
+        document.getElementById('pdf-signingDate').textContent = formatDate(signingDate);
+        document.getElementById('pdf-mainTouristName').textContent = getValue(mainTouristName);
+        document.getElementById('pdf-mainTouristEGN').textContent = getValue(mainTouristEGN);
+        document.getElementById('pdf-mainTouristIdCard').textContent = ''; // Always blank
+        document.getElementById('pdf-mainTouristAddress').textContent = getValue(mainTouristAddress);
+        document.getElementById('pdf-mainTouristPhone').textContent = getValue(mainTouristPhone);
+        document.getElementById('pdf-mainTouristEmail').textContent = getValue(mainTouristEmail);
         
         // Populate trip details in the print-only div
-        document.getElementById('pdf-startDate').textContent = formatDate(form.elements.startDate.value);
-        document.getElementById('pdf-endDate').textContent = formatDate(form.elements.endDate.value);
-        document.getElementById('pdf-tripDuration').textContent = getValue('tripDuration');
-        document.getElementById('pdf-transportDesc').textContent = getValue('transportDesc'); // From form (filled by tourData)
-        document.getElementById('pdf-departureInfo').textContent = getValue('departureInfo'); // From form (filled by tourData)
-        document.getElementById('pdf-returnInfo').textContent = getValue('returnInfo'); // From form (static)
-        document.getElementById('pdf-accommodationDesc').textContent = getValue('accommodationDesc'); // From form (filled by tourData)
-        document.getElementById('pdf-roomType').textContent = getValue('roomType'); // From form (filled by tourData)
-        document.getElementById('pdf-mealsDesc').textContent = getValue('mealsDesc'); // From form (filled by tourData)
-        document.getElementById('pdf-otherServices').textContent = getOptionalValue('otherServices'); // From form (static)
-        document.getElementById('pdf-specialReqs').textContent = getOptionalValue('specialReqs'); // From form (static)
+        document.getElementById('pdf-startDate').textContent = formatDate(startDate);
+        document.getElementById('pdf-endDate').textContent = formatDate(endDate);
+        document.getElementById('pdf-tripDuration').textContent = getValue(tripDuration);
+        document.getElementById('pdf-transportDesc').textContent = getValue(transportDesc);
+        document.getElementById('pdf-departureInfo').textContent = getValue(departureInfo);
+        document.getElementById('pdf-returnInfo').textContent = getValue(returnInfo);
+        document.getElementById('pdf-accommodationDesc').textContent = getValue(accommodationDesc);
+        document.getElementById('pdf-roomType').textContent = getValue(roomType);
+        document.getElementById('pdf-mealsDesc').textContent = getValue(mealsDesc);
+        document.getElementById('pdf-otherServices').textContent = getOptionalValue(otherServices);
+        document.getElementById('pdf-specialReqs').textContent = getOptionalValue(specialReqs);
 
         // Populate financials in the print-only div
-        document.getElementById('pdf-totalPrice').innerHTML = getValue('totalPrice', '', ' лв.'); // Left blank initially
-        document.getElementById('pdf-otherPayments').innerHTML = getOptionalValue('otherPayments'); // Left blank initially
-        document.getElementById('pdf-childDiscount').innerHTML = getOptionalValue('childDiscount', 'Не е приложимо.');
-        document.getElementById('pdf-adultDiscount').innerHTML = getOptionalValue('adultDiscount', 'Не е приложимо.');
-        document.getElementById('pdf-singleRoomFee').innerHTML = getOptionalValue('singleRoomFee', 'Не е приложимо.');
-        document.getElementById('pdf-extraExcursion').innerHTML = getOptionalValue('extraExcursion');
-        document.getElementById('pdf-insurance').innerHTML = getValue('insurance'); // From form (filled by tourData or default)
-        document.getElementById('pdf-finalAmount').innerHTML = getValue('finalAmount', '', ' лв.'); // Left blank initially
-        document.getElementById('pdf-paymentTerms').innerHTML = getValue('paymentTerms'); // From form (static for tours)
-        document.getElementById('pdf-depositAmount').textContent = getValue('depositAmount'); // Left blank initially
-        document.getElementById('pdf-finalPayment').innerHTML = getValue('finalPayment'); // Left blank initially
+        document.getElementById('pdf-totalPrice').innerHTML = getValue(totalPrice, '', ' лв.');
+        document.getElementById('pdf-otherPayments').innerHTML = getOptionalValue(otherPayments);
+        document.getElementById('pdf-childDiscount').innerHTML = getOptionalValue(childDiscount, 'Не е приложимо.');
+        document.getElementById('pdf-adultDiscount').innerHTML = getOptionalValue(adultDiscount, 'Не е приложимо.');
+        document.getElementById('pdf-singleRoomFee').innerHTML = getOptionalValue(singleRoomFee, 'Не е приложимо.');
+        document.getElementById('pdf-extraExcursion').innerHTML = getOptionalValue(extraExcursion);
+        document.getElementById('pdf-insurance').innerHTML = getValue(insurance);
+        document.getElementById('pdf-finalAmount').innerHTML = getValue(finalAmount, '', ' лв.');
+        document.getElementById('pdf-paymentTerms').innerHTML = getValue(paymentTerms);
+        document.getElementById('pdf-depositAmount').textContent = getValue(depositAmount);
+        document.getElementById('pdf-finalPayment').innerHTML = getValue(finalPayment);
 
         // Populate declarations in the print-only div
-        document.getElementById('pdf-declarationDate1').textContent = formatDate(form.elements.signingDate.value);
-        document.getElementById('pdf-declarationDate2').textContent = formatDate(form.elements.signingDate.value);
-        document.getElementById('pdf-declarationName').textContent = getValue('mainTouristName');
-        document.getElementById('pdf-declarationEGN').textContent = getValue('mainTouristEGN');
-        document.getElementById('pdf-declarationPhone').textContent = getValue('mainTouristPhone');
-        document.getElementById('pdf-declarationContractNumber').textContent = getValue('contractNumber', '').replace('..................', '');
+        document.getElementById('pdf-declarationDate1').textContent = formatDate(signingDate);
+        document.getElementById('pdf-declarationDate2').textContent = formatDate(signingDate);
+        document.getElementById('pdf-declarationName').textContent = getValue(mainTouristName);
+        document.getElementById('pdf-declarationEGN').textContent = getValue(mainTouristEGN);
+        document.getElementById('pdf-declarationPhone').textContent = getValue(mainTouristPhone);
+        document.getElementById('pdf-declarationContractNumber').textContent = getValue(contractNumber, '').replace('..................', '');
 
         // Build and insert the tourist table for the PDF (print-only div)
         const pdfTableContainer = document.getElementById('pdf-tourists-table-container');
@@ -200,7 +222,7 @@ const BusTourContractPrint = ({ tourData, allReservations, onPrintFinish }) => {
                 <td>${index + 1}</td>
                 <td>${t.fullName || ''}</td>
                 <td>${t.realId || ''}</td>
-                <td>${t.id || ''}</td> {/* This is explicitly blank */}
+                <td></td> 
             </tr>`;
         });
         
@@ -212,7 +234,7 @@ const BusTourContractPrint = ({ tourData, allReservations, onPrintFinish }) => {
 
         tableHTML += '</tbody></table>';
         pdfTableContainer.innerHTML = tableHTML;
-    }, [formatDate, allTouristsForContract]); // Add allTouristsForContract to dependency array
+    }, [formatDate, allTouristsForContract, contractNumber, signingDate, mainTouristName, mainTouristEGN, mainTouristAddress, mainTouristPhone, mainTouristEmail, startDate, endDate, tripDuration, transportDesc, departureInfo, returnInfo, accommodationDesc, roomType, mealsDesc, otherServices, specialReqs, totalPrice, otherPayments, childDiscount, adultDiscount, singleRoomFee, extraExcursion, insurance, finalAmount, paymentTerms, depositAmount, finalPayment]);
 
 
     // Handle native print
@@ -239,6 +261,8 @@ const BusTourContractPrint = ({ tourData, allReservations, onPrintFinish }) => {
 
     const handleTabClick = useCallback((tabId) => {
         setActiveTab(tabId);
+        // Direct DOM manipulation is necessary here because formRef.current is the actual DOM form element
+        // and we are managing the 'hidden' class for the tab content divs.
         const tabContents = formRef.current.querySelectorAll('.tab-content');
         tabContents.forEach(content => {
             content.classList.toggle('hidden', content.id !== tabId);
@@ -290,11 +314,11 @@ const BusTourContractPrint = ({ tourData, allReservations, onPrintFinish }) => {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
                                     <label htmlFor="contractNumber" className="block text-sm font-medium text-gray-700 mb-1">Номер на договор</label>
-                                    <input type="text" id="contractNumber" name="contractNumber" className="form-input w-full rounded-md border-gray-300" placeholder="2025/01" />
+                                    <input type="text" id="contractNumber" name="contractNumber" className="form-input w-full rounded-md border-gray-300" placeholder="2025/01" value={contractNumber} onChange={(e) => setContractNumber(e.target.value)} />
                                 </div>
                                 <div>
                                     <label htmlFor="signingDate" className="block text-sm font-medium text-gray-700 mb-1">Дата на подписване</label>
-                                    <input type="date" id="signingDate" name="signingDate" className="form-input w-full rounded-md border-gray-300" />
+                                    <input type="date" id="signingDate" name="signingDate" className="form-input w-full rounded-md border-gray-300" value={signingDate} onChange={(e) => setSigningDate(e.target.value)} />
                                 </div>
                             </div>
                         </div>
@@ -305,31 +329,32 @@ const BusTourContractPrint = ({ tourData, allReservations, onPrintFinish }) => {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                                 <div>
                                     <label htmlFor="mainTouristName" className="block text-sm font-medium text-gray-700 mb-1">Трите имена на турист</label>
-                                    <input type="text" id="mainTouristName" name="mainTouristName" className="form-input w-full rounded-md border-gray-300" placeholder="Иван Иванов Иванов" />
+                                    <input type="text" id="mainTouristName" name="mainTouristName" className="form-input w-full rounded-md border-gray-300" placeholder="Иван Иванов Иванов" value={mainTouristName} onChange={(e) => setMainTouristName(e.target.value)} />
                                 </div>
                                 <div>
                                     <label htmlFor="mainTouristEGN" className="block text-sm font-medium text-gray-700 mb-1">ЕГН</label>
-                                    <input type="text" id="mainTouristEGN" name="mainTouristEGN" className="form-input w-full rounded-md border-gray-300" placeholder="0000000000" />
+                                    <input type="text" id="mainTouristEGN" name="mainTouristEGN" className="form-input w-full rounded-md border-gray-300" placeholder="0000000000" value={mainTouristEGN} onChange={(e) => setMainTouristEGN(e.target.value)} />
                                 </div>
                                 <div>
                                     <label htmlFor="mainTouristIdCard" className="block text-sm font-medium text-gray-700 mb-1">Л.К. №</label>
-                                    <input type="text" id="mainTouristIdCard" name="mainTouristIdCard" className="form-input w-full rounded-md border-gray-300" placeholder="600000000" />
+                                    <input type="text" id="mainTouristIdCard" name="mainTouristIdCard" className="form-input w-full rounded-md border-gray-300" placeholder="600000000" value={mainTouristIdCard} onChange={(e) => setMainTouristIdCard(e.target.value)} />
                                 </div>
                                 <div>
                                     <label htmlFor="mainTouristAddress" className="block text-sm font-medium text-gray-700 mb-1">Адрес</label>
-                                    <input type="text" id="mainTouristAddress" name="mainTouristAddress" className="form-input w-full rounded-md border-gray-300" placeholder="гр. София, ул. Примерна №1" />
+                                    <input type="text" id="mainTouristAddress" name="mainTouristAddress" className="form-input w-full rounded-md border-gray-300" placeholder="гр. София, ул. Примерна №1" value={mainTouristAddress} onChange={(e) => setMainTouristAddress(e.target.value)} />
                                 </div>
                                 <div>
                                     <label htmlFor="mainTouristPhone" className="block text-sm font-medium text-gray-700 mb-1">GSM</label>
-                                    <input type="text" id="mainTouristPhone" name="mainTouristPhone" className="form-input w-full rounded-md border-gray-300" placeholder="0888123456" />
+                                    <input type="text" id="mainTouristPhone" name="mainTouristPhone" className="form-input w-full rounded-md border-gray-300" placeholder="0888123456" value={mainTouristPhone} onChange={(e) => setMainTouristPhone(e.target.value)} />
                                 </div>
                                 <div>
                                     <label htmlFor="mainTouristEmail" className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                                    <input type="email" id="mainTouristEmail" name="mainTouristEmail" className="form-input w-full rounded-md border-gray-300" placeholder="ivan.ivanov@email.com" />
+                                    <input type="email" id="mainTouristEmail" name="mainTouristEmail" className="form-input w-full rounded-md border-gray-300" placeholder="ivan.ivanov@email.com" value={mainTouristEmail} onChange={(e) => setMainTouristEmail(e.target.value)} />
                                 </div>
                             </div>
                             <div className="flex justify-between items-center mb-4 border-b pb-2">
                                 <h3 className="text-lg font-semibold text-gray-800">Придружаващи туристи</h3>
+                                {/* Add Tourist button for future functionality, current implementation derives from linked reservations */}
                                 <button type="button" id="add-tourist-btn" className="flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-500 hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" /></svg>
                                     Добави
@@ -352,7 +377,7 @@ const BusTourContractPrint = ({ tourData, allReservations, onPrintFinish }) => {
                                                 <td className="px-4 py-3 text-center font-medium text-gray-700">{index + 1}</td>
                                                 <td className="px-6 py-2"><input type="text" className="form-input w-full rounded-md border-gray-300 text-sm bg-gray-100 cursor-not-allowed" value={t.fullName} readOnly /></td>
                                                 <td className="px-6 py-2"><input type="text" className="form-input w-full rounded-md border-gray-300 text-sm bg-gray-100 cursor-not-allowed" value={t.realId} readOnly /></td>
-                                                <td className="px-6 py-2"><input type="text" className="form-input w-full rounded-md border-gray-300 text-sm bg-gray-100 cursor-not-allowed" value={t.id} readOnly /></td> {/* ID is blank */}
+                                                <td className="px-6 py-2"><input type="text" className="form-input w-full rounded-md border-gray-300 text-sm bg-gray-100 cursor-not-allowed" value={mainTouristIdCard} readOnly /></td> {/* ID is always blank on print and here */}
                                                 <td className="px-4 py-2 text-center">
                                                     {/* No remove button for pre-filled tourists */}
                                                 </td>
@@ -368,47 +393,47 @@ const BusTourContractPrint = ({ tourData, allReservations, onPrintFinish }) => {
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                 <div>
                                     <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 mb-1">Начална дата</label>
-                                    <input type="date" id="startDate" name="startDate" className="form-input w-full rounded-md border-gray-300" />
+                                    <input type="date" id="startDate" name="startDate" className="form-input w-full rounded-md border-gray-300" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
                                 </div>
                                 <div>
                                     <label htmlFor="endDate" className="block text-sm font-medium text-gray-700 mb-1">Крайна дата</label>
-                                    <input type="date" id="endDate" name="endDate" className="form-input w-full rounded-md border-gray-300" />
+                                    <input type="date" id="endDate" name="endDate" className="form-input w-full rounded-md border-gray-300" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
                                 </div>
                                 <div>
                                     <label htmlFor="tripDuration" className="block text-sm font-medium text-gray-700 mb-1">Продължителност</label>
-                                    <input type="text" id="tripDuration" name="tripDuration" className="form-input w-full rounded-md border-gray-300 bg-gray-100" readOnly placeholder="Автоматично" />
+                                    <input type="text" id="tripDuration" name="tripDuration" className="form-input w-full rounded-md border-gray-300 bg-gray-100" readOnly placeholder="Автоматично" value={tripDuration} />
                                 </div>
                                 <div className="lg:col-span-3">
                                     <label htmlFor="transportDesc" className="block text-sm font-medium text-gray-700 mb-1">1. Транспорт</label>
-                                    <textarea id="transportDesc" name="transportDesc" rows="2" className="form-textarea w-full rounded-md border-gray-300" placeholder="Напр. Комфортен туристически автобус"></textarea>
+                                    <textarea id="transportDesc" name="transportDesc" rows="2" className="form-textarea w-full rounded-md border-gray-300" placeholder="Напр. Комфортен туристически автобус" value={transportDesc} onChange={(e) => setTransportDesc(e.target.value)}></textarea>
                                 </div>
                                 <div>
                                     <label htmlFor="departureInfo" className="block text-sm font-medium text-gray-700 mb-1">Час и място на тръгване</label>
-                                    <input type="text" id="departureInfo" name="departureInfo" className="form-input w-full rounded-md border-gray-300" placeholder="06:00, гр. София, пл. Ал. Невски" />
+                                    <input type="text" id="departureInfo" name="departureInfo" className="form-input w-full rounded-md border-gray-300" placeholder="06:00, гр. София, пл. Ал. Невски" value={departureInfo} onChange={(e) => setDepartureInfo(e.target.value)} />
                                 </div>
                                 <div>
                                     <label htmlFor="returnInfo" className="block text-sm font-medium text-gray-700 mb-1">Час и място на връщане</label>
-                                    <input type="text" id="returnInfo" name="returnInfo" className="form-input w-full rounded-md border-gray-300" placeholder="Около 22:00, гр. София, пл. Ал. Невски" />
+                                    <input type="text" id="returnInfo" name="returnInfo" className="form-input w-full rounded-md border-gray-300" placeholder="Около 22:00, гр. София, пл. Ал. Невски" value={returnInfo} onChange={(e) => setReturnInfo(e.target.value)} />
                                 </div>
                                 <div className="lg:col-span-2">
                                     <label htmlFor="accommodationDesc" className="block text-sm font-medium text-gray-700 mb-1">2. Настаняване</label>
-                                    <textarea id="accommodationDesc" name="accommodationDesc" rows="3" className="form-textarea w-full rounded-md border-gray-300" placeholder="Напр. Хотел 'Планина' 3*, гр. Банско, 2 нощувки"></textarea>
+                                    <textarea id="accommodationDesc" name="accommodationDesc" rows="3" className="form-textarea w-full rounded-md border-gray-300" placeholder="Напр. Хотел 'Планина' 3*, гр. Банско, 2 нощувки" value={accommodationDesc} onChange={(e) => setAccommodationDesc(e.target.value)}></textarea>
                                 </div>
                                 <div>
                                     <label htmlFor="roomType" className="block text-sm font-medium text-gray-700 mb-1">Брой и вид стаи</label>
-                                    <input type="text" id="roomType" name="roomType" className="form-input w-full rounded-md border-gray-300" placeholder="1 двойна стая" />
+                                    <input type="text" id="roomType" name="roomType" className="form-input w-full rounded-md border-gray-300" placeholder="1 двойна стая" value={roomType} onChange={(e) => setRoomType(e.target.value)} />
                                 </div>
                                 <div className="lg:col-span-3">
                                     <label htmlFor="mealsDesc" className="block text-sm font-medium text-gray-700 mb-1">3. Брой и вид на храненията, включени в пакетната цена</label>
-                                    <input type="text" id="mealsDesc" name="mealsDesc" className="form-input w-full rounded-md border-gray-300" placeholder="2 закуски и 2 вечери" />
+                                    <input type="text" id="mealsDesc" name="mealsDesc" className="form-input w-full rounded-md border-gray-300" placeholder="2 закуски и 2 вечери" value={mealsDesc} onChange={(e) => setMealsDesc(e.target.value)} />
                                 </div>
                                 <div className="lg:col-span-3">
                                     <label htmlFor="otherServices" className="block text-sm font-medium text-gray-700 mb-1">3.3. Други услуги, включени в общата цена</label>
-                                    <textarea id="otherServices" name="otherServices" rows="3" className="form-textarea w-full rounded-md border-gray-300" placeholder="Водач-представител на фирмата по време на цялото пътуване;"></textarea>
+                                    <textarea id="otherServices" name="otherServices" rows="3" className="form-textarea w-full rounded-md border-gray-300" placeholder="Водач-представител на фирмата по време на цялото пътуване;" value={otherServices} onChange={(e) => setOtherServices(e.target.value)}></textarea>
                                 </div>
                                 <div className="lg:col-span-3">
                                     <label htmlFor="specialReqs" className="block text-sm font-medium text-gray-700 mb-1">3.4. Специални изисквания на потребителя</label>
-                                    <textarea id="specialReqs" name="specialReqs" rows="2" className="form-textarea w-full rounded-md border-gray-300" placeholder="Вегетарианско меню, настаняване на висок етаж..."></textarea>
+                                    <textarea id="specialReqs" name="specialReqs" rows="2" className="form-textarea w-full rounded-md border-gray-300" placeholder="Вегетарианско меню, настаняване на висок етаж..." value={specialReqs} onChange={(e) => setSpecialReqs(e.target.value)}></textarea>
                                 </div>
                             </div>
                         </div>
@@ -418,47 +443,47 @@ const BusTourContractPrint = ({ tourData, allReservations, onPrintFinish }) => {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
                                     <label htmlFor="totalPrice" className="block text-sm font-medium text-gray-700 mb-1">3.5 Обща цена в лева на пътуването</label>
-                                    <input type="number" id="totalPrice" name="totalPrice" className="form-input w-full rounded-md border-gray-300" placeholder="0.00" step="0.01" />
+                                    <input type="number" id="totalPrice" name="totalPrice" className="form-input w-full rounded-md border-gray-300" placeholder="0.00" step="0.01" value={totalPrice} onChange={(e) => setTotalPrice(parseFloat(e.target.value) || 0)} />
                                 </div>
                                 <div>
                                     <label htmlFor="otherPayments" className="block text-sm font-medium text-gray-700 mb-1">3.5.1 Други плащания, включени в цената</label>
-                                    <input type="text" id="otherPayments" name="otherPayments" className="form-input w-full rounded-md border-gray-300" placeholder="Пътни и гранични такси" />
+                                    <input type="text" id="otherPayments" name="otherPayments" className="form-input w-full rounded-md border-gray-300" placeholder="Пътни и гранични такси" value={otherPayments} onChange={(e) => setOtherPayments(e.target.value)} />
                                 </div>
                                 <div>
                                     <label htmlFor="childDiscount" className="block text-sm font-medium text-gray-700 mb-1">3.5.1.1 Отстъпки за деца до 10/12 г.</label>
-                                    <input type="text" id="childDiscount" name="childDiscount" className="form-input w-full rounded-md border-gray-300" placeholder="50 лв." />
+                                    <input type="text" id="childDiscount" name="childDiscount" className="form-input w-full rounded-md border-gray-300" placeholder="50 лв." value={childDiscount} onChange={(e) => setChildDiscount(e.target.value)} />
                                 </div>
                                 <div>
                                     <label htmlFor="adultDiscount" className="block text-sm font-medium text-gray-700 mb-1">3.5.1.2 Отстъпки за трети възрастен</label>
-                                    <input type="text" id="adultDiscount" name="adultDiscount" className="form-input w-full rounded-md border-gray-300" placeholder="20 лв." />
+                                    <input type="text" id="adultDiscount" name="adultDiscount" className="form-input w-full rounded-md border-gray-300" placeholder="20 лв." value={adultDiscount} onChange={(e) => setAdultDiscount(e.target.value)} />
                                 </div>
                                 <div>
                                     <label htmlFor="singleRoomFee" className="block text-sm font-medium text-gray-700 mb-1">3.5.1.3 Доплащане за единична стая</label>
-                                    <input type="text" id="singleRoomFee" name="singleRoomFee" className="form-input w-full rounded-md border-gray-300" placeholder="60 лв." />
+                                    <input type="text" id="singleRoomFee" name="singleRoomFee" className="form-input w-full rounded-md border-gray-300" placeholder="60 лв." value={singleRoomFee} onChange={(e) => setSingleRoomFee(e.target.value)} />
                                 </div>
                                 <div>
                                     <label htmlFor="extraExcursion" className="block text-sm font-medium text-gray-700 mb-1">3.5.1.4 Други - допълнителна екскурзия</label>
-                                    <input type="text" id="extraExcursion" name="extraExcursion" className="form-input w-full rounded-md border-gray-300" placeholder="Екскурзия до ... - 30 лв." />
+                                    <input type="text" id="extraExcursion" name="extraExcursion" className="form-input w-full rounded-md border-gray-300" placeholder="Екскурзия до ... - 30 лв." value={extraExcursion} onChange={(e) => setExtraExcursion(e.target.value)} />
                                 </div>
                                 <div className="md:col-span-2">
                                     <label htmlFor="insurance" className="block text-sm font-medium text-gray-700 mb-1">3.5.1.5 Застраховка</label>
-                                    <input type="text" id="insurance" name="insurance" className="form-input w-full rounded-md border-gray-300" placeholder="Медицинска застраховка 'Помощ при пътуване' с лимит 5000 евро" />
+                                    <input type="text" id="insurance" name="insurance" className="form-input w-full rounded-md border-gray-300" placeholder="Медицинска застраховка 'Помощ при пътуване' с лимит 5000 евро" value={insurance} onChange={(e) => setInsurance(e.target.value)} />
                                 </div>
                                 <div>
                                     <label htmlFor="finalAmount" className="block text-sm font-medium text-gray-700 mb-1">3.6 Крайна обща дължима сума</label>
-                                    <input type="number" id="finalAmount" name="finalAmount" className="form-input w-full rounded-md border-gray-300" placeholder="0.00" step="0.01" />
+                                    <input type="number" id="finalAmount" name="finalAmount" className="form-input w-full rounded-md border-gray-300" placeholder="0.00" step="0.01" value={finalAmount} onChange={(e) => setFinalAmount(parseFloat(e.target.value) || 0)} />
                                 </div>
                                 <div className="md:col-span-2">
                                     <label htmlFor="paymentTerms" className="block text-sm font-medium text-gray-700 mb-1">3.7 Начин и срок за плащане</label>
-                                    <textarea id="paymentTerms" name="paymentTerms" rows="3" className="form-textarea w-full rounded-md border-gray-300" placeholder="По банков път до ДД.ММ.ГГГГ"></textarea>
+                                    <textarea id="paymentTerms" name="paymentTerms" rows="3" className="form-textarea w-full rounded-md border-gray-300" placeholder="По банков път до ДД.ММ.ГГГГ" value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value)}></textarea>
                                 </div>
                                 <div>
                                     <label htmlFor="depositAmount" className="block text-sm font-medium text-gray-700 mb-1">Депозит (лв.)</label>
-                                    <input type="number" id="depositAmount" name="depositAmount" className="form-input w-full rounded-md border-gray-300" placeholder="0.00" step="0.01" />
+                                    <input type="number" id="depositAmount" name="depositAmount" className="form-input w-full rounded-md border-gray-300" placeholder="0.00" step="0.01" value={depositAmount} onChange={(e) => setDepositAmount(parseFloat(e.target.value) || 0)} />
                                 </div>
                                 <div>
                                     <label htmlFor="finalPayment" className="block text-sm font-medium text-gray-700 mb-1">Остатък от пълната сума в размер на</label>
-                                    <input type="text" id="finalPayment" name="finalPayment" className="form-input w-full rounded-md border-gray-300" placeholder="... лв. до ДД.ММ.ГГГГ" />
+                                    <input type="text" id="finalPayment" name="finalPayment" className="form-input w-full rounded-md border-gray-300" placeholder="... лв. до ДД.ММ.ГГГГ" value={finalPayment} onChange={(e) => setFinalPayment(e.target.value)} />
                                 </div>
                             </div>
                         </div>
