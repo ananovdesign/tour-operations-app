@@ -1,25 +1,28 @@
-// src/VoucherPrint.jsx
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import './VoucherPrint.css';
-import Logo from './Logo.png'; 
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import './VoucherPrint.css'; // Import the new CSS file
+import Logo from './Logo.png'; // Assuming your logo is in the same directory as App.jsx
 
 const VoucherPrint = ({ reservationData, onPrintFinish }) => {
-    // State variables for the form inputs (kept to manage data)
+    const voucherRef = useRef(null); // Ref for the main voucher container
     const [voucherNumber, setVoucherNumber] = useState('');
     const [voucherType, setVoucherType] = useState('original');
     const [destinationBulgarian, setDestinationBulgarian] = useState('');
     const [destinationEnglish, setDestinationEnglish] = useState('');
+
+    // Tourist Names (dynamic list of objects { bgName, enName })
     const [tourists, setTourists] = useState([]);
+
     const [adultsCountBg, setAdultsCountBg] = useState(0);
     const [adultsCountEn, setAdultsCountEn] = useState(0);
     const [childrenRegularBedCountBg, setChildrenRegularBedCountBg] = useState(0);
     const [childrenRegularBedCountEn, setChildrenRegularBedCountEn] = useState(0);
     const [childrenExtraBedCountBg, setChildrenExtraBedCountBg] = useState(0);
     const [childrenExtraBedCountEn, setChildrenExtraBedCountEn] = useState(0);
+
     const [itineraryBg, setItineraryBg] = useState('');
     const [itineraryEn, setItineraryEn] = useState('');
-    const [destinationPlaceBg, setDestinationPlaceBg] = useState('');
-    const [destinationPlaceEn, setDestinationPlaceEn] = useState('');
+    const [destinationPlaceBg, setDestinationPlaceBg] = useState(''); // Renamed from destinationBg to avoid clash
+    const [destinationPlaceEn, setDestinationPlaceEn] = useState(''); // Renamed from destinationEn to avoid clash
     const [dateStartBg, setDateStartBg] = useState('');
     const [dateEndBg, setDateEndBg] = useState('');
     const [dateStartEn, setDateStartEn] = useState('');
@@ -45,7 +48,20 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
     const [paymentDocNumEn, setPaymentDocNumEn] = useState('');
     const [paymentDocDateEn, setPaymentDocDateEn] = useState('');
 
-    // Helper functions for formatting (re-used from your original code)
+    // Helper to format date-time for local input types
+    const formatDateTimeLocal = useCallback((dateString) => {
+        if (!dateString) return '';
+        const date = new Date(dateString);
+        // Ensure the date is treated as local time to avoid timezone issues with input type="datetime-local"
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        return `${year}-${month}-${day}T${hours}:${minutes}`;
+    }, []);
+
+    // Helper to format date for local input types
     const formatDateLocal = useCallback((dateString) => {
         if (!dateString) return '';
         const date = new Date(dateString);
@@ -55,125 +71,78 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
         return `${year}-${month}-${day}`;
     }, []);
 
-    const formatDateTimeLocal = useCallback((dateString) => {
-        if (!dateString) return '';
-        const date = new Date(dateString);
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        const hours = String(date.getHours()).padStart(2, '0');
-        const minutes = String(date.getMinutes()).padStart(2, '0');
-        return `${year}-${month}-${day}T${hours}:${minutes}`;
-    }, []);
-
-    const formatDateForPrint = useCallback((dateString) => {
-        if (!dateString) return '..................';
-        try {
-            const date = new Date(dateString);
-            if (isNaN(date.getTime())) return 'Invalid Date';
-            const day = String(date.getDate()).padStart(2, '0');
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const year = date.getFullYear();
-            return `${day}.${month}.${year}`;
-        } catch (error) {
-            console.error("Error formatting date for print:", error);
-            return 'Date Error';
-        }
-    }, []);
-
-    const formatDateTimeForPrint = useCallback((dateTimeLocalString) => {
-        if (!dateTimeLocalString) return '..................';
-        try {
-            const date = new Date(dateTimeLocalString);
-            if (isNaN(date.getTime())) return 'Invalid DateTime';
-            const day = String(date.getDate()).padStart(2, '0');
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const year = date.getFullYear();
-            const hours = String(date.getHours()).padStart(2, '0');
-            const minutes = String(date.getMinutes()).padStart(2, '0');
-            return `${day}.${month}.${year} ${hours}:${minutes}`;
-        } catch (error) {
-            console.error("Error formatting datetime for print:", error);
-            return 'DateTime Error';
-        }
-    }, []);
-
-    const getValue = useCallback((val, fallback = '..................') => {
-        if (val === null || val === undefined || val === '') {
-            return fallback;
-        }
-        if (typeof val === 'number' && val === 0 && fallback === '..................') {
-            return '0';
-        }
-        return val;
-    }, []);
-
     // Effect to populate fields from reservationData when component mounts or data changes
     useEffect(() => {
         if (reservationData) {
-            setVoucherNumber(getValue(reservationData.reservationNumber, '')); 
-            setDestinationBulgarian(getValue(reservationData.hotel, '')); 
-            setDestinationEnglish(getValue(reservationData.hotel, ''));
+            setVoucherNumber(reservationData.reservationNumber || '');
+            setDestinationBulgarian(reservationData.hotel || ''); // Assuming hotel is the main destination
+            setDestinationEnglish(reservationData.hotel || '');
 
-            const mappedTourists = (reservationData.tourists || []).map(t => ({
-                bgName: getValue(`${t.firstName || ''} ${t.fatherName || ''} ${t.familyName || ''}`.trim(), 'Неизвестен'), 
-                enName: getValue(`${t.firstName || ''} ${t.fatherName || ''} ${t.familyName || ''}`.trim(), 'Unknown'), 
+            // Populate tourists
+            const mappedTourists = reservationData.tourists.map(t => ({
+                bgName: `${t.firstName || ''} ${t.familyName || ''}`.trim(),
+                enName: `${t.firstName || ''} ${t.familyName || ''}`.trim(), // Assuming English name is same as Bulgarian
             }));
             setTourists(mappedTourists);
 
-            setAdultsCountBg(getValue(reservationData.adults, 0));
-            setAdultsCountEn(getValue(reservationData.adults, 0));
-            setChildrenRegularBedCountBg(getValue(reservationData.children, 0)); 
-            setChildrenRegularBedCountEn(getValue(reservationData.children, 0));
-            setChildrenExtraBedCountBg(0); 
+            setAdultsCountBg(reservationData.adults || 0);
+            setAdultsCountEn(reservationData.adults || 0);
+            setChildrenRegularBedCountBg(reservationData.children || 0); // Assuming all children are regular bed
+            setChildrenRegularBedCountEn(reservationData.children || 0);
+            setChildrenExtraBedCountBg(0); // No direct mapping, default to 0
             setChildrenExtraBedCountEn(0);
 
-            setItineraryBg(getValue(`${reservationData.place || ''}, ${reservationData.hotel || ''}`.trim()));
-            setItineraryEn(getValue(`${reservationData.place || ''}, ${reservationData.hotel || ''}`.trim()));
-            setDestinationPlaceBg(getValue(reservationData.place, ''));
-            setDestinationPlaceEn(getValue(reservationData.place, ''));
+            // Itinerary is usually a combination of place and hotel for reservations
+            setItineraryBg(`${reservationData.place || ''}, ${reservationData.hotel || ''}`.trim());
+            setItineraryEn(`${reservationData.place || ''}, ${reservationData.hotel || ''}`.trim());
+            setDestinationPlaceBg(reservationData.place || '');
+            setDestinationPlaceEn(reservationData.place || '');
 
             setDateStartBg(formatDateLocal(reservationData.checkIn));
             setDateEndBg(formatDateLocal(reservationData.checkOut));
             setDateStartEn(formatDateLocal(reservationData.checkIn));
             setDateEndEn(formatDateLocal(reservationData.checkOut));
 
-            setAccommodationBg(getValue(reservationData.hotel, ''));
-            setAccommodationEn(getValue(reservationData.hotel, ''));
-            setRoomCategoryBg(getValue(reservationData.roomType, ''));
-            setRoomCategoryEn(getValue(reservationData.roomType, ''));
+            setAccommodationBg(reservationData.hotel || '');
+            setAccommodationEn(reservationData.hotel || '');
+            setRoomCategoryBg(reservationData.roomType || '');
+            setRoomCategoryEn(reservationData.roomType || '');
 
-            setCheckInBg(formatDateTimeLocal(reservationData.checkIn)); 
+            setCheckInBg(formatDateTimeLocal(reservationData.checkIn)); // You might need more specific time data for checkIn/Out
             setCheckInEn(formatDateTimeLocal(reservationData.checkIn));
             setCheckOutBg(formatDateTimeLocal(reservationData.checkOut));
             setCheckOutEn(formatDateTimeLocal(reservationData.checkOut));
 
-            setExcursionsBg(''); 
-            setExcursionsEn(''); 
-            setOtherServicesBg('');
-            setOtherServicesEn(''); 
-            setNotesBg(''); 
-            setNotesEn(''); 
+            setExcursionsBg(''); // No direct mapping, leave blank
+            setExcursionsEn('');
+            setOtherServicesBg(''); // No direct mapping, leave blank
+            setOtherServicesEn('');
+            setNotesBg(''); // No direct mapping, leave blank
+            setNotesEn('');
 
-            setDateIssuedBg(formatDateLocal(new Date().toISOString().split('T')[0])); 
+            setDateIssuedBg(formatDateLocal(new Date().toISOString().split('T')[0])); // Current date for issuance
             setDateIssuedEn(formatDateLocal(new Date().toISOString().split('T')[0]));
             
-            setPaymentDocNumBg(''); 
-            setPaymentDocDateBg(''); 
-            setPaymentDocNumEn(''); 
-            setPaymentDocDateEn(''); 
+            // Payment document details usually come from financial transactions, not directly from reservation
+            setPaymentDocNumBg('');
+            setPaymentDocDateBg('');
+            setPaymentDocNumEn('');
+            setPaymentDocDateEn('');
         }
-    }, [reservationData, formatDateTimeLocal, formatDateLocal, getValue]);
+    }, [reservationData, formatDateTimeLocal, formatDateLocal]);
 
 
+    // Function to handle adding a new tourist row
     const addTouristRow = useCallback(() => {
         setTourists(prevTourists => [...prevTourists, { bgName: '', enName: '' }]);
     }, []);
 
+    // Function to handle removing a tourist row
     const removeTouristRow = useCallback((indexToRemove) => {
         setTourists(prevTourists => prevTourists.filter((_, index) => index !== indexToRemove));
     }, []);
 
+    // Handle input changes for dynamic tourist rows
     const handleTouristChange = useCallback((index, field, value) => {
         setTourists(prevTourists => {
             const newTourists = [...prevTourists];
@@ -182,86 +151,108 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
         });
     }, []);
 
-    // Handle print functionality for this component
-    const handlePrintVoucher = useCallback(() => {
-        // This small delay gives the browser a moment to ensure all DOM updates
-        // from React are flushed before the print dialog is opened.
-        setTimeout(() => {
-            window.print();
-        }, 100);
-
-        // This callback notifies the parent component (App.jsx) that printing is done.
-        // It's crucial for App.jsx to then decide what to render next (e.g., go back to reservations list).
-        window.onafterprint = () => {
-            onPrintFinish(); // This will trigger the reset of selectedReservation in App.jsx
-            window.onafterprint = null; // Clean up the event listener
+    // Function to populate the HIDDEN print-only content based on current form values
+    const populatePrintContent = useCallback(() => {
+        // Helper to get a value, with fallback if blank
+        const getValue = (val, fallback = '') => (val !== null && val !== undefined && val !== '' ? val : fallback);
+        // Helper for date formatting
+        const formatDateForPrint = (dateString) => {
+            if (!dateString) return '..................';
+            try {
+                const date = new Date(dateString);
+                if (isNaN(date)) return 'Invalid Date'; // Handle invalid date strings
+                const day = String(date.getDate()).padStart(2, '0');
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const year = date.getFullYear();
+                return `${day}.${month}.${year}`;
+            } catch (error) {
+                console.error("Error formatting date for print:", error);
+                return 'Date Error';
+            }
+        };
+        const formatDateTimeForPrint = (dateTimeLocalString) => {
+            if (!dateTimeLocalString) return '..................';
+            try {
+                const date = new Date(dateTimeLocalString);
+                if (isNaN(date)) return 'Invalid DateTime';
+                const day = String(date.getDate()).padStart(2, '0');
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const year = date.getFullYear();
+                const hours = String(date.getHours()).padStart(2, '0');
+                const minutes = String(date.getMinutes()).padStart(2, '0');
+                return `${day}.${month}.${year} ${hours}:${minutes}`;
+            } catch (error) {
+                console.error("Error formatting datetime for print:", error);
+                return 'DateTime Error';
+            }
         };
 
-        // Cleanup in case the component unmounts before onafterprint fires
-        return () => {
-            window.onafterprint = null;
-        };
-    }, [onPrintFinish]);
+        // Populate header fields
+        document.getElementById('pdf-voucherNumber').textContent = getValue(voucherNumber);
+        document.getElementById('pdf-destinationBulgarian').textContent = getValue(destinationBulgarian);
+        document.getElementById('pdf-destinationEnglish').textContent = getValue(destinationEnglish);
 
-    // Data prepared for the PRINT version (uses getValue, formatDateForPrint etc.)
-    const voucherPrintData = useMemo(() => {
-        const leadTourist = reservationData.tourists?.[0] || {};
-        const accompanyingTourists = reservationData.tourists ? reservationData.tourists.slice(1) : [];
+        // Populate tourist names (dynamic list)
+        const pdfTouristNamesContainer = document.getElementById('pdf-tourist-names-container');
+        if (pdfTouristNamesContainer) {
+            let touristListHtml = '';
+            tourists.forEach(t => {
+                touristListHtml += `<div>${getValue(t.bgName)} / ${getValue(t.enName)}</div>`;
+            });
+            pdfTouristNamesContainer.innerHTML = touristListHtml;
+        }
 
-        return {
-            voucherNumber: getValue(voucherNumber, 'ВАУЧЕР НОМЕР'),
-            voucherType: voucherType === 'original' ? 'ОРИГИНАЛ / ORIGINAL' : 'КОПИЕ / COPY',
-            destinationBulgarian: getValue(destinationBulgarian, 'ДЕСТИНАЦИЯ'),
-            destinationEnglish: getValue(destinationEnglish, 'DESTINATION'),
-            
-            tourists: [
-                { bgName: getValue(`${leadTourist.firstName || ''} ${leadTourist.fatherName || ''} ${leadTourist.familyName || ''}`.trim(), 'Неизвестен'), enName: getValue(`${leadTourist.firstName || ''} ${leadTourist.fatherName || ''} ${leadTourist.familyName || ''}`.trim(), 'Unknown') },
-                ...accompanyingTourists.map(t => ({ 
-                    bgName: getValue(`${t.firstName || ''} ${t.fatherName || ''} ${t.familyName || ''}`.trim(), 'Неизвестен'), 
-                    enName: getValue(`${t.firstName || ''} ${t.fatherName || ''} ${t.familyName || ''}`.trim(), 'Unknown') 
-                }))
-            ],
-            adultsCountBg: getValue(adultsCountBg, '0'),
-            adultsCountEn: getValue(adultsCountEn, '0'),
-            childrenRegularBedCountBg: getValue(childrenRegularBedCountBg, '0'),
-            childrenRegularBedCountEn: getValue(childrenRegularBedCountEn, '0'),
-            childrenExtraBedCountBg: getValue(childrenExtraBedCountBg, '0'),
-            childrenExtraBedCountEn: getValue(childrenExtraBedCountEn, '0'),
+        // Populate counts
+        document.getElementById('pdf-adultsCountBg').textContent = getValue(adultsCountBg);
+        document.getElementById('pdf-adultsCountEn').textContent = getValue(adultsCountEn);
+        document.getElementById('pdf-childrenRegularBedCountBg').textContent = getValue(childrenRegularBedCountBg);
+        document.getElementById('pdf-childrenRegularBedCountEn').textContent = getValue(childrenRegularBedCountEn);
+        document.getElementById('pdf-childrenExtraBedCountBg').textContent = getValue(childrenExtraBedCountBg);
+        document.getElementById('pdf-childrenExtraBedCountEn').textContent = getValue(childrenExtraBedCountEn);
 
-            itineraryBg: getValue(itineraryBg),
-            itineraryEn: getValue(itineraryEn),
-            destinationPlaceBg: getValue(destinationPlaceBg),
-            destinationPlaceEn: getValue(destinationPlaceEn),
+        // Populate itinerary and destination
+        document.getElementById('pdf-itineraryBg').textContent = getValue(itineraryBg);
+        document.getElementById('pdf-itineraryEn').textContent = getValue(itineraryEn);
+        document.getElementById('pdf-destinationPlaceBg').textContent = getValue(destinationPlaceBg);
+        document.getElementById('pdf-destinationPlaceEn').textContent = getValue(destinationPlaceEn);
 
-            dateStartBg: formatDateForPrint(dateStartBg),
-            dateEndBg: formatDateForPrint(dateEndBg),
-            dateStartEn: formatDateForPrint(dateStartEn),
-            dateEndEn: formatDateForPrint(dateEndEn),
+        // Populate dates of itinerary
+        document.getElementById('pdf-dateStartBg').textContent = formatDateForPrint(dateStartBg);
+        document.getElementById('pdf-dateEndBg').textContent = formatDateForPrint(dateEndBg);
+        document.getElementById('pdf-dateStartEn').textContent = formatDateForPrint(dateStartEn);
+        document.getElementById('pdf-dateEndEn').textContent = formatDateForPrint(dateEndEn);
 
-            accommodationBg: getValue(accommodationBg),
-            accommodationEn: getValue(accommodationEn),
-            roomCategoryBg: getValue(roomCategoryBg),
-            roomCategoryEn: getValue(roomCategoryEn),
+        // Populate accommodation
+        document.getElementById('pdf-accommodationBg').textContent = getValue(accommodationBg);
+        document.getElementById('pdf-accommodationEn').textContent = getValue(accommodationEn);
+        document.getElementById('pdf-roomCategoryBg').textContent = getValue(roomCategoryBg);
+        document.getElementById('pdf-roomCategoryEn').textContent = getValue(roomCategoryEn);
 
-            checkInBg: formatDateTimeForPrint(checkInBg),
-            checkInEn: formatDateTimeForPrint(checkInEn),
-            checkOutBg: formatDateTimeForPrint(checkOutBg),
-            checkOutEn: formatDateTimeForPrint(checkOutEn),
+        // Populate check-in/out
+        document.getElementById('pdf-checkInBg').textContent = formatDateTimeForPrint(checkInBg);
+        document.getElementById('pdf-checkInEn').textContent = formatDateTimeForPrint(checkInEn);
+        document.getElementById('pdf-checkOutBg').textContent = formatDateTimeForPrint(checkOutBg);
+        document.getElementById('pdf-checkOutEn').textContent = formatDateTimeForPrint(checkOutEn);
 
-            excursionsBg: getValue(excursionsBg, 'НЯМА ВКЛЮЧЕНИ ЕКСКУРЗИИ'), 
-            excursionsEn: getValue(excursionsEn, 'NO INCLUDED EXCURSIONS'), 
-            otherServicesBg: getValue(otherServicesBg, 'Водач-представител на фирмата по време на цялото пътуване;'), 
-            otherServicesEn: getValue(otherServicesEn, 'Company representative/guide throughout the trip;'), 
-            notesBg: getValue(notesBg, 'Без забележки'), 
-            notesEn: getValue(notesEn, 'No notes'), 
+        // Populate other details
+        document.getElementById('pdf-excursionsBg').textContent = getValue(excursionsBg);
+        document.getElementById('pdf-excursionsEn').textContent = getValue(excursionsEn);
+        document.getElementById('pdf-otherServicesBg').textContent = getValue(otherServicesBg);
+        document.getElementById('pdf-otherServicesEn').textContent = getValue(otherServicesEn);
+        document.getElementById('pdf-notesBg').textContent = getValue(notesBg);
+        document.getElementById('pdf-notesEn').textContent = getValue(notesEn);
 
-            dateIssuedBg: formatDateForPrint(dateIssuedBg),
-            dateIssuedEn: formatDateForPrint(dateIssuedEn),
-            paymentDocNumBg: getValue(paymentDocNumBg), 
-            paymentDocDateBg: formatDateForPrint(paymentDocDateBg), 
-            paymentDocNumEn: getValue(paymentDocNumEn), 
-            paymentDocDateEn: formatDateForPrint(paymentDocDateEn), 
-        };
+        // Populate issued date and payment document
+        document.getElementById('pdf-dateIssuedBg').textContent = formatDateForPrint(dateIssuedBg);
+        document.getElementById('pdf-dateIssuedEn').textContent = formatDateForPrint(dateIssuedEn);
+        document.getElementById('pdf-paymentDocNumBg').textContent = getValue(paymentDocNumBg);
+        document.getElementById('pdf-paymentDocDateBg').textContent = formatDateForPrint(paymentDocDateBg);
+        document.getElementById('pdf-paymentDocNumEn').textContent = getValue(paymentDocNumEn);
+        document.getElementById('pdf-paymentDocDateEn').textContent = formatDateForPrint(paymentDocDateEn);
+
+        // Set voucher type text
+        document.getElementById('pdf-voucherTypeText').textContent = voucherType === 'original' ? 'ОРИГИНАЛ / ORIGINAL' : 'КОПИЕ / COPY';
+
     }, [
         voucherNumber, voucherType, destinationBulgarian, destinationEnglish, tourists,
         adultsCountBg, adultsCountEn, childrenRegularBedCountBg, childrenRegularBedCountEn, childrenExtraBedCountBg, childrenExtraBedCountEn,
@@ -269,9 +260,30 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
         accommodationBg, accommodationEn, roomCategoryBg, roomCategoryEn, checkInBg, checkInEn, checkOutBg, checkOutEn,
         excursionsBg, excursionsEn, otherServicesBg, otherServicesEn, notesBg, notesEn,
         dateIssuedBg, dateIssuedEn, paymentDocNumBg, paymentDocDateBg, paymentDocNumEn, paymentDocDateEn,
-        formatDateForPrint, formatDateTimeForPrint, getValue, reservationData
+        formatDateForPrint, formatDateTimeForPrint // Add helper functions to dependency array
     ]);
 
+    // Handle print functionality
+    const handlePrintVoucher = useCallback(() => {
+        // IMPORTANT: Populate the hidden print-only content just before printing
+        populatePrintContent();
+
+        // Use a timeout to ensure React has finished rendering updates before printing
+        const timer = setTimeout(() => {
+            window.print();
+        }, 100); // Small delay to ensure content is fully rendered
+
+        // Call onPrintFinish when the print dialog is closed or print is completed/cancelled
+        window.onafterprint = () => {
+            onPrintFinish();
+            window.onafterprint = null; // Clean up the event listener
+        };
+
+        return () => {
+            clearTimeout(timer);
+            window.onafterprint = null; // Clean up on component unmount
+        };
+    }, [onPrintFinish, populatePrintContent]);
 
     if (!reservationData) {
         return (
@@ -283,12 +295,13 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
 
     return (
         <div className="print-preview-container w-full flex flex-col justify-center items-center min-h-screen p-20">
-            {/* THIS IS THE INTERACTIVE FORM FOR EDITING (VISIBLE ON SCREEN) */}
-            <div className="voucher-form-container"> {/* New class for the form part */}
+            <div className="voucher-container">
+                {/* Logo Section */}
                 <div className="logo-section">
                     <img src={Logo} alt="Company Logo" className="h-24 object-contain rounded-lg"></img>
                 </div>
 
+                {/* Static Information Table */}
                 <table className="info-table">
                     <thead>
                         <tr>
@@ -356,6 +369,7 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
                                             <button type="button" className="remove-button" onClick={() => removeTouristRow(index)}>Remove</button>
                                         </div>
                                     ))}
+                                }
                                 </div>
                                 <button id="addTouristBtn" className="add-button" type="button" onClick={addTouristRow}>Add Another Tourist</button>
                             </td>
@@ -403,6 +417,7 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
                                 </div>
                             </td>
                         </tr>
+                        {/* Itinerary, Destination, Dates, Accommodation, Room Category */}
                         <tr>
                             <td>
                                 <div className="flex-container">
@@ -428,391 +443,191 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
                                 <div className="flex-container">
                                     <span>DESTINATION:</span>
                                     <input type="text" id="destinationEn" className="input-field" placeholder="Enter Destination" value={destinationPlaceEn} onChange={(e) => setDestinationPlaceEn(e.target.value)} />
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <div className="flex-container">
+                                    <span>СРОК:</span>
+                                    <div className="date-range-container">
+                                        <input type="date" id="dateStartBg" className="input-field" value={dateStartBg} onChange={(e) => setDateStartBg(e.target.value)} />
+                                        <span>-</span>
+                                        <input type="date" id="dateEndBg" className="input-field" value={dateEndBg} onChange={(e) => setDateEndBg(e.target.value)} />
                                     </div>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>
-                                    <div className="flex-container">
-                                        <span>СРОК:</span>
-                                        <div className="date-range-container">
-                                            <input type="date" id="dateStartBg" className="input-field" value={dateStartBg} onChange={(e) => setDateStartBg(e.target.value)} />
-                                            <span>-</span>
-                                            <input type="date" id="dateEndBg" className="input-field" value={dateEndBg} onChange={(e) => setDateEndBg(e.target.value)} />
-                                        </div>
+                                </div>
+                            </td>
+                            <td>
+                                <div className="flex-container">
+                                    <span>DATES OF ITINERARY:</span>
+                                    <div className="date-range-container">
+                                        <input type="date" id="dateStartEn" className="input-field" value={dateStartEn} onChange={(e) => setDateStartEn(e.target.value)} />
+                                        <span>-</span>
+                                        <input type="date" id="dateEndEn" className="input-field" value={dateEndEn} onChange={(e) => setDateEndEn(e.target.value)} />
                                     </div>
-                                </td>
-                                <td>
-                                    <div className="flex-container">
-                                        <span>DATES OF ITINERARY:</span>
-                                        <div className="date-range-container">
-                                            <input type="date" id="dateStartEn" className="input-field" value={dateStartEn} onChange={(e) => setDateStartEn(e.target.value)} />
-                                            <span>-</span>
-                                            <input type="date" id="dateEndEn" className="input-field" value={dateEndEn} onChange={(e) => setDateEndEn(e.target.value)} />
-                                        </div>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <div className="flex-container">
+                                    <span>НАСТАНЯВАНЕ В:</span>
+                                    <input type="text" id="accommodationBg" className="input-field" placeholder="Въведете място на настаняване" value={accommodationBg} onChange={(e) => setAccommodationBg(e.target.value)} />
+                                </div>
+                            </td>
+                            <td>
+                                <div className="flex-container">
+                                    <span>ACCOMMODATION AT:</span>
+                                    <input type="text" id="accommodationEn" className="input-field" placeholder="Enter Accommodation" value={accommodationEn} onChange={(e) => setAccommodationEn(e.target.value)} />
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <div className="flex-container">
+                                    <span>КАТЕГОРИЯ И БРОЙ СТАИ:</span>
+                                    <input type="text" id="roomCategoryBg" className="input-field" placeholder="Въведете категория и брой стаи" value={roomCategoryBg} onChange={(e) => setRoomCategoryBg(e.target.value)} />
+                                </div>
+                            </td>
+                            <td>
+                                <div className="flex-container">
+                                    <span>CATEGORY AND NUMBER OF ROOMS:</span>
+                                    <input type="text" id="roomCategoryEn" className="input-field" placeholder="Enter Category and Number of Rooms" value={roomCategoryEn} onChange={(e) => setRoomCategoryEn(e.target.value)} />
+                                </div>
+                            </td>
+                        </tr>
+                        {/* Check-in/out, Excursions, Other Services, Notes, Date, Payment Doc */}
+                        <tr>
+                            <td>
+                                <div className="flex-container">
+                                    <span>ДАТА И ЧАС НА ПРИСТИГАНЕ:</span>
+                                    <div className="date-time-container">
+                                        <input type="datetime-local" id="checkInBg" className="input-field" value={checkInBg} onChange={(e) => setCheckInBg(e.target.value)} />
                                     </div>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>
-                                    <div className="flex-container">
-                                        <span>НАСТАНЯВАНЕ В:</span>
-                                        <input type="text" id="accommodationBg" className="input-field" placeholder="Въведете място на настаняване" value={accommodationBg} onChange={(e) => setAccommodationBg(e.target.value)} />
+                                </div>
+                            </td>
+                            <td>
+                                <div className="flex-container">
+                                    <span>CHECK IN:</span>
+                                    <div className="date-time-container">
+                                        <input type="datetime-local" id="checkInEn" className="input-field" value={checkInEn} onChange={(e) => setCheckInEn(e.target.value)} />
                                     </div>
-                                </td>
-                                <td>
-                                    <div className="flex-container">
-                                        <span>ACCOMMODATION AT:</span>
-                                        <input type="text" id="accommodationEn" className="input-field" placeholder="Enter Accommodation" value={accommodationEn} onChange={(e) => setAccommodationEn(e.target.value)} />
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <div className="flex-container">
+                                    <span>ДАТА И ЧАС НА ЗАМИНАВАНЕ:</span>
+                                    <div className="date-time-container">
+                                        <input type="datetime-local" id="checkOutBg" className="input-field" value={checkOutBg} onChange={(e) => setCheckOutBg(e.target.value)} />
                                     </div>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>
-                                    <div className="flex-container">
-                                        <span>КАТЕГОРИЯ И БРОЙ СТАИ:</span>
-                                        <input type="text" id="roomCategoryBg" className="input-field" placeholder="Въведете категория и брой стаи" value={roomCategoryBg} onChange={(e) => setRoomCategoryBg(e.target.value)} />
+                                </div>
+                            </td>
+                            <td>
+                                <div className="flex-container">
+                                    <span>CHECK OUT:</span>
+                                    <div className="date-time-container">
+                                        <input type="datetime-local" id="checkOutEn" className="input-field" value={checkOutEn} onChange={(e) => setCheckOutEn(e.target.value)} />
                                     </div>
-                                </td>
-                                <td>
-                                    <div className="flex-container">
-                                        <span>CATEGORY AND NUMBER OF ROOMS:</span>
-                                        <input type="text" id="roomCategoryEn" className="input-field" placeholder="Enter Category and Number of Rooms" value={roomCategoryEn} onChange={(e) => setRoomCategoryEn(e.target.value)} />
-                                    </div>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>
-                                    <div className="flex-container">
-                                        <span>ДАТА И ЧАС НА ПРИСТИГАНЕ:</span>
-                                        <div className="date-time-container">
-                                            <input type="datetime-local" id="checkInBg" className="input-field" value={checkInBg} onChange={(e) => setCheckInBg(e.target.value)} />
-                                        </div>
-                                    </div>
-                                </td>
-                                <td>
-                                    <div className="flex-container">
-                                        <span>CHECK IN:</span>
-                                        <div className="date-time-container">
-                                            <input type="datetime-local" id="checkInEn" className="input-field" value={checkInEn} onChange={(e) => setCheckInEn(e.target.value)} />
-                                        </div>
-                                    </div>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>
-                                    <div className="flex-container">
-                                        <span>ДАТА И ЧАС НА ЗАМИНАВАНЕ:</span>
-                                        <div className="date-time-container">
-                                            <input type="datetime-local" id="checkOutBg" className="input-field" value={checkOutBg} onChange={(e) => setCheckOutBg(e.target.value)} />
-                                        </div>
-                                    </div>
-                                </td>
-                                <td>
-                                    <div className="flex-container">
-                                        <span>CHECK OUT:</span>
-                                        <div className="date-time-container">
-                                            <input type="datetime-local" id="checkOutEn" className="input-field" value={checkOutEn} onChange={(e) => setCheckOutEn(e.target.value)} />
-                                        </div>
-                                    </div>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>
-                                    <div className="flex-container">
-                                        <span>ЕКСКУРЗИОННА ПРОГРАМА:</span>
-                                        <textarea id="excursionsBg" className="textarea-field" rows="3" placeholder="Въведете екскурзионна програма" value={excursionsBg} onChange={(e) => setExcursionsBg(e.target.value)}></textarea>
-                                    </div>
-                                </td>
-                                <td>
-                                    <div className="flex-container">
-                                        <span>EXCURSIONS:</span>
-                                        <textarea id="excursionsEn" className="textarea-field" rows="3" placeholder="Enter excursions" value={excursionsEn} onChange={(e) => setExcursionsEn(e.target.value)}></textarea>
-                                    </div>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>
-                                    <div className="flex-container">
-                                        <span>ДРУГИ УСЛУГИ:</span>
-                                        <textarea id="otherServicesBg" className="textarea-field" rows="3" placeholder="Въведете други услуги" value={otherServicesBg} onChange={(e) => setOtherServicesBg(e.target.value)}></textarea>
-                                    </div>
-                                </td>
-                                <td>
-                                    <div className="flex-container">
-                                        <span>OTHER SERVICES:</span>
-                                        <textarea id="otherServicesEn" className="textarea-field" rows="3" placeholder="Enter other services" value={otherServicesEn} onChange={(e) => setOtherServicesEn(e.target.value)}></textarea>
-                                    </div>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>
-                                    <div className="flex-container">
-                                        <span>ЗАБЕЛЕЖКИ:</span>
-                                        <textarea id="notesBg" className="textarea-field" rows="3" placeholder="Въведете забележки" value={notesBg} onChange={(e) => setNotesBg(e.target.value)}></textarea>
-                                    </div>
-                                </td>
-                                <td>
-                                    <div className="flex-container">
-                                        <span>NOTES:</span>
-                                        <textarea id="notesEn" className="textarea-field" rows="3" placeholder="Enter notes" value={notesEn} onChange={(e) => setNotesEn(e.target.value)}></textarea>
-                                    </div>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>
-                                    <div className="flex-container">
-                                        <span>ДАТА:</span>
-                                        <input type="date" id="dateIssuedBg" className="input-field" value={dateIssuedBg} onChange={(e) => setDateIssuedBg(e.target.value)} />
-                                    </div>
-                                </td>
-                                <td>
-                                    <div className="flex-container">
-                                        <span>DATE:</span>
-                                        <input type="date" id="dateIssuedEn" className="input-field" value={dateIssuedEn} onChange={(e) => setDateIssuedEn(e.target.value)} />
-                                    </div>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>
-                                    <div className="flex-container">
-                                        <span>НОМЕР И ДАТА НА ДОКУМЕНТА ЗА ПЛАЩАНЕ:</span>
-                                        <div className="payment-doc-container">
-                                            <input type="text" id="paymentDocNumBg" className="input-field" placeholder="Номер на документ" value={paymentDocNumBg} onChange={(e) => setPaymentDocNumBg(e.target.value)} />
-                                            <input type="date" id="paymentDocDateBg" className="input-field" value={paymentDocDateBg} onChange={(e) => setPaymentDocDateBg(e.target.value)} />
-                                        </div>
-                                    </div>
-                                </td>
-                                <td>
-                                    <div className="flex-container">
-                                        <span>PAYMENT DOCUMENT NUMBER AND DATE OF PAYMENT:</span>
-                                        <div className="payment-doc-container">
-                                            <input type="text" id="paymentDocNumEn" className="input-field" placeholder="Document Number" value={paymentDocNumEn} onChange={(e) => setPaymentDocNumEn(e.target.value)} />
-                                            <input type="date" id="paymentDocDateEn" className="input-field" placeholder="Date of Payment" value={paymentDocDateEn} onChange={(e) => setPaymentDocDateEn(e.target.value)} />
-                                        </div>
-                                    </div>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td colSpan="2" className="text-center">
-                                    <div className="signature-line"></div>
-                                    <div className="signature-text">ПОДПИС И ПЕЧАТ НА ФИРМА ИЗПРАЩАЧ / SENDER COMPANY SIGNATURE AND STAMP</div>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td colSpan="2" className="text-center">
-                                    <div className="signature-line"></div>
-                                    <div className="signature-text">ПОДПИС И ПЕЧАТ НА ПРИЕМАЩА ФИРМА / RECEIVING COMPANY SIGNATURE AND STAMP</div>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-
-                    <button id="printVoucherBtn" className="print-button add-button mt-8 mb-8" onClick={handlePrintVoucher}>Print Voucher</button>
-                </div>
-
-                {/* THIS IS THE PRINT-ONLY CONTENT (HIDDEN ON SCREEN) */}
-                <div className="voucher-print-content"> {/* Changed class from .print-only */}
-                    <div className="logo-section">
-                        <img src={Logo} alt="Company Logo" style={{height: '60px', width: 'auto'}}></img>
-                    </div>
-
-                    <table className="info-table">
-                        <thead>
-                            <tr>
-                                <th colSpan="2" className="header-row">
-                                    РЕПУБЛИКА БЪЛГАРИЯ / REPUBLIC OF BULGARIA
-                                </th>
-                            </tr>
-                            <tr>
-                                <th colSpan="2" className="header-row">
-                                    ВАУЧЕР / VOUCHER: {voucherPrintData.voucherNumber}
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td>ДАЙНАМЕКС ТУР ЕООД</td>
-                                <td>DYNAMEX TOUR LTD</td>
-                            </tr>
-                            <tr>
-                                <td>ЛИЦЕНЗ ЗА ТУРОПЕРАТОР: РК-01-8569/15.04.2025г.</td>
-                                <td>TUROPERATOR LICENSE: PK-01-8569/15.04.2025.</td>
-                            </tr>
-                            <tr>
-                                <td>ЕИК: 208193140, АДРЕС: БЪЛГАРИЯ, РАКИТОВО, ВАСИЛ КУРТЕВ 12А</td>
-                                <td>ID: 208193140, ADRESS: BULGARIA, RAKITOVO, VASIL KURTEV 12A</td>
-                            </tr>
-                            <tr>
-                                <td colSpan="2" className="header-row">
-                                    {voucherPrintData.voucherType}
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>
-                                    <span>ЗА ПРЕДСТАВЯНЕ В:</span> {voucherPrintData.destinationBulgarian}
-                                </td>
-                                <td>
-                                    <span>TO:</span> {voucherPrintData.destinationEnglish}
-                                </td>
-                            </tr>
-                            <tr>
-                                <td colSpan="2" className="header-row">
-                                    ИМЕ И ФАМИЛИЯ НА ТУРИСТА / NAME AND SURNAME OF TOURIST
-                                </td>
-                            </tr>
-                            <tr>
-                                <td colSpan="2">
-                                    {voucherPrintData.tourists.map((tourist, index) => (
-                                        <div key={index}>{tourist.bgName} / {tourist.enName}</div>
-                                    ))}
-                                    {Array.from({ length: Math.max(0, 7 - voucherPrintData.tourists.length) }).map((_, i) => (
-                                        <div key={`blank-tourist-${i}`}>........................................ / ........................................</div>
-                                    ))}
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>
-                                    <span>ВЪЗРАСТНИ:</span> {voucherPrintData.adultsCountBg}
-                                </td>
-                                <td>
-                                    <span>ADULTS:</span> {voucherPrintData.adultsCountEn}
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>
-                                    <span>ДЕЦА (РЕДОВНО ЛЕГЛО):</span> {voucherPrintData.childrenRegularBedCountBg}
-                                </td>
-                                <td>
-                                    <span>CHILDREN (REGULAR BED):</span> {voucherPrintData.childrenRegularBedCountEn}
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>
-                                    <span>ДЕЦА (ДОПЪЛНИТЕЛНО ЛЕГЛО):</span> {voucherPrintData.childrenExtraBedCountBg}
-                                </td>
-                                <td>
-                                    <span>CHILDREN (EXTRA BED):</span> {voucherPrintData.childrenExtraBedCountEn}
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>
-                                    <span>МАРШРУТ:</span> {voucherPrintData.itineraryBg}
-                                </td>
-                                <td>
-                                    <span>ITINERARY:</span> {voucherPrintData.itineraryEn}
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>
-                                    <span>МЯСТО:</span> {voucherPrintData.destinationPlaceBg}
-                                </td>
-                                <td>
-                                    <span>DESTINATION:</span> {voucherPrintData.destinationPlaceEn}
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>
-                                    <span>СРОК:</span> {voucherPrintData.dateStartBg} - {voucherPrintData.dateEndBg}
-                                </td>
-                                <td>
-                                    <span>DATES OF ITINERARY:</span> {voucherPrintData.dateStartEn} - {voucherPrintData.dateEndEn}
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>
-                                    <span>НАСТАНЯВАНЕ В:</span> {voucherPrintData.accommodationBg}
-                                </td>
-                                <td>
-                                    <span>ACCOMMODATION AT:</span> {voucherPrintData.accommodationEn}
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>
-                                    <span>КАТЕГОРИЯ И БРОЙ СТАИ:</span> {voucherPrintData.roomCategoryBg}
-                                </td>
-                                <td>
-                                    <span>CATEGORY AND NUMBER OF ROOMS:</span> {voucherPrintData.roomCategoryEn}
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>
-                                    <span>ДАТА И ЧАС НА ПРИСТИГАНЕ:</span> {voucherPrintData.checkInBg}
-                                </td>
-                                <td>
-                                    <span>CHECK IN:</span> {voucherPrintData.checkInEn}
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>
-                                    <span>ДАТА И ЧАС НА ЗАМИНАВАНЕ:</span> {voucherPrintData.checkOutBg}
-                                </td>
-                                <td>
-                                    <span>CHECK OUT:</span> {voucherPrintData.checkOutEn}
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>
-                                    <span>ЕКСКУРЗИОННА ПРОГРАМА:</span> {voucherPrintData.excursionsBg}
-                                </td>
-                                <td>
-                                    <span>EXCURSIONS:</span> {voucherPrintData.excursionsEn}
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>
-                                    <span>ДРУГИ УСЛУГИ:</span> {voucherPrintData.otherServicesBg}
-                                </td>
-                                <td>
-                                    <span>OTHER SERVICES:</span> {voucherPrintData.otherServicesEn}
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>
-                                    <span>ЗАБЕЛЕЖКИ:</span> {voucherPrintData.notesBg}
-                                </td>
-                                <td>
-                                    <span>NOTES:</span> {voucherPrintData.notesEn}
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>
-                                    <span>ДАТА:</span> {voucherPrintData.dateIssuedBg}
-                                </td>
-                                <td>
-                                    <span>DATE:</span> {voucherPrintData.dateIssuedEn}
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <div className="flex-container">
+                                    <span>ЕКСКУРЗИОННА ПРОГРАМА:</span>
+                                    <textarea id="excursionsBg" className="textarea-field" rows="3" placeholder="Въведете екскурзионна програма" value={excursionsBg} onChange={(e) => setExcursionsBg(e.target.value)}></textarea>
+                                </div>
+                            </td>
+                            <td>
+                                <div className="flex-container">
+                                    <span>EXCURSIONS:</span>
+                                    <textarea id="excursionsEn" className="textarea-field" rows="3" placeholder="Enter excursions" value={excursionsEn} onChange={(e) => setExcursionsEn(e.target.value)}></textarea>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <div className="flex-container">
+                                    <span>ДРУГИ УСЛУГИ:</span>
+                                    <textarea id="otherServicesBg" className="textarea-field" rows="3" placeholder="Въведете други услуги" value={otherServicesBg} onChange={(e) => setOtherServicesBg(e.target.value)}></textarea>
+                                </div>
+                            </td>
+                            <td>
+                                <div className="flex-container">
+                                    <span>OTHER SERVICES:</span>
+                                    <textarea id="otherServicesEn" className="textarea-field" rows="3" placeholder="Enter other services" value={otherServicesEn} onChange={(e) => setOtherServicesEn(e.target.value)}></textarea>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <div className="flex-container">
+                                    <span>ЗАБЕЛЕЖКИ:</span>
+                                    <textarea id="notesBg" className="textarea-field" rows="3" placeholder="Въведете забележки" value={notesBg} onChange={(e) => setNotesBg(e.target.value)}></textarea>
+                                </div>
+                            </td>
+                            <td>
+                                <div className="flex-container">
+                                    <span>NOTES:</span>
+                                    <textarea id="notesEn" className="textarea-field" rows="3" placeholder="Enter notes" value={notesEn} onChange={(e) => setNotesEn(e.target.value)}></textarea>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <div className="flex-container">
+                                    <span>ДАТА:</span>
+                                    <input type="date" id="dateIssuedBg" class="input-field" value={dateIssuedBg} onChange={(e) => setDateIssuedBg(e.target.value)} />
+                                </div>
+                            </td>
+                            <td>
+                                <div className="flex-container">
+                                    <span>DATE:</span>
+                                    <input type="date" id="dateIssuedEn" class="input-field" value={dateIssuedEn} onChange={(e) => setDateIssuedEn(e.target.value)} />
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <div class="flex-container">
                                     <span>НОМЕР И ДАТА НА ДОКУМЕНТА ЗА ПЛАЩАНЕ:</span>
-                                    <div>
-                                        {voucherPrintData.paymentDocNumBg} / {voucherPrintData.paymentDocDateBg}
+                                    <div class="payment-doc-container">
+                                        <input type="text" id="paymentDocNumBg" class="input-field" placeholder="Номер на документ" value={paymentDocNumBg} onChange={(e) => setPaymentDocNumBg(e.target.value)} />
+                                        <input type="date" id="paymentDocDateBg" class="input-field" value={paymentDocDateBg} onChange={(e) => setPaymentDocDateBg(e.target.value)} />
                                     </div>
-                                </td>
-                                <td>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="flex-container">
                                     <span>PAYMENT DOCUMENT NUMBER AND DATE OF PAYMENT:</span>
-                                    <div>
-                                        {voucherPrintData.paymentDocNumEn} / {voucherPrintData.paymentDocDateEn}
+                                    <div class="payment-doc-container">
+                                        <input type="text" id="paymentDocNumEn" class="input-field" placeholder="Document Number" value={paymentDocNumEn} onChange={(e) => setPaymentDocNumEn(e.target.value)} />
+                                        <input type="date" id="paymentDocDateEn" class="input-field" placeholder="Date of Payment" value={paymentDocDateEn} onChange={(e) => setPaymentDocDateEn(e.target.value)} />
                                     </div>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td colSpan="2" className="text-center">
-                                    <div className="signature-line"></div>
-                                    <div className="signature-text">ПОДПИС И ПЕЧАТ НА ФИРМА ИЗПРАЩАЧ / SENDER COMPANY SIGNATURE AND STAMP</div>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td colSpan="2" className="text-center">
-                                    <div className="signature-line"></div>
-                                    <div className="signature-text">ПОДПИС И ПЕЧАТ НА ПРИЕМАЩА ФИРМА / RECEIVING COMPANY SIGNATURE AND STAMP</div>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
+                                </div>
+                            </td>
+                        </tr>
+                        {/* Signature Lines */}
+                        <tr>
+                            <td colSpan="2" className="text-center">
+                                <div className="signature-line"></div>
+                                <div className="signature-text">ПОДПИС И ПЕЧАТ НА ФИРМА ИЗПРАЩАЧ / SENDER COMPANY SIGNATURE AND STAMP</div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td colSpan="2" className="text-center">
+                                <div className="signature-line"></div>
+                                <div className="signature-text">ПОДПИС И ПЕЧАТ НА ПРИЕМАЩА ФИРМА / RECEIVING COMPANY SIGNATURE AND STAMP</div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
+
+            {/* Print Button */}
+            <button id="printVoucherBtn" className="print-button add-button mt-8 mb-8" onClick={handlePrintVoucher}>Print Voucher</button>
         </div>
     );
 };
