@@ -48,7 +48,7 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
     const [paymentDocNumEn, setPaymentDocNumEn] = useState('');
     const [paymentDocDateEn, setPaymentDocDateEn] = useState('');
 
-    // Helper to format date-time for local input types
+    // Helper to format date-time for local input types (used for screen display)
     const formatDateTimeLocal = useCallback((dateString) => {
         if (!dateString) return '';
         const date = new Date(dateString);
@@ -61,7 +61,7 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
         return `${year}-${month}-${day}T${hours}:${minutes}`;
     }, []);
 
-    // Helper to format date for local input types
+    // Helper to format date for local input types (used for screen display)
     const formatDateLocal = useCallback((dateString) => {
         if (!dateString) return '';
         const date = new Date(dateString);
@@ -70,6 +70,44 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
         const day = String(date.getDate()).padStart(2, '0');
         return `${year}-${month}-${day}`;
     }, []);
+
+    // Helper for date formatting specifically for print output
+    const formatDateForPrint = useCallback((dateString) => {
+        if (!dateString) return '..................';
+        try {
+            const date = new Date(dateString);
+            if (isNaN(date.getTime())) return 'Invalid Date'; // Use getTime() to check for invalid dates
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const year = date.getFullYear();
+            return `${day}.${month}.${year}`;
+        } catch (error) {
+            console.error("Error formatting date for print:", error);
+            return 'Date Error';
+        }
+    }, []);
+
+    // Helper for datetime formatting specifically for print output
+    const formatDateTimeForPrint = useCallback((dateTimeLocalString) => {
+        if (!dateTimeLocalString) return '..................';
+        try {
+            const date = new Date(dateTimeLocalString);
+            if (isNaN(date.getTime())) return 'Invalid DateTime';
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const year = date.getFullYear();
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            return `${day}.${month}.${year} ${hours}:${minutes}`;
+        } catch (error) {
+            console.error("Error formatting datetime for print:", error);
+            return 'DateTime Error';
+        }
+    }, []);
+
+    // Helper to get a value, with fallback if blank (used for print output)
+    const getValue = useCallback((val, fallback = '') => (val !== null && val !== undefined && val !== '' ? val : fallback), []);
+
 
     // Effect to populate fields from reservationData when component mounts or data changes
     useEffect(() => {
@@ -80,8 +118,8 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
 
             // Populate tourists
             const mappedTourists = reservationData.tourists.map(t => ({
-                bgName: `${t.firstName || ''} ${t.familyName || ''}`.trim(),
-                enName: `${t.firstName || ''} ${t.familyName || ''}`.trim(), // Assuming English name is same as Bulgarian
+                bgName: `${t.firstName || ''} ${t.fatherName || ''} ${t.familyName || ''}`.trim(), // Use full name
+                enName: `${t.firstName || ''} ${t.fatherName || ''} ${t.familyName || ''}`.trim(), // Assuming English name is same as Bulgarian
             }));
             setTourists(mappedTourists);
 
@@ -113,23 +151,23 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
             setCheckOutBg(formatDateTimeLocal(reservationData.checkOut));
             setCheckOutEn(formatDateTimeLocal(reservationData.checkOut));
 
-            setExcursionsBg(''); // No direct mapping, leave blank
-            setExcursionsEn('');
-            setOtherServicesBg(''); // No direct mapping, leave blank
-            setOtherServicesEn('');
-            setNotesBg(''); // No direct mapping, leave blank
-            setNotesEn('');
+            setExcursionsBg(''); // No direct mapping, leave blank for manual entry
+            setExcursionsEn(''); // No direct mapping, leave blank for manual entry
+            setOtherServicesBg(''); // No direct mapping, leave blank for manual entry
+            setOtherServicesEn(''); // No direct mapping, leave blank for manual entry
+            setNotesBg(''); // No direct mapping, leave blank for manual entry
+            setNotesEn(''); // No direct mapping, leave blank for manual entry
 
             setDateIssuedBg(formatDateLocal(new Date().toISOString().split('T')[0])); // Current date for issuance
             setDateIssuedEn(formatDateLocal(new Date().toISOString().split('T')[0]));
             
             // Payment document details usually come from financial transactions, not directly from reservation
-            setPaymentDocNumBg('');
-            setPaymentDocDateBg('');
-            setPaymentDocNumEn('');
-            setPaymentDocDateEn('');
+            setPaymentDocNumBg(''); // Blank for manual entry
+            setPaymentDocDateBg(''); // Blank for manual entry
+            setPaymentDocNumEn(''); // Blank for manual entry
+            setPaymentDocDateEn(''); // Blank for manual entry
         }
-    }, [reservationData, formatDateTimeLocal, formatDateLocal]);
+    }, [reservationData, formatDateTimeLocal, formatDateLocal, getValue]); // Added getValue to dependencies
 
 
     // Function to handle adding a new tourist row
@@ -153,40 +191,6 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
 
     // Function to populate the HIDDEN print-only content based on current form values
     const populatePrintContent = useCallback(() => {
-        // Helper to get a value, with fallback if blank
-        const getValue = (val, fallback = '') => (val !== null && val !== undefined && val !== '' ? val : fallback);
-        // Helper for date formatting
-        const formatDateForPrint = (dateString) => {
-            if (!dateString) return '..................';
-            try {
-                const date = new Date(dateString);
-                if (isNaN(date)) return 'Invalid Date'; // Handle invalid date strings
-                const day = String(date.getDate()).padStart(2, '0');
-                const month = String(date.getMonth() + 1).padStart(2, '0');
-                const year = date.getFullYear();
-                return `${day}.${month}.${year}`;
-            } catch (error) {
-                console.error("Error formatting date for print:", error);
-                return 'Date Error';
-            }
-        };
-        const formatDateTimeForPrint = (dateTimeLocalString) => {
-            if (!dateTimeLocalString) return '..................';
-            try {
-                const date = new Date(dateTimeLocalString);
-                if (isNaN(date)) return 'Invalid DateTime';
-                const day = String(date.getDate()).padStart(2, '0');
-                const month = String(date.getMonth() + 1).padStart(2, '0');
-                const year = date.getFullYear();
-                const hours = String(date.getHours()).padStart(2, '0');
-                const minutes = String(date.getMinutes()).padStart(2, '0');
-                return `${day}.${month}.${year} ${hours}:${minutes}`;
-            } catch (error) {
-                console.error("Error formatting datetime for print:", error);
-                return 'DateTime Error';
-            }
-        };
-
         // Populate header fields
         document.getElementById('pdf-voucherNumber').textContent = getValue(voucherNumber);
         document.getElementById('pdf-destinationBulgarian').textContent = getValue(destinationBulgarian);
@@ -260,7 +264,7 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
         accommodationBg, accommodationEn, roomCategoryBg, roomCategoryEn, checkInBg, checkInEn, checkOutBg, checkOutEn,
         excursionsBg, excursionsEn, otherServicesBg, otherServicesEn, notesBg, notesEn,
         dateIssuedBg, dateIssuedEn, paymentDocNumBg, paymentDocDateBg, paymentDocNumEn, paymentDocDateEn,
-        formatDateForPrint, formatDateTimeForPrint // Add helper functions to dependency array
+        formatDateForPrint, formatDateTimeForPrint, getValue // Add helper functions to dependency array
     ]);
 
     // Handle print functionality
@@ -369,7 +373,6 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
                                             <button type="button" className="remove-button" onClick={() => removeTouristRow(index)}>Remove</button>
                                         </div>
                                     ))}
-                                }
                                 </div>
                                 <button id="addTouristBtn" className="add-button" type="button" onClick={addTouristRow}>Add Another Tourist</button>
                             </td>
@@ -626,9 +629,330 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
                 </table>
             </div>
 
-            {/* Print Button */}
-            <button id="printVoucherBtn" className="print-button add-button mt-8 mb-8" onClick={handlePrintVoucher}>Print Voucher</button>
+            {/* This section contains the ACTUAL content to be printed. It's hidden on screen by CSS. */}
+            <div className="print-only">
+                <div class="voucher-container">
+                    {/* Logo Section */}
+                    <div class="logo-section">
+                        <img src={Logo} alt="Company Logo" class="h-24 object-contain rounded-lg"></img>
+                    </div>
+
+                    {/* Static Information Table */}
+                    <table class="info-table">
+                        <thead>
+                            <tr>
+                                <th colSpan="2" class="header-row">
+                                    РЕПУБЛИКА БЪЛГАРИЯ / REPUBLIC OF BULGARIA
+                                </th>
+                            </tr>
+                            <tr>
+                                <th colSpan="2" class="header-row">
+                                    ВАУЧЕР / VOUCHER:
+                                    <span id="pdf-voucherNumber"></span>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>ДАЙНАМЕКС ТУР ЕООД</td>
+                                <td>DYNAMEX TOUR LTD</td>
+                            </tr>
+                            <tr>
+                                <td>ЛИЦЕНЗ ЗА ТУРОПЕРАТОР: РК-01-8569/15.04.2025г.</td>
+                                <td>TUROPERATOR LICENSE: PK-01-8569/15.04.2025.</td>
+                            </tr>
+                            <tr>
+                                <td>ЕИК: 208193140, АДРЕС: БЪЛГАРИЯ, РАКИТОВО, ВАСИЛ КУРТЕВ 12А</td>
+                                <td>ID: 208193140, ADRESS: BULGARIA, RAKITOVO, VASIL KURTEV 12A</td>
+                            </tr>
+                            {/* Dropdown for ORIGINAL / COPY */}
+                            <tr>
+                                <td colSpan="2" class="header-row">
+                                    <span id="pdf-voucherTypeText"></span>
+                                </td>
+                            </tr>
+                            {/* Combined input fields for "ЗА ПРЕДСТАВЯНЕ В" and "TO" */}
+                            <tr>
+                                <td>
+                                    <div class="flex-container">
+                                        <span>ЗА ПРЕДСТАВЯНЕ В:</span>
+                                        <span id="pdf-destinationBulgarian"></span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="flex-container">
+                                        <span>TO:</span>
+                                        <span id="pdf-destinationEnglish"></span>
+                                    </div>
+                                </td>
+                            </tr>
+                            {/* Tourist Names Section */}
+                            <tr>
+                                <td colSpan="2" class="header-row">
+                                    ИМЕ И ФАМИЛИЯ НА ТУРИСТА / NAME AND SURNAME OF TOURIST
+                                </td>
+                            </tr>
+                            <tr>
+                                <td colSpan="2">
+                                    <div id="pdf-tourist-names-container" class="space-y-1">
+                                        {/* Tourist names will be dynamically injected here by JS */}
+                                    </div>
+                                </td>
+                            </tr>
+                            {/* Adults and Children Fields */}
+                            <tr>
+                                <td>
+                                    <div class="number-input-container">
+                                        <span>ВЪЗРАСТНИ:</span>
+                                        <span id="pdf-adultsCountBg"></span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="number-input-container">
+                                        <span>ADULTS:</span>
+                                        <span id="pdf-adultsCountEn"></span>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <div class="number-input-container">
+                                        <span>ДЕЦА (РЕДОВНО ЛЕГЛО):</span>
+                                        <span id="pdf-childrenRegularBedCountBg"></span>
+                                    </div>
+                                </td>
+                            <td>
+                                <div class="number-input-container">
+                                    <span>CHILDREN (REGULAR BED):</span>
+                                    <span id="pdf-childrenRegularBedCountEn"></span>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <div class="number-input-container">
+                                    <span>ДЕЦА (ДОПЪЛНИТЕЛНО ЛЕГЛО):</span>
+                                    <span id="pdf-childrenExtraBedCountBg"></span>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="number-input-container">
+                                    <span>CHILDREN (EXTRA BED):</span>
+                                    <span id="pdf-childrenExtraBedCountEn"></span>
+                                </div>
+                            </td>
+                        </tr>
+                        {/* Itinerary, Destination, Dates, Accommodation, Room Category */}
+                        <tr>
+                            <td>
+                                <div class="flex-container">
+                                    <span>МАРШРУТ:</span>
+                                    <span id="pdf-itineraryBg"></span>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="flex-container">
+                                    <span>ITINERARY:</span>
+                                    <span id="pdf-itineraryEn"></span>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <div class="flex-container">
+                                    <span>МЯСТО:</span>
+                                    <span id="pdf-destinationPlaceBg"></span>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="flex-container">
+                                    <span>DESTINATION:</span>
+                                    <span id="pdf-destinationPlaceEn"></span>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <div class="flex-container">
+                                    <span>СРОК:</span>
+                                    <div class="date-range-container">
+                                        <span id="pdf-dateStartBg"></span>
+                                        <span>-</span>
+                                        <span id="pdf-dateEndBg"></span>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="flex-container">
+                                    <span>DATES OF ITINERARY:</span>
+                                    <div class="date-range-container">
+                                        <span id="pdf-dateStartEn"></span>
+                                        <span>-</span>
+                                        <span id="pdf-dateEndEn"></span>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <div class="flex-container">
+                                    <span>НАСТАНЯВАНЕ В:</span>
+                                    <span id="pdf-accommodationBg"></span>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="flex-container">
+                                    <span>ACCOMMODATION AT:</span>
+                                    <span id="pdf-accommodationEn"></span>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <div class="flex-container">
+                                    <span>КАТЕГОРИЯ И БРОЙ СТАИ:</span>
+                                    <span id="pdf-roomCategoryBg"></span>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="flex-container">
+                                    <span>CATEGORY AND NUMBER OF ROOMS:</span>
+                                    <span id="pdf-roomCategoryEn"></span>
+                                </div>
+                            </td>
+                        </tr>
+                        {/* Check-in/out, Excursions, Other Services, Notes, Date, Payment Doc */}
+                        <tr>
+                            <td>
+                                <div class="flex-container">
+                                    <span>ДАТА И ЧАС НА ПРИСТИГАНЕ:</span>
+                                    <div class="date-time-container">
+                                        <span id="pdf-checkInBg"></span>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="flex-container">
+                                    <span>CHECK IN:</span>
+                                    <div class="date-time-container">
+                                        <span id="pdf-checkInEn"></span>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <div class="flex-container">
+                                    <span>ДАТА И ЧАС НА ЗАМИНАВАНЕ:</span>
+                                    <div class="date-time-container">
+                                        <span id="pdf-checkOutBg"></span>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="flex-container">
+                                    <span>CHECK OUT:</span>
+                                    <div class="date-time-container">
+                                        <span id="pdf-checkOutEn"></span>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <div class="flex-container">
+                                    <span>ЕКСКУРЗИОННА ПРОГРАМА:</span>
+                                    <span id="pdf-excursionsBg"></span>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="flex-container">
+                                    <span>EXCURSIONS:</span>
+                                    <span id="pdf-excursionsEn"></span>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <div class="flex-container">
+                                    <span>ДРУГИ УСЛУГИ:</span>
+                                    <span id="pdf-otherServicesBg"></span>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="flex-container">
+                                    <span>OTHER SERVICES:</span>
+                                    <span id="pdf-otherServicesEn"></span>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <div class="flex-container">
+                                    <span>ЗАБЕЛЕЖКИ:</span>
+                                    <span id="pdf-notesBg"></span>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="flex-container">
+                                    <span>NOTES:</span>
+                                    <span id="pdf-notesEn"></span>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <div class="flex-container">
+                                    <span>ДАТА:</span>
+                                    <span id="pdf-dateIssuedBg"></span>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="flex-container">
+                                    <span>DATE:</span>
+                                    <span id="pdf-dateIssuedEn"></span>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <div class="flex-container">
+                                    <span>НОМЕР И ДАТА НА ДОКУМЕНТА ЗА ПЛАЩАНЕ:</span>
+                                    <div class="payment-doc-container">
+                                        <span id="pdf-paymentDocNumBg"></span>
+                                        <span id="pdf-paymentDocDateBg"></span>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="flex-container">
+                                    <span>PAYMENT DOCUMENT NUMBER AND DATE OF PAYMENT:</span>
+                                    <div class="payment-doc-container">
+                                        <span id="pdf-paymentDocNumEn"></span>
+                                        <span id="pdf-paymentDocDateEn"></span>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        {/* Signature Lines */}
+                        <tr>
+                            <td colSpan="2" className="text-center">
+                                <div className="signature-line"></div>
+                                <div className="signature-text">ПОДПИС И ПЕЧАТ НА ФИРМА ИЗПРАЩАЧ / SENDER COMPANY SIGNATURE AND STAMP</div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td colSpan="2" className="text-center">
+                                <div className="signature-line"></div>
+                                <div className="signature-text">ПОДПИС И ПЕЧАТ НА ПРИЕМАЩА ФИРМА / RECEIVING COMPANY SIGNATURE AND STAMP</div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            {/* End of print-only content wrapper */}
         </div>
+        /* END OF ENTIRE COMPONENT RETURN */
     );
 };
 
