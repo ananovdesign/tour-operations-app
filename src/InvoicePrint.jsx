@@ -72,7 +72,7 @@ const InvoicePrint = ({ invoiceData, onPrintFinish }) => {
   useEffect(() => {
     const timer = setTimeout(() => {
         window.print();
-    }, 500);
+    }, 750);
     window.onafterprint = onPrintFinish;
     return () => {
         clearTimeout(timer);
