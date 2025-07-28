@@ -4708,24 +4708,28 @@ if (tourToGenerateContract) {
         </main>
       </div>
 
-      <ConfirmationModal
-        show={showConfirmModal}
-        message={confirmMessage}
-        onConfirm={() => {
-          if (confirmAction) {
-            confirmAction();
-          }
-          setShowConfirmModal(false);
-          setConfirmAction(null);
-          setConfirmMessage('');
-        }}
-        onCancel={() => {
-          setShowConfirmModal(false);
-          setConfirmAction(null);
-          setConfirmMessage('');
-        }}
-      />
-    </div>
-  );
+        <ConfirmationModal
+      show={showConfirmModal}
+      message={confirmMessage}
+      onConfirm={() => {
+        if (confirmAction) {
+          confirmAction();
+        }
+        setShowConfirmModal(false);
+        setConfirmAction(null);
+        setConfirmMessage('');
+      }}
+      onCancel={() => {
+        setShowConfirmModal(false);
+        setConfirmAction(null);
+        setConfirmMessage('');
+      }}
+    />
+  </div> // This closes the main div that wraps all your content (e.g., flex container for sidebar and main area)
+); // This closes the 'return' statement of the App component
+
+
+}; // <--- THIS IS THE CRUCIAL LINE TO ADD/ENSURE IS PRESENT. It closes the 'App' function definition.
+
 
 export default App;
