@@ -4632,27 +4632,15 @@ if (tourToGenerateContract) {
                 Marketing Hub
               </button>
             )}
-          </nav>
-
-          {/* Logout Button (if logged in) */}
-          {isEmailPasswordUser && (
-            <div className="flex-shrink-0 ml-4">
-              <button
-                onClick={handleLogout}
-                className="px-4 py-2 bg-red-500 text-white font-semibold rounded-lg shadow-md hover:bg-red-600 transition duration-300 ease-in-out transform hover:scale-105"
-              >
-                Logout
-              </button>
-            </div>
-          )}
-        </div>
+            </nav>
+        </div> {/* This is the closing of the 'container mx-auto flex flex-wrap justify-between items-center' div */}
       </header>
 
       {/* Main Content Area below the header */}
       <main className="flex-1 p-6 md:p-8 overflow-y-auto bg-gray-100 min-h-[calc(100vh-80px)]"> {/* Adjusted min-height for header */}
         <NotificationDisplay notifications={notifications} onDismiss={removeNotification} />
         {renderContent()}
-   </main>
+      </main>
 
       {/* CONFIRMATION MODAL MUST BE INSIDE THE MAIN OUTERMOST DIV */}
       <ConfirmationModal
@@ -4664,17 +4652,18 @@ if (tourToGenerateContract) {
           }
           setShowConfirmModal(false);
           setConfirmAction(null);
-          setConfirmMessage(''); // Corrected: changed from setConfirmAction('')
+          setConfirmMessage('');
         }}
         onCancel={() => {
           setShowConfirmModal(false);
           setConfirmAction(null);
-          setConfirmMessage(''); // Corrected: changed from setConfirmAction('')
+          setConfirmMessage('');
         }}
-/>
+      />
     </div> {/* This is the ONLY closing div for the outermost 'font-sans' div. */}
   ); // This closes the 'return' statement of the App component
 
 }; // This closes the 'App' functional component itself.
 
 export default App;
+         
