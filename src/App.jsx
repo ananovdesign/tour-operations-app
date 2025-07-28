@@ -18,7 +18,7 @@ import CustomerContractPrint from './CustomerContractPrint.jsx'; // New componen
 import BusTourContractPrint from './BusTourContractPrint.jsx'; // NEW: Import for Bus Tour Contract
 import VoucherPrint from './VoucherPrint.jsx'; // NEW: Import for Voucher Print
 import MarketingHubModule from './MarketingHubModule.jsx'; // NEW: Import the Marketing Hub module
-
+import TaskManagementModule from './TaskManagementModule.jsx'; // NEW: Import the Task Management module
 // --- Notification Display Component ---
 const NotificationDisplay = ({ notifications, onDismiss }) => {
   return (
@@ -4492,12 +4492,25 @@ case 'createInvoice':
             />
           </div>
         );
-      case 'marketingHub': // NEW: Render Marketing Hub module
-        return <MarketingHubModule db={db} userId={userId} isAuthReady={isAuthReady} campaigns={campaigns} appId={appId} />;
-      default:
-        return <div>Select a module from the sidebar.</div>;
-      } // This closes the 'switch' statement
-    }; // This closes the 'renderContent' function
+    case 'marketingHub': // NEW: Render Marketing Hub module
+            return <MarketingHubModule db={db} userId={userId} isAuthReady={isAuthReady} campaigns={campaigns} appId={appId} />;
+        case 'taskManagement': // NEW: Render Task Management module
+            return (
+                <TaskManagementModule
+                    db={db}
+                    userId={userId}
+                    isAuthReady={isAuthReady}
+                    addNotification={addNotification}
+                    setShowConfirmModal={setShowConfirmModal}
+                    setConfirmMessage={setConfirmMessage}
+                    setConfirmAction={setConfirmAction}
+                />
+            );
+        default:
+            return <div>Select a module from the sidebar.</div>;
+    } // This closes the 'switch' statement
+}; // This closes the 'renderContent' function
+  
 
  const handlePrintFinish = () => {
     setInvoiceToPrint(null);
