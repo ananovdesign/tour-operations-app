@@ -4558,152 +4558,182 @@ if (tourToGenerateContract) {
 }
 
 return (
-  <div className="font-sans antialiased bg-gray-100 min-h-screen text-gray-900" style={{ fontFamily: 'Inter, sans-serif' }}>
-    {userId && ( // Only render the navbar if user is logged in
-        <nav className="bg-white shadow-lg py-4 px-6 flex items-center justify-between flex-wrap">
-            <div className="flex items-center flex-shrink-0 text-white mr-6">
-                <img src={Logo} alt="Dynamex Logo" className="h-16 w-auto mr-3" />
-            </div>
-            <div className="block lg:hidden">
+    <div className="font-sans antialiased bg-gray-100 min-h-screen text-gray-900" style={{ fontFamily: 'Inter, sans-serif' }}>
+        {/* Top Navigation Bar */}
+        {userId && ( // Only render the navbar if user is logged in
+            <nav className="bg-white shadow-lg py-4 px-6 flex items-center justify-between flex-wrap">
+                <div className="flex items-center flex-shrink-0 text-white mr-6">
+                    <img src={Logo} alt="Dynamex Logo" className="h-16 w-auto mr-3" />
+                </div>
                 {/* Hamburger menu for mobile - implement if needed later, for now just hide */}
-            </div>
-            <div className="w-full flex-grow lg:flex lg:items-center lg:w-auto">
-                <div className="text-sm lg:flex-grow">
-                    {/* Dashboard (Standalone) */}
-                    <button
-                        onClick={() => setActiveTab('dashboard')}
-                        className={`block mt-4 lg:inline-block lg:mt-0 px-4 py-2 rounded-lg text-lg font-medium transition-colors duration-200
-                            ${activeTab === 'dashboard' ? 'bg-gray-100 text-[#28A745]' : 'text-gray-700 hover:text-[#28A745] hover:bg-gray-50'}`}
-                    >
-                        Dashboard
-                    </button>
-
-                    {/* Reservations Dropdown */}
-                    <div className="relative inline-block text-left group">
-                        <button
-                            type="button"
-                            className={`inline-flex justify-center items-center gap-x-1.5 px-4 py-2 rounded-lg text-lg font-medium transition-colors duration-200
-                                ${['reservations', 'addReservation', 'customers', 'tours', 'addTour', 'customerContract', 'busTourContract', 'printVoucher'].includes(activeTab) ? 'bg-gray-100 text-[#28A745]' : 'text-gray-700 hover:text-[#28A745] hover:bg-gray-50'}`}
-                            id="reservations-menu-button"
-                            aria-expanded="true"
-                            aria-haspopup="true"
-                        >
-                            Reservations
-                            <svg className="-mr-1 h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.25 4.25a.75.75 0 01-1.06 0L5.23 8.29a.75.75 0 01.02-1.06z" clipRule="evenodd" /></svg>
-                        </button>
-
-                        <div
-                            className="absolute left-0 z-10 mt-2 w-56 origin-top-left rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 transform scale-95 group-hover:scale-100"
-                            role="menu"
-                            aria-orientation="vertical"
-                            aria-labelledby="reservations-menu-button"
-                            tabIndex="-1"
-                        >
-                            <div className="py-1" role="none">
-                                <button onClick={() => { setActiveTab('reservations'); resetReservationForm(); }} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1" id="reservations-item-0">Reservations List</button>
-                                <button onClick={() => { setActiveTab('addReservation'); resetReservationForm(); }} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1" id="reservations-item-1">Add Reservation</button>
-                                <button onClick={() => { setActiveTab('customers'); resetReservationForm(); }} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1" id="reservations-item-2">Customers</button>
-                                <button onClick={() => { setActiveTab('tours'); resetTourForm(); }} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1" id="reservations-item-3">Bus Tours</button>
-                                <button onClick={() => { setActiveTab('addTour'); resetTourForm(); }} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1" id="reservations-item-4">Create Tour</button>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Financial Dropdown */}
-                    <div className="relative inline-block text-left group">
-                        <button
-                            type="button"
-                            className={`inline-flex justify-center items-center gap-x-1.5 px-4 py-2 rounded-lg text-lg font-medium transition-colors duration-200
-                                ${['payments', 'addFinancialTransaction', 'financialReports', 'invoicingDashboard', 'invoicingSales', 'invoicingExpenses', 'invoicingProducts', 'addProduct', 'addSalesInvoice', 'addExpenseInvoice'].includes(activeTab) ? 'bg-gray-100 text-[#28A745]' : 'text-gray-700 hover:text-[#28A745] hover:bg-gray-50'}`}
-                            id="financial-menu-button"
-                            aria-expanded="true"
-                            aria-haspopup="true"
-                        >
-                            Financial
-                            <svg className="-mr-1 h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.25 4.25a.75.75 0 01-1.06 0L5.23 8.29a.75.75 0 01.02-1.06z" clipRule="evenodd" /></svg>
-                        </button>
-
-                        <div
-                            className="absolute left-0 z-10 mt-2 w-56 origin-top-left rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 transform scale-95 group-hover:scale-100"
-                            role="menu"
-                            aria-orientation="vertical"
-                            aria-labelledby="financial-menu-button"
-                            tabIndex="-1"
-                        >
-                            <div className="py-1" role="none">
-                                <button onClick={() => setActiveTab('payments')} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1" id="financial-item-0">Payments List</button>
-                                <button onClick={() => { setActiveTab('addFinancialTransaction'); resetFinancialTransactionForm(); }} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1" id="financial-item-1">Add Payment/Expense</button>
-                                <button onClick={() => { setActiveTab('financialReports'); resetFinancialReportsFilters(); }} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1" id="financial-item-2">Financial Reports</button>
-                                <button onClick={() => setActiveTab('invoicingDashboard')} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1" id="financial-item-3">Invoicing Dashboard</button>
-                                <button onClick={() => setActiveTab('invoicingSales')} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1" id="financial-item-4">Sales Invoices</button>
-                                <button onClick={() => setActiveTab('invoicingExpenses')} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1" id="financial-item-5">Expense Invoices</button>
-                                <button onClick={() => setActiveTab('invoicingProducts')} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1" id="financial-item-6">Product Management</button>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Documents Dropdown */}
-                    <div className="relative inline-block text-left group">
-                        <button
-                            type="button"
-                            className={`inline-flex justify-center items-center gap-x-1.5 px-4 py-2 rounded-lg text-lg font-medium transition-colors duration-200
-                                ${['transportContract', 'makeOffer', 'confirmation', 'customerContract', 'createInvoice'].includes(activeTab) ? 'bg-gray-100 text-[#28A745]' : 'text-gray-700 hover:text-[#28A745] hover:bg-gray-50'}`}
-                            id="documents-menu-button"
-                            aria-expanded="true"
-                            aria-haspopup="true"
-                        >
-                            Documents
-                            <svg className="-mr-1 h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.25 4.25a.75.75 0 01-1.06 0L5.23 8.29a.75.75 0 01.02-1.06z" clipRule="evenodd" /></svg>
-                        </button>
-
-                        <div
-                            className="absolute left-0 z-10 mt-2 w-56 origin-top-left rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 transform scale-95 group-hover:scale-100"
-                            role="menu"
-                            aria-orientation="vertical"
-                            aria-labelledby="documents-menu-button"
-                            tabIndex="-1"
-                        >
-                            <div className="py-1" role="none">
-                                <button onClick={() => setActiveTab('transportContract')} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1" id="documents-item-0">Transport Contract</button>
-                                <button onClick={() => setActiveTab('makeOffer')} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1" id="documents-item-1">Make Offer</button>
-                                <button onClick={() => setActiveTab('confirmation')} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1" id="documents-item-2">Confirmation</button>
-                                <button onClick={() => setReservationToGenerateContract(null) /* clear selection if navigating directly */ || setActiveTab('customerContract')} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1" id="documents-item-3">Customer Contract</button>
-                                <button onClick={() => setActiveTab('createInvoice')} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1" id="documents-item-4">Create Invoice</button>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Marketing Hub (Standalone) */}
-                    <button
-                        onClick={() => setActiveTab('marketingHub')}
-                        className={`block mt-4 lg:inline-block lg:mt-0 px-4 py-2 rounded-lg text-lg font-medium transition-colors duration-200
-                            ${activeTab === 'marketingHub' ? 'bg-gray-100 text-[#28A745]' : 'text-gray-700 hover:text-[#28A745] hover:bg-gray-50'}`}
-                    >
-                        Marketing Hub
+                <div className="block lg:hidden">
+                    {/* You can add a hamburger icon and toggle state here for mobile responsiveness */}
+                    <button className="flex items-center px-3 py-2 border rounded text-gray-700 border-gray-400 hover:text-gray-900 hover:border-gray-500">
+                        <svg className="fill-current h-3 w-3" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><title>Menu</title><path d="M0 3h20v2H0V3zm0 6h20v2H0V9zm0 6h20v2H0v-2z"/></svg>
                     </button>
                 </div>
-                {isEmailPasswordUser && (
-                    <div>
-                        <span className="text-gray-600 text-sm mr-4">
-                            Logged in as: <span className="font-semibold">{auth.currentUser?.email || 'Anonymous'}</span>
-                        </span>
-                        <button onClick={handleLogout} className="inline-block text-sm px-4 py-2 leading-none border rounded text-red-600 border-red-600 hover:border-transparent hover:text-white hover:bg-red-600 mt-4 lg:mt-0 transition duration-200">
-                            Logout
+                <div className="w-full block flex-grow lg:flex lg:items-center lg:w-auto">
+                    <div className="text-sm lg:flex-grow">
+                        {/* 1. Dashboard (Standalone) */}
+                        <button
+                            onClick={() => setActiveTab('dashboard')}
+                            className={`block mt-4 lg:inline-block lg:mt-0 px-4 py-2 rounded-lg text-lg font-medium transition-colors duration-200
+                                ${activeTab === 'dashboard' ? 'bg-gray-100 text-[#28A745]' : 'text-gray-700 hover:text-[#28A745] hover:bg-gray-50'}`}
+                        >
+                            Dashboard
+                        </button>
+
+                        {/* 2. Reservations Dropdown */}
+                        <div className="relative inline-block text-left group">
+                            <button
+                                type="button"
+                                className={`inline-flex justify-center items-center gap-x-1.5 px-4 py-2 rounded-lg text-lg font-medium transition-colors duration-200
+                                    ${['reservations', 'addReservation', 'customers', 'tours', 'addTour', 'customerContract', 'busTourContract', 'printVoucher'].includes(activeTab) ? 'bg-gray-100 text-[#28A745]' : 'text-gray-700 hover:text-[#28A745] hover:bg-gray-50'}`}
+                                id="reservations-menu-button"
+                                aria-expanded="true"
+                                aria-haspopup="true"
+                            >
+                                Reservations
+                                <svg className="-mr-1 h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.25 4.25a.75.75 0 01-1.06 0L5.23 8.29a.75.75 0 01.02-1.06z" clipRule="evenodd" /></svg>
+                            </button>
+
+                            <div
+                                className="absolute left-0 z-10 mt-2 w-56 origin-top-left rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 transform scale-95 group-hover:scale-100"
+                                role="menu"
+                                aria-orientation="vertical"
+                                aria-labelledby="reservations-menu-button"
+                                tabIndex="-1"
+                            >
+                                <div className="py-1" role="none">
+                                    <button onClick={() => { setActiveTab('reservations'); resetReservationForm(); }} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1">Reservations List</button>
+                                    <button onClick={() => { setActiveTab('addReservation'); resetReservationForm(); }} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1">Add Reservation</button>
+                                    <button onClick={() => { setActiveTab('customers'); resetReservationForm(); }} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1">Customers</button>
+                                    <button onClick={() => { setActiveTab('tours'); resetTourForm(); }} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1">Bus Tours</button>
+                                    <button onClick={() => { setActiveTab('addTour'); resetTourForm(); }} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1">Create Tour</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* 3. Financial Dropdown */}
+                        <div className="relative inline-block text-left group">
+                            <button
+                                type="button"
+                                className={`inline-flex justify-center items-center gap-x-1.5 px-4 py-2 rounded-lg text-lg font-medium transition-colors duration-200
+                                    ${['payments', 'addFinancialTransaction', 'financialReports', 'invoicingDashboard', 'invoicingSales', 'invoicingExpenses', 'invoicingProducts', 'addProduct', 'addSalesInvoice', 'addExpenseInvoice'].includes(activeTab) ? 'bg-gray-100 text-[#28A745]' : 'text-gray-700 hover:text-[#28A745] hover:bg-gray-50'}`}
+                                id="financial-menu-button"
+                                aria-expanded="true"
+                                aria-haspopup="true"
+                            >
+                                Financial
+                                <svg className="-mr-1 h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.25 4.25a.75.75 0 01-1.06 0L5.23 8.29a.75.75 0 01.02-1.06z" clipRule="evenodd" /></svg>
+                            </button>
+
+                            <div
+                                className="absolute left-0 z-10 mt-2 w-56 origin-top-left rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 transform scale-95 group-hover:scale-100"
+                                role="menu"
+                                aria-orientation="vertical"
+                                aria-labelledby="financial-menu-button"
+                                tabIndex="-1"
+                            >
+                                <div className="py-1" role="none">
+                                    <button onClick={() => setActiveTab('payments')} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1">Payments List</button>
+                                    <button onClick={() => { setActiveTab('addFinancialTransaction'); resetFinancialTransactionForm(); }} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1">Add Payment/Expense</button>
+                                    <button onClick={() => { setActiveTab('financialReports'); resetFinancialReportsFilters(); }} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1">Financial Reports</button>
+                                    <button onClick={() => setActiveTab('invoicingDashboard')} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1">Invoicing Dashboard</button>
+                                    <button onClick={() => setActiveTab('invoicingSales')} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1">Sales Invoices</button>
+                                    <button onClick={() => setActiveTab('invoicingExpenses')} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1">Expense Invoices</button>
+                                    <button onClick={() => setActiveTab('invoicingProducts')} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1">Product Management</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* 4. Documents Dropdown */}
+                        <div className="relative inline-block text-left group">
+                            <button
+                                type="button"
+                                className={`inline-flex justify-center items-center gap-x-1.5 px-4 py-2 rounded-lg text-lg font-medium transition-colors duration-200
+                                    ${['transportContract', 'makeOffer', 'confirmation', 'customerContract', 'createInvoice', 'busTourContract', 'printVoucher'].includes(activeTab) ? 'bg-gray-100 text-[#28A745]' : 'text-gray-700 hover:text-[#28A745] hover:bg-gray-50'}`}
+                                id="documents-menu-button"
+                                aria-expanded="true"
+                                aria-haspopup="true"
+                            >
+                                Documents
+                                <svg className="-mr-1 h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.25 4.25a.75.75 0 01-1.06 0L5.23 8.29a.75.75 0 01.02-1.06z" clipRule="evenodd" /></svg>
+                            </button>
+
+                            <div
+                                className="absolute left-0 z-10 mt-2 w-56 origin-top-left rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 transform scale-95 group-hover:scale-100"
+                                role="menu"
+                                aria-orientation="vertical"
+                                aria-labelledby="documents-menu-button"
+                                tabIndex="-1"
+                            >
+                                <div className="py-1" role="none">
+                                    <button onClick={() => setActiveTab('transportContract')} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1">Transport Contract</button>
+                                    <button onClick={() => setActiveTab('makeOffer')} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1">Make Offer</button>
+                                    <button onClick={() => setActiveTab('confirmation')} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1">Confirmation</button>
+                                    <button onClick={() => { setReservationToGenerateContract(null); setActiveTab('customerContract'); }} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1">Customer Contract</button>
+                                    <button onClick={() => { setTourToGenerateContract(null); setActiveTab('busTourContract'); }} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1">Bus Tour Contract</button>
+                                    <button onClick={() => setActiveTab('createInvoice')} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1">Create Invoice</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* 5. Marketing Hub (Standalone) */}
+                        <button
+                            onClick={() => setActiveTab('marketingHub')}
+                            className={`block mt-4 lg:inline-block lg:mt-0 px-4 py-2 rounded-lg text-lg font-medium transition-colors duration-200
+                                ${activeTab === 'marketingHub' ? 'bg-gray-100 text-[#28A745]' : 'text-gray-700 hover:text-[#28A745] hover:bg-gray-50'}`}
+                        >
+                            Marketing Hub
+                        </button>
+
+                        {/* 6. Task Management (Standalone) - NEW BUTTON */}
+                        <button
+                            onClick={() => setActiveTab('taskManagement')}
+                            className={`block mt-4 lg:inline-block lg:mt-0 px-4 py-2 rounded-lg text-lg font-medium transition-colors duration-200
+                                ${activeTab === 'taskManagement' ? 'bg-gray-100 text-[#28A745]' : 'text-gray-700 hover:text-[#28A745] hover:bg-gray-50'}`}
+                        >
+                            Task Management
                         </button>
                     </div>
-                )}
-            </div>
-        </nav>
-    )}
-    <div className="flex flex-col flex-1"> {/* This div replaces the old flex-col md:flex-row and removes the sidebar */}
-      {/* Main Content Area */}
-      <main className="flex-1 p-6 md:p-8 overflow-y-auto bg-gray-100">
-        <NotificationDisplay notifications={notifications} onDismiss={removeNotification} />
-        {renderContent()}
-      </main>
+                    {isEmailPasswordUser && (
+                        <div className="ml-auto flex items-center gap-4"> {/* Added flex and gap for alignment */}
+                            <span className="text-gray-600 text-sm">
+                                Logged in as: <span className="font-semibold">{auth.currentUser?.email || 'Anonymous'}</span>
+                            </span>
+                            <button onClick={handleLogout} className="inline-block text-sm px-4 py-2 leading-none border rounded text-red-600 border-red-600 hover:border-transparent hover:text-white hover:bg-red-600 mt-4 lg:mt-0 transition duration-200">
+                                Logout
+                            </button>
+                        </div>
+                    )}
+                </div>
+            </nav>
+        )}
+        {/* Main content area */}
+        <main className="flex-1 p-6 md:p-8 overflow-y-auto bg-gray-100">
+            <NotificationDisplay notifications={notifications} onDismiss={removeNotification} />
+            {renderContent()}
+        </main>
+        {/* Confirmation Modal (already present, keep this) */}
+        <ConfirmationModal
+            show={showConfirmModal}
+            message={confirmMessage}
+            onConfirm={() => {
+                if (confirmAction) {
+                    confirmAction();
+                }
+                setShowConfirmModal(false);
+                setConfirmAction(null);
+                setConfirmMessage('');
+            }}
+            onCancel={() => {
+                setShowConfirmModal(false);
+                setConfirmAction(null);
+                setConfirmMessage('');
+            }}
+        />
     </div>
-    {/* ... (ConfirmationModal) ... */}
-  </div>
 );
 };
 
