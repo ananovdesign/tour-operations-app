@@ -1530,29 +1530,56 @@ const filteredFinancialTransactions = useMemo(() => {
 
 const filteredReservations = useMemo(() => {
     return reservations.filter(res => {
-      // Existing filters
-      if (filterReservationStatus !== 'All' && res.status !== filterReservationStatus) return false;
-      if (filterReservationHotel && !res.hotel?.toLowerCase().includes(filterReservationHotel.toLowerCase())) return false;
-      if (filterReservationTourType !== 'All' && res.tourType !== filterReservationTourType) return false;
-      if (filterReservationCheckInDate && new Date(res.checkIn) < new Date(filterReservationCheckInDate)) return false;
-      if (filterReservationCheckOutDate && new Date(res.checkOut) > new Date(filterReservationCheckOutDate)) return false;
+        // Existing filters
+        if (filterReservationStatus !== 'All' && res.status !== filterReservationStatus) return false;
+        if (filterReservationHotel && !res.hotel?.toLowerCase().includes(filterReservationHotel.toLowerCase())) return false;
+        if (filterReservationTourType !== 'All' && res.tourType !== filterReservationTourType) return false;
+        if (filterReservationCheckInDate && new Date(res.checkIn) < new Date(filterReservationCheckInDate)) return false;
+        if (filterReservationCheckOutDate && new Date(res.checkOut) > new Date(filterReservationCheckOutDate)) return false;
 
-      // New search filter for lead guest
-      if (searchReservationTerm) {
-        const leadGuest = res.tourists?.[0];
-        if (!leadGuest) return false; // No lead guest to search for
-        const fullName = `${leadGuest.firstName || ''} ${leadGuest.familyName || ''}`.toLowerCase();
-        if (!fullName.includes(searchReservationTerm.toLowerCase())) return false;
-      }
+        // Search filter for lead guest
+        if (searchReservationTerm) {
+            const leadGuest = res.tourists?.[0];
+            if (!leadGuest) return false; // No lead guest to search for
+            const fullName = `${leadGuest.firstName || ''} ${leadGuest.fatherName || ''} ${leadGuest.familyName || ''}`.toLowerCase(); // Include fatherName in search
+            if (!fullName.includes(searchReservationTerm.toLowerCase()) && !res.reservationNumber?.toLowerCase().includes(searchReservationTerm.toLowerCase())) {
+                return false; // Also search by reservation number
+            }
+        }
+        return true;
+    })
+    .map(res => { // Map to add payment status
+        const paymentsForRes = financialTransactions.filter(ft =>
+            ft.type === 'income' && ft.associatedReservationId === res.reservationNumber
+        );
+        const totalPaid = paymentsForRes.reduce((sum, ft) => sum + (ft.amount || 0), 0);
+        const remainingAmount = (res.finalAmount || 0) - totalPaid;
 
-      return true;
-    }).sort((a, b) => {
-      // Sort by reservation number descending
-      const numA = parseInt(a.reservationNumber?.substring(3) || '0', 10);
-      const numB = parseInt(b.reservationNumber?.substring(3) || '0', 10);
-      return numB - numA;
+        let paymentStatus = 'Unpaid';
+        let paymentStatusColor = 'bg-red-100 text-red-800';
+        if (totalPaid >= (res.finalAmount || 0)) {
+            paymentStatus = 'Paid';
+            paymentStatusColor = 'bg-green-100 text-green-800';
+        } else if (totalPaid > 0) {
+            paymentStatus = 'Partially Paid';
+            paymentStatusColor = 'bg-yellow-100 text-yellow-800';
+        }
+
+        return {
+            ...res,
+            totalPaid,
+            remainingAmount,
+            paymentStatus,
+            paymentStatusColor,
+        };
+    })
+    .sort((a, b) => {
+        // Sort by reservation number descending
+        const numA = parseInt(a.reservationNumber?.substring(3) || '0', 10);
+        const numB = parseInt(b.reservationNumber?.substring(3) || '0', 10);
+        return numB - numA;
     });
-  }, [reservations, filterReservationStatus, filterReservationHotel, filterReservationTourType, filterReservationCheckInDate, filterReservationCheckOutDate, searchReservationTerm]);
+}, [reservations, financialTransactions, filterReservationStatus, filterReservationHotel, filterReservationTourType, filterReservationCheckInDate, filterReservationCheckOutDate, searchReservationTerm]);
 
 
   // --- Filtered Tours Logic ---
@@ -2312,51 +2339,71 @@ case 'reservations':
               <p className="text-gray-600 text-center py-8">No reservations found.</p>
             ) : (
               <div className="overflow-x-auto rounded-xl shadow-md border border-gray-200">
-                <table className="min-w-full bg-white">
-                  <thead className="bg-gray-50 text-gray-700 border-b border-gray-200">
-                    <tr>
-                      <th className="py-3 px-4 text-left font-medium">Reservation Number</th>
-                      <th className="py-3 px-4 text-left font-medium">Hotel</th>
-                      <th className="py-3 px-4 text-left font-medium">Lead Guest</th>
-                      <th className="py-3 px-4 text-left font-medium">Dates</th>
-                      <th className="py-3 px-4 text-left font-medium">Status</th>
-                      <th className="py-3 px-4 text-right font-medium">Profit</th>
-                      <th className="py-3 px-4 text-center font-medium">Actions</th>
-                    </tr>
-                  </thead>
+        <table className="min-w-full bg-white">
+                  <thead className="bg-gray-50 text-gray-700 border-b border-gray-200">
+                    <tr>
+                      <th className="py-3 px-4 text-left font-medium">Reservation Number</th>
+                      <th className="py-3 px-4 text-left font-medium">Hotel</th>
+                      <th className="py-3 px-4 text-left font-medium">Lead Guest</th>
+                      <th className="py-3 px-4 text-left font-medium">Dates</th>
+                      <th className="py-3 px-4 text-left font-medium">Status</th>
+                      <th className="py-3 px-4 text-left font-medium">Payment Status</th> {/* NEW COLUMN HEADER */}
+                      <th className="py-3 px-4 text-right font-medium">Profit</th>
+                      <th className="py-3 px-4 text-center font-medium">Actions</th>
+                    </tr>
+                  </thead>
                   <tbody>
                     {filteredReservations.map(res => {
                       const linkedPayments = financialTransactions.filter(ft => ft.associatedReservationId === res.reservationNumber);
                       return (
                         <React.Fragment key={res.id}>
-                          <tr onClick={() => setExpandedReservationId(expandedReservationId === res.id ? null : res.id)} className="cursor-pointer hover:bg-gray-100">
-                            <td className="py-3 px-4">{res.reservationNumber}</td>
-                            <td className="py-3 px-4">{res.hotel}</td>
-                            <td className="py-3 px-4">{res.tourists && res.tourists.length > 0 ? `${res.tourists[0].firstName} ${res.tourists[0].familyName}` : 'N/A'}</td>
-                            <td className="py-3 px-4 text-gray-600">{res.checkIn} - {res.checkOut}</td>
-                            <td className="py-3 px-4"><span className={`px-3 py-1 rounded-full text-xs font-semibold ${res.status === 'Confirmed' ? 'bg-green-100 text-green-800' : res.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' : res.status === 'Cancelled' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'}`}>{res.status}</span></td>
-                            <td className="py-3 px-4 font-semibold text-right text-gray-800">BGN {res.profit.toFixed(2)}</td>
-                           <td className="py-3 px-4 flex justify-center space-x-2">
-                              <button onClick={(e) => { e.stopPropagation(); setViewingReservation(res); }} className="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-full shadow-md transition duration-200" title="View Details">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-                              </button>
-                              <button onClick={(e) => { e.stopPropagation(); handleEditReservation(res); }} className="bg-[#28A745] hover:bg-[#218838] text-white p-2 rounded-full shadow-md transition duration-200" title="Edit">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zm-5.69 5.69L11.586 7.586 14.414 10.414 11.586 13.242 8.758 10.414l2.828-2.828z" /><path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm-4 8a1 1 0 011-1h1a1 1 0 110 2H7a1 1 0 01-1-1zm10 0a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1zM4 14a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm10 0a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1zM3 18a1 1 0 011-1h1a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" /></svg>
-                              </button>
-                              {/* --- NEW PRINT CONTRACT BUTTON --- */}
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setReservationToGenerateContract(res);
-                                  setActiveTab('customerContract'); // This will trigger rendering of CustomerContractPrint
-                                }}
-                                className="bg-purple-500 hover:bg-purple-600 text-white p-2 rounded-full shadow-md transition duration-200"
-                                title="Print Contract"
-                              >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v6a2 2 0 002 2h12a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clipRule="evenodd" /></svg>
-                              </button>
-                              <button onClick={(e) => { e.stopPropagation(); handleDeleteReservation(res.id); }} className="bg-[#DC3545] hover:bg-[#C82333] text-white p-2 rounded-full shadow-md transition duration-200" title="Delete">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1zm-1 3a1 1 0 011-1h4a1 1 0 110 2H7a1 1 0 01-1-1zm-1 3a1 1 0 011-1h4a1 1 0 110 2H7a1 1 0 01-1-1z" clipRule="evenodd" /></svg>
+                        <tr onClick={() => setExpandedReservationId(expandedReservationId === res.id ? null : res.id)} className="cursor-pointer hover:bg-gray-100">
+                            <td className="py-3 px-4">{res.reservationNumber}</td>
+                            <td className="py-3 px-4">{res.hotel}</td>
+                            <td className="py-3 px-4">{res.tourists && res.tourists.length > 0 ? `${res.tourists[0].firstName} ${res.tourists[0].familyName}` : 'N/A'}</td>
+                            <td className="py-3 px-4 text-gray-600">{res.checkIn} - {res.checkOut}</td>
+                            <td className="py-3 px-4"><span className={`px-3 py-1 rounded-full text-xs font-semibold ${res.status === 'Confirmed' ? 'bg-green-100 text-green-800' : res.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' : res.status === 'Cancelled' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'}`}>{res.status}</span></td>
+                            <td className="py-3 px-4">
+                              <span className={`px-3 py-1 rounded-full text-xs font-semibold ${res.paymentStatusColor}`}>
+                                {res.paymentStatus}
+                              </span>
+                              {res.paymentStatus !== 'Paid' && res.remainingAmount > 0 && (
+                                <div className="text-xs text-gray-500 mt-1">Due: BGN {res.remainingAmount.toFixed(2)}</div>
+                              )}
+                            </td>
+                            <td className="py-3 px-4 font-semibold text-right text-gray-800">BGN {res.profit.toFixed(2)}</td>
+                           <td className="py-3 px-4 flex justify-center space-x-2">
+                              <button onClick={(e) => { e.stopPropagation(); setViewingReservation(res); }} className="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-full shadow-md transition duration-200" title="View Details">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                              </button>
+                              <button onClick={(e) => { e.stopPropagation(); handleEditReservation(res); }} className="bg-[#28A745] hover:bg-[#218838] text-white p-2 rounded-full shadow-md transition duration-200" title="Edit">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zm-5.69 5.69L11.586 7.586 14.414 10.414 11.586 13.242 8.758 10.414l2.828-2.828z" /><path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm-4 8a1 1 0 011-1h1a1 1 0 110 2H7a1 1 0 01-1-1zm10 0a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1zM4 14a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm10 0a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1zM3 18a1 1 0 011-1h1a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" /></svg>
+                              </button>
+                              {/* PRINT CONTRACT BUTTON */}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setReservationToGenerateContract(res);
+                                  setActiveTab('customerContract');
+                                }}
+                                className="bg-purple-500 hover:bg-purple-600 text-white p-2 rounded-full shadow-md transition duration-200"
+                                title="Print Contract"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v6a2 2 0 002 2h12a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clipRule="evenodd" /></svg>
+                              </button>
+                              <button onClick={(e) => { e.stopPropagation(); handleDeleteReservation(res.id); }} className="bg-[#DC3545] hover:bg-[#C82333] text-white p-2 rounded-full shadow-md transition duration-200" title="Delete">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1zm-1 3a1 1 0 011-1h4a1 1 0 110 2H7a1 1 0 01-1-1zm-1 3a1 1 0 011-1h4a1 1 0 110 2H7a1 1 0 01-1-1z" clipRule="evenodd" /></svg>
+                              </button>
+                             <button
+                                onClick={(e) => {
+                                  e.stopPropagation(); // Prevents row click from expanding/collapsing
+                                  setReservationToPrintVoucher(res); // Set the selected reservation for the voucher
+                                  setActiveTab('printVoucher'); // Switch to the new tab
+                                }}
+                                className="bg-yellow-500 hover:bg-yellow-600 text-white p-2 rounded-full shadow-md transition duration-200"
+                                title="Print Voucher"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y2="17" x2="8" y2="17"/><polyline points="10 9 9 9 9 5"/></svg>
                               </button>
                              <button
   onClick={(e) => {
