@@ -4696,7 +4696,7 @@ return (
     {userId && ( // Only render the navbar if user is logged in
         <nav className="bg-white shadow-lg py-4 px-6 flex items-center justify-between flex-wrap">
             <div className="flex items-center flex-shrink-0 text-white mr-6">
-                <img src={Logo} alt="Dynamex Logo" className="h-40 w-auto mr-3" />
+                <img src={Logo} alt="Dynamex Logo" className="h-16 w-auto mr-3" />
             </div>
             <div className="block lg:hidden">
                 {/* Hamburger menu for mobile - implement if needed later, for now just hide */}
