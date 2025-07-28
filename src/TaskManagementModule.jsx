@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { collection, addDoc, setDoc, deleteDoc, query, orderBy, onSnapshot, doc } from 'firebase/firestore';
 
 const TaskManagementModule = ({ db, userId, isAuthReady, addNotification, setShowConfirmModal, setConfirmMessage, setConfirmAction }) => {
+    // Task Management states
     const [tasks, setTasks] = useState([]);
     const [selectedTask, setSelectedTask] = useState(null); // For editing
     const [taskForm, setTaskForm] = useState({
@@ -15,6 +16,7 @@ const TaskManagementModule = ({ db, userId, isAuthReady, addNotification, setSho
     const [sortTaskConfig, setSortTaskConfig] = useState({ key: 'createdAt', direction: 'descending' });
 
     // App ID needs to be consistent with your Firebase setup
+    // Using a fallback 'default-app-id' for development/testing if __app_id is not globally defined.
     const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
     // Firestore listener for Tasks
@@ -25,22 +27,18 @@ const TaskManagementModule = ({ db, userId, isAuthReady, addNotification, setSho
                 console.warn("Firestore instance not available for tasks yet.");
                 return;
             }
-            // setLoading(true); // Handled by App.jsx
             const tasksCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/tasks`);
             const q = query(tasksCollectionRef, orderBy('createdAt', 'desc')); // Order tasks by creation date newest first
 
             unsubscribe = onSnapshot(q, (snapshot) => {
                 const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
                 setTasks(data);
-                // setLoading(false); // Handled by App.jsx, avoid double setting
             }, (err) => {
                 console.error("Error fetching tasks:", err);
                 addNotification("Failed to load tasks. Please try again.", 'error');
-                // setLoading(false); // Handled by App.jsx
             });
         } else {
             setTasks([]);
-            // setLoading(false); // Handled by App.jsx
         }
         return () => {
             if (unsubscribe) unsubscribe();
@@ -67,13 +65,10 @@ const TaskManagementModule = ({ db, userId, isAuthReady, addNotification, setSho
 
     const handleSubmitTask = async (e) => {
         e.preventDefault();
-        // setLoading(true); // Handled by App.jsx
-        // setError(null); // Handled by App.jsx
-        addNotification('');
+        addNotification(''); // Clear previous messages
 
         if (!userId) {
             addNotification("User not authenticated. Please log in to save data.", 'error');
-            // setLoading(false);
             return;
         }
 
@@ -98,8 +93,6 @@ const TaskManagementModule = ({ db, userId, isAuthReady, addNotification, setSho
         } catch (err) {
             console.error("Error saving task:", err);
             addNotification(`Failed to save task: ${err.message || err.toString()}`, 'error');
-        } finally {
-            // setLoading(false);
         }
     };
 
@@ -116,12 +109,9 @@ const TaskManagementModule = ({ db, userId, isAuthReady, addNotification, setSho
         setShowConfirmModal(true);
         setConfirmMessage("Are you sure you want to delete this task?");
         setConfirmAction(() => async () => {
-            // setLoading(true); // Handled by App.jsx
-            // setError(null); // Handled by App.jsx
-            addNotification('');
+            addNotification(''); // Clear previous messages
             if (!userId) {
                 addNotification("User not authenticated. Please log in to delete data.", 'error');
-                // setLoading(false);
                 return;
             }
             try {
@@ -131,8 +121,6 @@ const TaskManagementModule = ({ db, userId, isAuthReady, addNotification, setSho
             } catch (err) {
                 console.error("Error deleting task:", err);
                 addNotification(`Failed to delete task: ${err.message || err.toString()}`, 'error');
-            } finally {
-                // setLoading(false);
             }
         });
     }, [userId, appId, db, addNotification, setShowConfirmModal, setConfirmMessage, setConfirmAction]);
@@ -243,7 +231,7 @@ const TaskManagementModule = ({ db, userId, isAuthReady, addNotification, setSho
                         <button
                             type="submit"
                             className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition duration-200 shadow-md"
-                            disabled={!taskForm.title.trim()}
+                            disabled={!taskForm.title.trim() || !isAuthReady || !userId}
                         >
                             {selectedTask ? 'Update Task' : 'Add Task'}
                         </button>
@@ -286,7 +274,9 @@ const TaskManagementModule = ({ db, userId, isAuthReady, addNotification, setSho
                 </div>
             </div>
 
-            {filteredAndSortedTasks.length === 0 ? (
+            {!isAuthReady || !userId ? (
+                <p className="text-red-600 text-center py-8">Please log in to view and manage tasks.</p>
+            ) : tasks.length === 0 ? (
                 <p className="text-gray-600 text-center py-8">No tasks found. Create a new task to get started!</p>
             ) : (
                 <div className="overflow-x-auto rounded-xl shadow-md border border-gray-200">
@@ -302,44 +292,49 @@ const TaskManagementModule = ({ db, userId, isAuthReady, addNotification, setSho
                         </thead>
                         <tbody className="text-gray-700">
                             {filteredAndSortedTasks.map(task => (
-                                <tr key={task.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors duration-150">
-                                    <td className="py-3 px-4 font-semibold">{task.title}</td>
-                                    <td className="py-3 px-4">
-                                        <span className={`px-3 py-1 rounded-full text-xs font-semibold
-                                            ${task.status === 'Completed' ? 'bg-green-100 text-green-800' :
-                                              task.status === 'Planned' ? 'bg-blue-100 text-blue-800' :
-                                              'bg-red-100 text-red-800'}`
-                                        }>
-                                            {task.status}
-                                        </span>
-                                    </td>
-                                    <td className="py-3 px-4 text-gray-600">{task.dueDate || 'N/A'}</td>
-                                    <td className="py-3 px-4 text-gray-600">{task.createdAt ? new Date(task.createdAt).toLocaleDateString() : 'N/A'}</td>
-                                    <td className="py-3 px-4 flex justify-center space-x-2">
-                                        <button
-                                            onClick={() => handleEditTask(task)}
-                                            className="bg-yellow-500 hover:bg-yellow-600 text-white p-2 rounded-full shadow-md transition duration-200"
-                                            title="Edit Task"
-                                        >
-                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zm-5.69 5.69L11.586 7.586 14.414 10.414 11.586 13.242 8.758 10.414l2.828-2.828z" /><path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm-4 8a1 1 0 011-1h1a1 1 0 110 2H7a1 1 0 01-1-1zm10 0a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1zM4 14a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm10 0a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1zM3 18a1 1 0 011-1h1a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" /></svg>
-                                        </button>
-                                        <button
-                                            onClick={() => handleDeleteTask(task.id)}
-                                            className="bg-red-500 hover:bg-red-600 text-white p-2 rounded-full shadow-md transition duration-200"
-                                            title="Delete Task"
-                                        >
-                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1zm-1 3a1 1 0 011-1h4a1 1 0 110 2H7a1 1 0 01-1-1zm-1 3a1 1 0 011-1h4a1 1 0 110 2H7a1 1 0 01-1-1z" clipRule="evenodd" /></svg>
-                                        </button>
-                                    </td>
-                                </tr>
-{(selectedTask && selectedTask.id === task.id) && ( // Only show description when editing
-                                    <tr className="bg-gray-50">
-                                        <td colSpan="5" className="p-4 text-sm text-gray-700 border-t">
-                                            <p className="font-semibold mb-1">Description:</p>
-                                            <p>{task.description || 'No description provided.'}</p>
+                                <React.Fragment key={task.id}>
+                                    <tr className="border-b border-gray-100 hover:bg-gray-50 transition-colors duration-150">
+                                        <td className="py-3 px-4 font-semibold">{task.title}</td>
+                                        <td className="py-3 px-4">
+                                            <span className={`px-3 py-1 rounded-full text-xs font-semibold
+                                                ${task.status === 'Completed' ? 'bg-green-100 text-green-800' :
+                                                  task.status === 'Planned' ? 'bg-blue-100 text-blue-800' :
+                                                  'bg-red-100 text-red-800'}`
+                                            }>
+                                                {task.status}
+                                            </span>
+                                        </td>
+                                        <td className="py-3 px-4 text-gray-600">{task.dueDate || 'N/A'}</td>
+                                        <td className="py-3 px-4 text-gray-600">{task.createdAt ? new Date(task.createdAt).toLocaleDateString(navigator.language, { year: 'numeric', month: 'short', day: 'numeric' }) : 'N/A'}</td>
+                                        <td className="py-3 px-4 flex justify-center space-x-2">
+                                            <button
+                                                onClick={() => handleEditTask(task)}
+                                                className="bg-yellow-500 hover:bg-yellow-600 text-white p-2 rounded-full shadow-md transition duration-200"
+                                                title="Edit Task"
+                                                disabled={!isAuthReady || !userId}
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zm-5.69 5.69L11.586 7.586 14.414 10.414 11.586 13.242 8.758 10.414l2.828-2.828z" /><path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm-4 8a1 1 0 011-1h1a1 1 0 110 2H7a1 1 0 01-1-1zm10 0a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1zM4 14a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm10 0a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1zM3 18a1 1 0 011-1h1a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" /></svg>
+                                            </button>
+                                            <button
+                                                onClick={() => handleDeleteTask(task.id)}
+                                                className="bg-red-500 hover:bg-red-600 text-white p-2 rounded-full shadow-md transition duration-200"
+                                                title="Delete Task"
+                                                disabled={!isAuthReady || !userId}
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1zm-1 3a1 1 0 011-1h4a1 1 0 110 2H7a1 1 0 01-1-1zm-1 3a1 1 0 011-1h4a1 1 0 110 2H7a1 1 0 01-1-1z" clipRule="evenodd" /></svg>
+                                            </button>
                                         </td>
                                     </tr>
-                                )}
+                                    {/* Only show description when editing (selectedTask.id matches current task.id) */}
+                                    {selectedTask && selectedTask.id === task.id && (
+                                        <tr className="bg-gray-50">
+                                            <td colSpan="5" className="p-4 text-sm text-gray-700 border-t">
+                                                <p className="font-semibold mb-1">Description:</p>
+                                                <p>{task.description || 'No description provided.'}</p>
+                                            </td>
+                                        </tr>
+                                    )}
+                                </React.Fragment>
                             ))}
                         </tbody>
                     </table>
