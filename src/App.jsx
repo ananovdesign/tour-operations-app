@@ -1,152 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-// Import Firebase modulesreturn (
-  <div className="font-sans antialiased bg-gray-100 min-h-screen text-gray-900" style={{ fontFamily: 'Inter, sans-serif' }}>
-    {userId && ( // Only render the navbar if user is logged in
-        <nav className="bg-white shadow-lg py-4 px-6 flex items-center justify-between flex-wrap">
-            <div className="flex items-center flex-shrink-0 text-white mr-6">
-                <img src={Logo} alt="Dynamex Logo" className="h-16 w-auto mr-3" />
-            </div>
-            <div className="block lg:hidden">
-                {/* Hamburger menu for mobile - implement if needed later, for now just hide */}
-            </div>
-            <div className="w-full flex-grow lg:flex lg:items-center lg:w-auto">
-                <div className="text-sm lg:flex-grow">
-                    {/* Dashboard (Standalone) */}
-                    <button
-                        onClick={() => setActiveTab('dashboard')}
-                        className={`block mt-4 lg:inline-block lg:mt-0 px-4 py-2 rounded-lg text-lg font-medium transition-colors duration-200
-                            ${activeTab === 'dashboard' ? 'bg-gray-100 text-[#28A745]' : 'text-gray-700 hover:text-[#28A745] hover:bg-gray-50'}`}
-                    >
-                        Dashboard
-                    </button>
-
-                    {/* Reservations Dropdown */}
-                    <div className="relative inline-block text-left group">
-                        <button
-                            type="button"
-                            className={`inline-flex justify-center items-center gap-x-1.5 px-4 py-2 rounded-lg text-lg font-medium transition-colors duration-200
-                                ${['reservations', 'addReservation', 'customers', 'tours', 'addTour', 'customerContract', 'busTourContract', 'printVoucher'].includes(activeTab) ? 'bg-gray-100 text-[#28A745]' : 'text-gray-700 hover:text-[#28A745] hover:bg-gray-50'}`}
-                            id="reservations-menu-button"
-                            aria-expanded="true"
-                            aria-haspopup="true"
-                        >
-                            Reservations
-                            <svg className="-mr-1 h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.25 4.25a.75.75 0 01-1.06 0L5.23 8.29a.75.75 0 01.02-1.06z" clipRule="evenodd" /></svg>
-                        </button>
-
-                        <div
-                            className="absolute left-0 z-10 mt-2 w-56 origin-top-left rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 transform scale-95 group-hover:scale-100"
-                            role="menu"
-                            aria-orientation="vertical"
-                            aria-labelledby="reservations-menu-button"
-                            tabIndex="-1"
-                        >
-                            <div className="py-1" role="none">
-                                <button onClick={() => { setActiveTab('reservations'); resetReservationForm(); }} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1" id="reservations-item-0">Reservations List</button>
-                                <button onClick={() => { setActiveTab('addReservation'); resetReservationForm(); }} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1" id="reservations-item-1">Add Reservation</button>
-                                <button onClick={() => { setActiveTab('customers'); resetReservationForm(); }} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1" id="reservations-item-2">Customers</button>
-                                <button onClick={() => { setActiveTab('tours'); resetTourForm(); }} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1" id="reservations-item-3">Bus Tours</button>
-                                <button onClick={() => { setActiveTab('addTour'); resetTourForm(); }} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1" id="reservations-item-4">Create Tour</button>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Financial Dropdown */}
-                    <div className="relative inline-block text-left group">
-                        <button
-                            type="button"
-                            className={`inline-flex justify-center items-center gap-x-1.5 px-4 py-2 rounded-lg text-lg font-medium transition-colors duration-200
-                                ${['payments', 'addFinancialTransaction', 'financialReports', 'invoicingDashboard', 'invoicingSales', 'invoicingExpenses', 'invoicingProducts', 'addProduct', 'addSalesInvoice', 'addExpenseInvoice'].includes(activeTab) ? 'bg-gray-100 text-[#28A745]' : 'text-gray-700 hover:text-[#28A745] hover:bg-gray-50'}`}
-                            id="financial-menu-button"
-                            aria-expanded="true"
-                            aria-haspopup="true"
-                        >
-                            Financial
-                            <svg className="-mr-1 h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.25 4.25a.75.75 0 01-1.06 0L5.23 8.29a.75.75 0 01.02-1.06z" clipRule="evenodd" /></svg>
-                        </button>
-
-                        <div
-                            className="absolute left-0 z-10 mt-2 w-56 origin-top-left rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 transform scale-95 group-hover:scale-100"
-                            role="menu"
-                            aria-orientation="vertical"
-                            aria-labelledby="financial-menu-button"
-                            tabIndex="-1"
-                        >
-                            <div className="py-1" role="none">
-                                <button onClick={() => setActiveTab('payments')} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1" id="financial-item-0">Payments List</button>
-                                <button onClick={() => { setActiveTab('addFinancialTransaction'); resetFinancialTransactionForm(); }} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1" id="financial-item-1">Add Payment/Expense</button>
-                                <button onClick={() => { setActiveTab('financialReports'); resetFinancialReportsFilters(); }} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1" id="financial-item-2">Financial Reports</button>
-                                <button onClick={() => setActiveTab('invoicingDashboard')} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1" id="financial-item-3">Invoicing Dashboard</button>
-                                <button onClick={() => setActiveTab('invoicingSales')} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1" id="financial-item-4">Sales Invoices</button>
-                                <button onClick={() => setActiveTab('invoicingExpenses')} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1" id="financial-item-5">Expense Invoices</button>
-                                <button onClick={() => setActiveTab('invoicingProducts')} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1" id="financial-item-6">Product Management</button>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Documents Dropdown */}
-                    <div className="relative inline-block text-left group">
-                        <button
-                            type="button"
-                            className={`inline-flex justify-center items-center gap-x-1.5 px-4 py-2 rounded-lg text-lg font-medium transition-colors duration-200
-                                ${['transportContract', 'makeOffer', 'confirmation', 'customerContract', 'createInvoice'].includes(activeTab) ? 'bg-gray-100 text-[#28A745]' : 'text-gray-700 hover:text-[#28A745] hover:bg-gray-50'}`}
-                            id="documents-menu-button"
-                            aria-expanded="true"
-                            aria-haspopup="true"
-                        >
-                            Documents
-                            <svg className="-mr-1 h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.25 4.25a.75.75 0 01-1.06 0L5.23 8.29a.75.75 0 01.02-1.06z" clipRule="evenodd" /></svg>
-                        </button>
-
-                        <div
-                            className="absolute left-0 z-10 mt-2 w-56 origin-top-left rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 transform scale-95 group-hover:scale-100"
-                            role="menu"
-                            aria-orientation="vertical"
-                            aria-labelledby="documents-menu-button"
-                            tabIndex="-1"
-                        >
-                            <div className="py-1" role="none">
-                                <button onClick={() => setActiveTab('transportContract')} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1" id="documents-item-0">Transport Contract</button>
-                                <button onClick={() => setActiveTab('makeOffer')} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1" id="documents-item-1">Make Offer</button>
-                                <button onClick={() => setActiveTab('confirmation')} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1" id="documents-item-2">Confirmation</button>
-                                <button onClick={() => setReservationToGenerateContract(null) /* clear selection if navigating directly */ || setActiveTab('customerContract')} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1" id="documents-item-3">Customer Contract</button>
-                                <button onClick={() => setActiveTab('createInvoice')} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1" id="documents-item-4">Create Invoice</button>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Marketing Hub (Standalone) */}
-                    <button
-                        onClick={() => setActiveTab('marketingHub')}
-                        className={`block mt-4 lg:inline-block lg:mt-0 px-4 py-2 rounded-lg text-lg font-medium transition-colors duration-200
-                            ${activeTab === 'marketingHub' ? 'bg-gray-100 text-[#28A745]' : 'text-gray-700 hover:text-[#28A745] hover:bg-gray-50'}`}
-                    >
-                        Marketing Hub
-                    </button>
-                </div>
-                {isEmailPasswordUser && (
-                    <div>
-                        <span className="text-gray-600 text-sm mr-4">
-                            Logged in as: <span className="font-semibold">{auth.currentUser?.email || 'Anonymous'}</span>
-                        </span>
-                        <button onClick={handleLogout} className="inline-block text-sm px-4 py-2 leading-none border rounded text-red-600 border-red-600 hover:border-transparent hover:text-white hover:bg-red-600 mt-4 lg:mt-0 transition duration-200">
-                            Logout
-                        </button>
-                    </div>
-                )}
-            </div>
-        </nav>
-    )}
-    <div className="flex flex-col flex-1"> {/* This div replaces the old flex-col md:flex-row and removes the sidebar */}
-      {/* Main Content Area */}
-      <main className="flex-1 p-6 md:p-8 overflow-y-auto bg-gray-100">
-        <NotificationDisplay notifications={notifications} onDismiss={removeNotification} />
-        {renderContent()}
-      </main>
-    </div>
-    {/* ... (ConfirmationModal) ... */}
-  </div>
-);
+// Import Firebase modules
 import {
   app,
   auth,
@@ -4691,154 +4544,191 @@ if (tourToGenerateContract) {
     );
 }
 
-return (
-  <div className="font-sans antialiased bg-gray-100 min-h-screen text-gray-900" style={{ fontFamily: 'Inter, sans-serif' }}>
-    {userId && ( // Only render the navbar if user is logged in
-        <nav className="bg-white shadow-lg py-4 px-6 flex items-center justify-between flex-wrap">
-            <div className="flex items-center flex-shrink-0 text-white mr-6">
-                <img src={Logo} alt="Dynamex Logo" className="h-16 w-auto mr-3" />
-            </div>
-            <div className="block lg:hidden">
-                {/* Hamburger menu for mobile - implement if needed later, for now just hide */}
-            </div>
-            <div className="w-full flex-grow lg:flex lg:items-center lg:w-auto">
-                <div className="text-sm lg:flex-grow">
-                    {/* Dashboard (Standalone) */}
-                    <button
-                        onClick={() => setActiveTab('dashboard')}
-                        className={`block mt-4 lg:inline-block lg:mt-0 px-4 py-2 rounded-lg text-lg font-medium transition-colors duration-200
-                            ${activeTab === 'dashboard' ? 'bg-gray-100 text-[#28A745]' : 'text-gray-700 hover:text-[#28A745] hover:bg-gray-50'}`}
-                    >
-                        Dashboard
+  return (
+    <div className="font-sans antialiased bg-gray-100 min-h-screen text-gray-900" style={{ fontFamily: 'Inter, sans-serif' }}>
+      <div className="flex flex-col md:flex-row min-h-screen">
+        {/* Sidebar Navigation */}
+        <aside className="w-full md:w-64 bg-white text-gray-800 p-4 rounded-b-xl md:rounded-r-xl md:rounded-b-none shadow-lg border-r border-gray-100">
+          <div className="flex items-center justify-center md:justify-start mb-6">
+            <img src={Logo} alt="Dynamex Logo" className="h-40 w-auto mr-3" />
+            <span className="font-semibold text-xl text-gray-900"></span>
+          </div>
+          <nav>
+            <ul>
+              {userId && (
+                <>
+                  <li className="mb-2">
+                    <button onClick={() => { setActiveTab('dashboard'); }} className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base ${activeTab === 'dashboard' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}`}>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" /></svg>
+                      Dashboard
                     </button>
-
-                    {/* Reservations Dropdown */}
-                    <div className="relative inline-block text-left group">
-                        <button
-                            type="button"
-                            className={`inline-flex justify-center items-center gap-x-1.5 px-4 py-2 rounded-lg text-lg font-medium transition-colors duration-200
-                                ${['reservations', 'addReservation', 'customers', 'tours', 'addTour', 'customerContract', 'busTourContract', 'printVoucher'].includes(activeTab) ? 'bg-gray-100 text-[#28A745]' : 'text-gray-700 hover:text-[#28A745] hover:bg-gray-50'}`}
-                            id="reservations-menu-button"
-                            aria-expanded="true"
-                            aria-haspopup="true"
-                        >
-                            Reservations
-                            <svg className="-mr-1 h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.25 4.25a.75.75 0 01-1.06 0L5.23 8.29a.75.75 0 01.02-1.06z" clipRule="evenodd" /></svg>
-                        </button>
-
-                        <div
-                            className="absolute left-0 z-10 mt-2 w-56 origin-top-left rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 transform scale-95 group-hover:scale-100"
-                            role="menu"
-                            aria-orientation="vertical"
-                            aria-labelledby="reservations-menu-button"
-                            tabIndex="-1"
-                        >
-                            <div className="py-1" role="none">
-                                <button onClick={() => { setActiveTab('reservations'); resetReservationForm(); }} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1" id="reservations-item-0">Reservations List</button>
-                                <button onClick={() => { setActiveTab('addReservation'); resetReservationForm(); }} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1" id="reservations-item-1">Add Reservation</button>
-                                <button onClick={() => { setActiveTab('customers'); resetReservationForm(); }} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1" id="reservations-item-2">Customers</button>
-                                <button onClick={() => { setActiveTab('tours'); resetTourForm(); }} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1" id="reservations-item-3">Bus Tours</button>
-                                <button onClick={() => { setActiveTab('addTour'); resetTourForm(); }} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1" id="reservations-item-4">Create Tour</button>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Financial Dropdown */}
-                    <div className="relative inline-block text-left group">
-                        <button
-                            type="button"
-                            className={`inline-flex justify-center items-center gap-x-1.5 px-4 py-2 rounded-lg text-lg font-medium transition-colors duration-200
-                                ${['payments', 'addFinancialTransaction', 'financialReports', 'invoicingDashboard', 'invoicingSales', 'invoicingExpenses', 'invoicingProducts', 'addProduct', 'addSalesInvoice', 'addExpenseInvoice'].includes(activeTab) ? 'bg-gray-100 text-[#28A745]' : 'text-gray-700 hover:text-[#28A745] hover:bg-gray-50'}`}
-                            id="financial-menu-button"
-                            aria-expanded="true"
-                            aria-haspopup="true"
-                        >
-                            Financial
-                            <svg className="-mr-1 h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.25 4.25a.75.75 0 01-1.06 0L5.23 8.29a.75.75 0 01.02-1.06z" clipRule="evenodd" /></svg>
-                        </button>
-
-                        <div
-                            className="absolute left-0 z-10 mt-2 w-56 origin-top-left rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 transform scale-95 group-hover:scale-100"
-                            role="menu"
-                            aria-orientation="vertical"
-                            aria-labelledby="financial-menu-button"
-                            tabIndex="-1"
-                        >
-                            <div className="py-1" role="none">
-                                <button onClick={() => setActiveTab('payments')} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1" id="financial-item-0">Payments List</button>
-                                <button onClick={() => { setActiveTab('addFinancialTransaction'); resetFinancialTransactionForm(); }} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1" id="financial-item-1">Add Payment/Expense</button>
-                                <button onClick={() => { setActiveTab('financialReports'); resetFinancialReportsFilters(); }} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1" id="financial-item-2">Financial Reports</button>
-                                <button onClick={() => setActiveTab('invoicingDashboard')} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1" id="financial-item-3">Invoicing Dashboard</button>
-                                <button onClick={() => setActiveTab('invoicingSales')} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1" id="financial-item-4">Sales Invoices</button>
-                                <button onClick={() => setActiveTab('invoicingExpenses')} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1" id="financial-item-5">Expense Invoices</button>
-                                <button onClick={() => setActiveTab('invoicingProducts')} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1" id="financial-item-6">Product Management</button>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Documents Dropdown */}
-                    <div className="relative inline-block text-left group">
-                        <button
-                            type="button"
-                            className={`inline-flex justify-center items-center gap-x-1.5 px-4 py-2 rounded-lg text-lg font-medium transition-colors duration-200
-                                ${['transportContract', 'makeOffer', 'confirmation', 'customerContract', 'createInvoice'].includes(activeTab) ? 'bg-gray-100 text-[#28A745]' : 'text-gray-700 hover:text-[#28A745] hover:bg-gray-50'}`}
-                            id="documents-menu-button"
-                            aria-expanded="true"
-                            aria-haspopup="true"
-                        >
-                            Documents
-                            <svg className="-mr-1 h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.25 4.25a.75.75 0 01-1.06 0L5.23 8.29a.75.75 0 01.02-1.06z" clipRule="evenodd" /></svg>
-                        </button>
-
-                        <div
-                            className="absolute left-0 z-10 mt-2 w-56 origin-top-left rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 transform scale-95 group-hover:scale-100"
-                            role="menu"
-                            aria-orientation="vertical"
-                            aria-labelledby="documents-menu-button"
-                            tabIndex="-1"
-                        >
-                            <div className="py-1" role="none">
-                                <button onClick={() => setActiveTab('transportContract')} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1" id="documents-item-0">Transport Contract</button>
-                                <button onClick={() => setActiveTab('makeOffer')} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1" id="documents-item-1">Make Offer</button>
-                                <button onClick={() => setActiveTab('confirmation')} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1" id="documents-item-2">Confirmation</button>
-                                <button onClick={() => setReservationToGenerateContract(null) /* clear selection if navigating directly */ || setActiveTab('customerContract')} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1" id="documents-item-3">Customer Contract</button>
-                                <button onClick={() => setActiveTab('createInvoice')} className="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabIndex="-1" id="documents-item-4">Create Invoice</button>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Marketing Hub (Standalone) */}
-                    <button
-                        onClick={() => setActiveTab('marketingHub')}
-                        className={`block mt-4 lg:inline-block lg:mt-0 px-4 py-2 rounded-lg text-lg font-medium transition-colors duration-200
-                            ${activeTab === 'marketingHub' ? 'bg-gray-100 text-[#28A745]' : 'text-gray-700 hover:text-[#28A745] hover:bg-gray-50'}`}
-                    >
-                        Marketing Hub
+                  </li>
+                  <li className="mb-2">
+                    <button onClick={() => { setActiveTab('reservations'); resetReservationForm(); }} className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base ${activeTab === 'reservations' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}`}>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v2m-7 13v-3a2 2 0 012-2h2a2 2 0 012 2v3m-7 0H9m-7 0h4" /></svg>
+                      Reservations
                     </button>
-                </div>
-                {isEmailPasswordUser && (
-                    <div>
-                        <span className="text-gray-600 text-sm mr-4">
-                            Logged in as: <span className="font-semibold">{auth.currentUser?.email || 'Anonymous'}</span>
-                        </span>
-                        <button onClick={handleLogout} className="inline-block text-sm px-4 py-2 leading-none border rounded text-red-600 border-red-600 hover:border-transparent hover:text-white hover:bg-red-600 mt-4 lg:mt-0 transition duration-200">
-                            Logout
-                        </button>
-                    </div>
-                )}
+                  </li>
+                  <li className="mb-2">
+                    <button onClick={() => { setActiveTab('addReservation'); resetReservationForm(); }} className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base ${activeTab === 'addReservation' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}`}>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                      Add Reservation
+                    </button>
+                  </li>
+                  <li className="mb-2">
+                    <button onClick={() => { setActiveTab('customers'); resetReservationForm(); }} className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base ${activeTab === 'customers' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}`}>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h2a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2h2m3-2v2m0-7V11m0 4h.01M17 12h.01M12 12h.01M7 12h.01M6 16h9a2 2 0 002-2V7H6v9z" /></svg>
+                      Customers
+                    </button>
+                  </li>
+                  <li className="mb-2">
+                    <button onClick={() => setActiveTab('tours')} className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base ${activeTab === 'tours' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}`}>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z" /></svg>
+                      Bus Tours
+                    </button>
+                  </li>
+                  <li className="mb-2">
+                    <button onClick={() => { setActiveTab('addTour'); resetTourForm(); }} className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base ${activeTab === 'addTour' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}`}>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                      Create Tour
+                    </button>
+                  </li>
+                  <li className="mb-2">
+                    <button onClick={() => setActiveTab('payments')} className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base ${activeTab === 'payments' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}`}>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M7 11h10a1 1 0 011 1v5a1 1 0 01-1 1H7a1 1 0 01-1-1v-5a1 1 0 011-1zM12 5V4m0 20v-1m-4-11H3m18 0h-1" /></svg>
+                      Payments
+                    </button>
+                  </li>
+                  <li className="mb-2">
+                    <button onClick={() => { setActiveTab('addFinancialTransaction'); resetFinancialTransactionForm(); }} className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base ${activeTab === 'addFinancialTransaction' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}`}>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                      Add Payment/Expense
+                    </button>
+                  </li>
+                  <li className="mb-2">
+                    <button onClick={() => { setActiveTab('financialReports'); resetFinancialReportsFilters(); }} className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base ${activeTab === 'financialReports' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}`}>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17v-4m0 0h3m-3 0H7m-1 0v4m-2-4h2a2 2 0 012 2v2a2 2 0 01-2 2H4a2 2 0 01-2-2V7a2 2 0 012-2h4m2 10h.01M17 17v-4m0 0h3m-3 0H17m-1 0v4m-2-4h2a2 2 0 012 2v2a2 2 0 01-2 2H14a2 2 0 01-2-2V7a2 2 0 012-2h4m2 10h.01M7 11a1 1 0 01-1 1H4a1 1 0 01-1-1V9a1 1 0 011-1h2a1 1 0 011 1v2z" /></svg>
+                      Financial Reports
+                    </button>
+                  </li>
+                  <li className="mb-2 mt-6 border-t border-gray-200 pt-6">
+                    <h3 className="text-sm font-bold mb-3 text-gray-500 uppercase tracking-wider">Invoicing</h3>
+                  </li>
+                  <li className="mb-2">
+                    <button onClick={() => setActiveTab('invoicingDashboard')} className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base ${activeTab === 'invoicingDashboard' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}`}>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" /></svg>
+                      Invoicing Dashboard
+                    </button>
+                  </li>
+                  <li className="mb-2">
+                    <button onClick={() => setActiveTab('invoicingSales')} className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base ${activeTab === 'invoicingSales' || activeTab === 'addSalesInvoice' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}`}>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M7 11h10a1 1 0 011 1v5a1 1 0 01-1 1H7a1 1 0 01-1-1v-5a1 1 0 011-1zM12 5V4m0 20v-1m-4-11H3m18 0h-1" /></svg>
+                      Sales Invoices
+                    </button>
+                  </li>
+                  <li className="mb-2">
+                    <button onClick={() => setActiveTab('invoicingExpenses')} className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base ${activeTab === 'invoicingExpenses' || activeTab === 'addExpenseInvoice' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}`}>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M7 11h10a1 1 0 011 1v5a1 1 0 01-1 1H7a1 1 0 01-1-1v-5a1 1 0 011-1zM12 5V4m0 20v-1m-4-11H3m18 0h-1" /></svg>
+                      Expense Invoices
+                    </button>
+                  </li>
+                 <li className="mb-2">
+              <button onClick={() => setActiveTab('invoicingProducts')} className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base ${activeTab === 'invoicingProducts' || activeTab === 'addProduct' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}`}>
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h.01M7 3h.01M7 11h.01M7 15h.01M7 19h.01M17 7h.01M17 3h.01M17 11h.01M17 15h.01M17 19h.01M3 7h.01M3 3h.01M3 11h.01M3 15h.01M3 19h.01M21 7h.01M21 3h.01M21 11h.01M21 15h.01M21 19h.01M12 7h.01M12 3h.01M12 11h.01M12 15h.01M12 19h.01" /></svg>
+                Product Management
+              </button>
+            </li>
+            {/* NEW MARKETING HUB MENU ITEM */}
+            <li className="mb-2">
+              <button onClick={() => setActiveTab('marketingHub')} className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base ${activeTab === 'marketingHub' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}`}>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 mr-3">
+                  <path d="M11.47 3.84a.75.75 0 0 1 1.06 0l8.69 8.69a1.5 1.5 0 0 1 0 2.12l-5.54 5.54a.75.75 0 0 1-1.06-1.06l5.54-5.54a.75.75 0 0 0 0-1.06l-8.69-8.69Z" />
+                  <path d="M12.75 12.75a.75.75 0 0 1-.75.75H7.5a.75.75 0 0 1 0-1.5h4.5a.75.75 0 0 1 .75.75Z" />
+                  <path fillRule="evenodd" d="M19.5 21a.75.75 0 0 0 .75-.75V8.791c0-.409-.115-.81-.344-1.157L15.371 3.66a2.25 2.25 0 0 0-1.612-.66h-1.365a.75.75 0 0 0 0 1.5h1.365c.102 0 .2-.037.29-.105l3.96-3.959a.75.75 0 0 1 1.06 0l.75.75Z" clipRule="evenodd" />
+                  <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25Zm-4.29 4.71c.105.105.228.188.359.245L4.015 9.5a.75.75 0 0 1-.75-.75Zm7.89 4.89a.75.75 0 0 0-1.06 0l-3.375 3.375a.75.75 0 0 0 0 1.06l1.25 1.25a.75.75 0 0 0 1.06 0l3.375-3.375a.75.75 0 0 0 0-1.06l-1.25-1.25Z" clipRule="evenodd" />
+                </svg>
+                Marketing Hub
+              </button>
+            </li>
+            {/* END NEW MARKETING HUB MENU ITEM */}
+                  <li className="mb-2">
+                    <button onClick={() => setActiveTab('transportContract')} className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base ${activeTab === 'transportContract' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}`}>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" viewBox="0 0 20 20" fill="currentColor"><path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" /><path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" /></svg>
+                      Transport Contract
+                    </button>
+                  </li>
+                  <li className="mb-2">
+                    <button onClick={() => setActiveTab('makeOffer')} className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base ${activeTab === 'makeOffer' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}`}>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V7.414A2 2 0 0015.414 6L12 2.586A2 2 0 0010.586 2H6zm5 6a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V8z" clipRule="evenodd" /></svg>
+                      Make Offer
+                    </button>
+                  </li>
+                  <li className="mb-2">
+                    <button onClick={() => setActiveTab('confirmation')} className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base ${activeTab === 'confirmation' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}`}>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
+                      Confirmation
+                    </button>
+                  </li>
+                  <li className="mb-2">
+                    <button onClick={() => setActiveTab('customerContract')} className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base ${activeTab === 'customerContract' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}`}>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-6-3a2 2 0 11-4 0 2 2 0 014 0zm-2 4a5 5 0 00-4.546 2.916A5.986 5.986 0 0010 16a5.986 5.986 0 004.546-2.084A5 5 0 0010 11z" clipRule="evenodd" /></svg>
+                      Customer Contract
+                    </button>
+                  </li>
+                  <li className="mb-2">
+                    <button onClick={() => setActiveTab('createInvoice')} className={`flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base ${activeTab === 'createInvoice' ? 'bg-gray-100 text-[#28A745] font-semibold' : 'hover:bg-gray-50 text-gray-700'}`}>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" viewBox="0 0 20 20" fill="currentColor">
+                         <path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z" /><path fillRule="evenodd" d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" clipRule="evenodd" />
+                      </svg>
+                      Create Invoice
+                    </button>
+                  </li>
+                  {isEmailPasswordUser && (
+                    <li className="mb-2 mt-auto pt-6 border-t border-gray-200">
+                      <button onClick={handleLogout} className="flex items-center w-full px-4 py-3 rounded-lg transition-all duration-200 text-base hover:bg-red-50 text-[#DC3545]">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+                        Logout
+                      </button>
+                    </li>
+                  )}
+                </>
+              )}
+            </ul>
+          </nav>
+          {userId && (
+            <div className="mt-8 pt-4 border-t border-gray-200 text-sm text-gray-500">
+              <p>Logged in as:</p>
+              <p className="break-all font-mono text-xs">{auth.currentUser?.email || 'Anonymous'}</p>
             </div>
-        </nav>
-    )}
-    <div className="flex flex-col flex-1"> {/* This div replaces the old flex-col md:flex-row and removes the sidebar */}
-      {/* Main Content Area */}
-      <main className="flex-1 p-6 md:p-8 overflow-y-auto bg-gray-100">
-        <NotificationDisplay notifications={notifications} onDismiss={removeNotification} />
-        {renderContent()}
-      </main>
+          )}
+        </aside>
+
+        {/* Main Content Area */}
+        <main className="flex-1 p-6 md:p-8 overflow-y-auto bg-gray-100">
+          <NotificationDisplay notifications={notifications} onDismiss={removeNotification} />
+          {renderContent()}
+        </main>
+      </div>
+
+      <ConfirmationModal
+        show={showConfirmModal}
+        message={confirmMessage}
+        onConfirm={() => {
+          if (confirmAction) {
+            confirmAction();
+          }
+          setShowConfirmModal(false);
+          setConfirmAction(null);
+          setConfirmMessage('');
+        }}
+        onCancel={() => {
+          setShowConfirmModal(false);
+          setConfirmAction(null);
+          setConfirmMessage('');
+        }}
+      />
     </div>
-    {/* ... (ConfirmationModal) ... */}
-  </div>
-);
+  );
 };
 
 export default App;
