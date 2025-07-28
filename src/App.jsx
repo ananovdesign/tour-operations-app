@@ -1270,67 +1270,111 @@ const handleEditCustomer = (customer) => {
 
   // --- Dashboard Calculations (Uses Firestore user-specific data) ---
 const dashboardStats = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const thirtyDaysFromNow = new Date();
+    thirtyDaysFromNow.setDate(today.getDate() + 30);
+    thirtyDaysFromNow.setHours(23, 59, 59, 999); // End of day for 30 days later
+
     const totalReservations = reservations.length;
     const totalProfit = reservations.reduce((sum, res) => sum + (res.profit || 0), 0);
     const averageProfitPerReservation = totalReservations > 0 ? totalProfit / totalReservations : 0;
     const totalNightsSum = reservations.reduce((sum, res) => sum + (res.totalNights || 0), 0);
     const averageStayPerReservation = totalReservations > 0 ? totalNightsSum / totalReservations : 0;
 
+    const upcomingReservations = reservations.filter(res => {
+        const checkInDate = new Date(res.checkIn);
+        checkInDate.setHours(0, 0, 0, 0);
+        return checkInDate >= today && checkInDate <= thirtyDaysFromNow;
+    });
+    const countUpcomingReservations = upcomingReservations.length;
+    const profitUpcomingReservations = upcomingReservations.reduce((sum, res) => sum + (res.profit || 0), 0);
+
+    const pendingReservations = reservations.filter(res => res.status === 'Pending');
+    const countPendingReservations = pendingReservations.length;
+
     const totalIncome = financialTransactions
-      .filter(ft => ft.type === 'income')
-      .reduce((sum, ft) => sum + (ft.amount || 0), 0);
+        .filter(ft => ft.type === 'income')
+        .reduce((sum, ft) => sum + (ft.amount || 0), 0);
 
     const totalExpenses = financialTransactions
-      .filter(ft => ft.type === 'expense')
-      .reduce((sum, ft) => sum + (ft.amount || 0), 0);
+        .filter(ft => ft.type === 'expense')
+        .reduce((sum, ft) => sum + (ft.amount || 0), 0);
 
     let totalBookedPassengersAcrossAllTours = 0;
     let totalMaxPassengersAcrossAllTours = 0;
+    let totalBusToursCount = 0;
 
     tours.forEach(tour => {
-      const linkedReservations = reservations.filter(res => res.linkedTourId === tour.tourId);
-      const bookedPassengersForTour = linkedReservations.reduce((sum, res) => sum + (res.adults || 0) + (res.children || 0), 0);
-      totalBookedPassengersAcrossAllTours += bookedPassengersForTour;
-      totalMaxPassengersAcrossAllTours += (tour.maxPassengers || 0);
+        totalBusToursCount++; // Count all tours
+        const linkedReservations = reservations.filter(res => res.linkedTourId === tour.tourId);
+        const bookedPassengersForTour = linkedReservations.reduce((sum, res) => sum + (res.adults || 0) + (res.children || 0), 0);
+        totalBookedPassengersAcrossAllTours += bookedPassengersForTour;
+        totalMaxPassengersAcrossAllTours += (tour.maxPassengers || 0);
     });
 
     const overallBusTourFulfillment = totalMaxPassengersAcrossAllTours > 0
-      ? (totalBookedPassengersAcrossAllTours / totalMaxPassengersAcrossAllTours) * 100
-      : 0;
+        ? (totalBookedPassengersAcrossAllTours / totalMaxPassengersAcrossAllTours) * 100
+        : 0;
+    const averageTourPassengers = totalBusToursCount > 0 ? totalBookedPassengersAcrossAllTours / totalBusToursCount : 0;
 
-    // --- New Balance Calculations ---
+    // --- Balance Calculations ---
     const balances = {
-      Bank: { income: 0, expense: 0 },
-      Cash: { income: 0, expense: 0 },
-      'Cash 2': { income: 0, expense: 0 },
+        Bank: { income: 0, expense: 0 },
+        Cash: { income: 0, expense: 0 },
+        'Cash 2': { income: 0, expense: 0 },
     };
 
     financialTransactions.forEach(ft => {
-      if (balances[ft.method]) {
-        balances[ft.method][ft.type] += (ft.amount || 0);
-      }
+        if (balances[ft.method]) {
+            balances[ft.method][ft.type] += (ft.amount || 0);
+        }
     });
 
     const bankBalance = balances.Bank.income - balances.Bank.expense;
     const cashBalance = balances.Cash.income - balances.Cash.expense;
     const cash2Balance = balances['Cash 2'].income - balances['Cash 2'].expense;
-    // --- End of New Calculations ---
+
+    // --- New Sales/Expense Invoice Metrics ---
+    // For unpaid sales invoices, a simple approach: count if grandTotal > 0.
+    // A more complex real-world solution would involve linking payments to invoices.
+    const unpaidSalesInvoices = salesInvoices.filter(inv => (inv.grandTotal || 0) > 0);
+    const countUnpaidSalesInvoices = unpaidSalesInvoices.length;
+    const totalUnpaidSalesAmount = unpaidSalesInvoices.reduce((sum, inv) => sum + (inv.grandTotal || 0), 0);
+
+    const overdueExpenseInvoices = expenseInvoices.filter(inv => {
+        const dueDate = new Date(inv.dueDate);
+        dueDate.setHours(23, 59, 59, 999); // End of day for comparison
+        return inv.dueDate && dueDate < today;
+    });
+    const countOverdueExpenseInvoices = overdueExpenseInvoices.length;
+    const totalOverdueExpenseAmount = overdueExpenseInvoices.reduce((sum, inv) => sum + (inv.totalAmount || 0), 0);
+
 
     return {
-      totalReservations,
-      totalProfit,
-      averageProfitPerReservation,
-      averageStayPerReservation,
-      totalIncome,
-      totalExpenses,
-      overallBusTourFulfillment,
-      totalBusPassengersBooked: totalBookedPassengersAcrossAllTours,
-      // Add new balances to the returned object
-      bankBalance,
-      cashBalance,
-      cash2Balance,
+        totalReservations,
+        totalProfit,
+        averageProfitPerReservation,
+        averageStayPerReservation,
+        totalIncome,
+        totalExpenses,
+        overallBusTourFulfillment,
+        totalBusPassengersBooked: totalBookedPassengersAcrossAllTours,
+        bankBalance,
+        cashBalance,
+        cash2Balance,
+        totalCustomers: customers.length, // NEW
+        totalProducts: products.length, // NEW
+        countUpcomingReservations, // NEW
+        profitUpcomingReservations, // NEW
+        countPendingReservations, // NEW
+        averageTourPassengers, // NEW
+        countUnpaidSalesInvoices, // NEW
+        totalUnpaidSalesAmount, // NEW
+        countOverdueExpenseInvoices, // NEW
+        totalOverdueExpenseAmount, // NEW
     };
-  }, [reservations, financialTransactions, tours]);
+}, [reservations, financialTransactions, tours, customers, products, salesInvoices, expenseInvoices]); // Added new dependencies
 
   // Invoicing Dashboard Calculations
   const invoicingDashboardStats = useMemo(() => {
@@ -2154,44 +2198,69 @@ const handleEditSalesInvoice = useCallback((invoice) => {
 
     switch (activeTab) {
 case 'dashboard':
-        return (
-          <div className="p-6 bg-white rounded-xl shadow-lg"> {/* Consistent card styling */}
+    return (
+        <div className="p-6 bg-white rounded-xl shadow-lg">
             <h2 className="text-3xl font-bold mb-8 text-gray-800 border-b pb-4">Dashboard & Analytics</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"> {/* Changed to 4 columns on large screens */}
-              {/* Reservation Stats */}
-              <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
-                <h3 className="font-semibold text-xl text-gray-700 mb-3">Reservation Metrics</h3>
-                <p className="text-gray-600 text-lg">Total Reservations: <span className="font-bold text-gray-800">{dashboardStats.totalReservations}</span></p>
-                <p className="text-gray-600 text-lg">Total Profit: <span className="font-bold text-[#28A745]">BGN {dashboardStats.totalProfit.toFixed(2)}</span></p>
-                <p className="text-gray-600 text-lg">Avg. Profit/Res: <span className="font-bold text-[#28A745]">BGN {dashboardStats.averageProfitPerReservation.toFixed(2)}</span></p>
-                <p className="text-gray-600 text-lg">Avg. Stay/Res: <span className="font-bold text-gray-800">{dashboardStats.averageStayPerReservation.toFixed(1)} nights</span></p>
-              </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {/* Reservation Stats */}
+                <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
+                    <h3 className="font-semibold text-xl text-gray-700 mb-3">Reservation Metrics</h3>
+                    <p className="text-gray-600 text-lg">Total Reservations: <span className="font-bold text-gray-800">{dashboardStats.totalReservations}</span></p>
+                    <p className="text-gray-600 text-lg">Total Profit: <span className="font-bold text-[#28A745]">BGN {dashboardStats.totalProfit.toFixed(2)}</span></p>
+                    <p className="text-gray-600 text-lg">Avg. Profit/Res: <span className="font-bold text-[#28A745]">BGN {dashboardStats.averageProfitPerReservation.toFixed(2)}</span></p>
+                    <p className="text-gray-600 text-lg">Avg. Stay/Res: <span className="font-bold text-gray-800">{dashboardStats.averageStayPerReservation.toFixed(1)} nights</span></p>
+                </div>
 
-              {/* Financial Stats */}
-              <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
-                <h3 className="font-semibold text-xl text-gray-700 mb-3">Financial Overview</h3>
-                <p className="text-gray-600 text-lg">Total Income: <span className="font-bold text-[#28A745]">BGN {dashboardStats.totalIncome.toFixed(2)}</span></p>
-                <p className="text-gray-600 text-lg">Total Expenses: <span className="font-bold text-[#DC3545]">BGN {dashboardStats.totalExpenses.toFixed(2)}</span></p>
-                <p className="text-gray-600 text-lg">Net Profit/Loss: <span className={`font-bold ${dashboardStats.totalIncome - dashboardStats.totalExpenses >= 0 ? 'text-[#28A745]' : 'text-[#DC3545]'}`}>BGN {(dashboardStats.totalIncome - dashboardStats.totalExpenses).toFixed(2)}</span></p>
-              </div>
+                {/* Financial Stats */}
+                <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
+                    <h3 className="font-semibold text-xl text-gray-700 mb-3">Financial Overview</h3>
+                    <p className="text-gray-600 text-lg">Total Income: <span className="font-bold text-[#28A745]">BGN {dashboardStats.totalIncome.toFixed(2)}</span></p>
+                    <p className="text-gray-600 text-lg">Total Expenses: <span className="font-bold text-[#DC3545]">BGN {dashboardStats.totalExpenses.toFixed(2)}</span></p>
+                    <p className="text-gray-600 text-lg">Net Profit/Loss: <span className={`font-bold ${dashboardStats.totalIncome - dashboardStats.totalExpenses >= 0 ? 'text-[#28A745]' : 'text-[#DC3545]'}`}>BGN {(dashboardStats.totalIncome - dashboardStats.totalExpenses).toFixed(2)}</span></p>
+                </div>
 
-              {/* Bus Tour Stats */}
-              <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
-                <h3 className="font-semibold text-xl text-gray-700 mb-3">Bus Tour Performance</h3>
-                <p className="text-gray-600 text-lg">Total Bus Passengers Booked: <span className="font-bold text-gray-800">{dashboardStats.totalBusPassengersBooked}</span></p>
-                <p className="text-gray-600 text-lg">Overall Fulfillment: <span className="font-bold text-gray-800">{dashboardStats.overallBusTourFulfillment.toFixed(1)}%</span></p>
-              </div>
-              
-              {/* --- New Balance Overview Card --- */}
-              <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
-                <h3 className="font-semibold text-xl text-gray-700 mb-3">Balance Overview</h3>
-                <p className="text-gray-600 text-lg">Bank Balance: <span className={`font-bold ${dashboardStats.bankBalance >= 0 ? 'text-gray-800' : 'text-[#DC3545]'}`}>BGN {dashboardStats.bankBalance.toFixed(2)}</span></p>
-                <p className="text-gray-600 text-lg">Cash Balance: <span className={`font-bold ${dashboardStats.cashBalance >= 0 ? 'text-gray-800' : 'text-[#DC3545]'}`}>BGN {dashboardStats.cashBalance.toFixed(2)}</span></p>
-                <p className="text-gray-600 text-lg">Cash 2 Balance: <span className={`font-bold ${dashboardStats.cash2Balance >= 0 ? 'text-gray-800' : 'text-[#DC3545]'}`}>BGN {dashboardStats.cash2Balance.toFixed(2)}</span></p>
-              </div>
+                {/* Bus Tour Stats */}
+                <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
+                    <h3 className="font-semibold text-xl text-gray-700 mb-3">Bus Tour Performance</h3>
+                    <p className="text-gray-600 text-lg">Total Bus Passengers Booked: <span className="font-bold text-gray-800">{dashboardStats.totalBusPassengersBooked}</span></p>
+                    <p className="text-gray-600 text-lg">Overall Fulfillment: <span className="font-bold text-gray-800">{dashboardStats.overallBusTourFulfillment.toFixed(1)}%</span></p>
+                    <p className="text-gray-600 text-lg">Average Passengers per Tour: <span className="font-bold text-gray-800">{dashboardStats.averageTourPassengers.toFixed(1)}</span></p> {/* NEW */}
+                </div>
+
+                {/* Balance Overview Card */}
+                <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
+                    <h3 className="font-semibold text-xl text-gray-700 mb-3">Balance Overview</h3>
+                    <p className="text-gray-600 text-lg">Bank Balance: <span className={`font-bold ${dashboardStats.bankBalance >= 0 ? 'text-gray-800' : 'text-[#DC3545]'}`}>BGN {dashboardStats.bankBalance.toFixed(2)}</span></p>
+                    <p className="text-gray-600 text-lg">Cash Balance: <span className={`font-bold ${dashboardStats.cashBalance >= 0 ? 'text-gray-800' : 'text-[#DC3545]'}`}>BGN {dashboardStats.cashBalance.toFixed(2)}</span></p>
+                    <p className="text-gray-600 text-lg">Cash 2 Balance: <span className={`font-bold ${dashboardStats.cash2Balance >= 0 ? 'text-gray-800' : 'text-[#DC3545]'}`}>BGN {dashboardStats.cash2Balance.toFixed(2)}</span></p>
+                </div>
+
+                {/* NEW: Customer & Product Totals */}
+                <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
+                    <h3 className="font-semibold text-xl text-gray-700 mb-3">Client & Product Summary</h3>
+                    <p className="text-gray-600 text-lg">Total Customers: <span className="font-bold text-gray-800">{dashboardStats.totalCustomers}</span></p>
+                    <p className="text-gray-600 text-lg">Total Products: <span className="font-bold text-gray-800">{dashboardStats.totalProducts}</span></p>
+                </div>
+
+                {/* NEW: Upcoming & Pending Reservations */}
+                <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
+                    <h3 className="font-semibold text-xl text-gray-700 mb-3">Reservations Status</h3>
+                    <p className="text-gray-600 text-lg">Upcoming (30 days): <span className="font-bold text-orange-600">{dashboardStats.countUpcomingReservations}</span></p>
+                    <p className="text-gray-600 text-lg ml-4">Est. Profit: <span className="font-bold text-orange-600">BGN {dashboardStats.profitUpcomingReservations.toFixed(2)}</span></p>
+                    <p className="text-gray-600 text-lg">Pending Reservations: <span className="font-bold text-yellow-600">{dashboardStats.countPendingReservations}</span></p>
+                </div>
+
+                {/* NEW: Invoice Health */}
+                <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
+                    <h3 className="font-semibold text-xl text-gray-700 mb-3">Invoice Health</h3>
+                    <p className="text-gray-600 text-lg">Unpaid Sales Invoices: <span className="font-bold text-red-600">{dashboardStats.countUnpaidSalesInvoices}</span></p>
+                    <p className="text-gray-600 text-lg ml-4">Total Unpaid: <span className="font-bold text-red-600">BGN {dashboardStats.totalUnpaidSalesAmount.toFixed(2)}</span></p>
+                    <p className="text-gray-600 text-lg">Overdue Expense Invoices: <span className="font-bold text-purple-600">{dashboardStats.countOverdueExpenseInvoices}</span></p>
+                    <p className="text-gray-600 text-lg ml-4">Total Overdue: <span className="font-bold text-purple-600">BGN {dashboardStats.totalOverdueExpenseAmount.toFixed(2)}</span></p>
+                </div>
             </div>
-          </div>
-        );
+        </div>
+    );
 case 'reservations':
         return (
           <div className="p-6 bg-white rounded-xl shadow-lg">
