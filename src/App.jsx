@@ -4671,7 +4671,7 @@ if (tourToGenerateContract) {
           setConfirmAction(null);
           setConfirmMessage(''); // Corrected: changed from setConfirmAction('')
         }}
-      />
+/>
     </div> {/* This is the ONLY closing div for the outermost 'font-sans' div. */}
   ); // This closes the 'return' statement of the App component
 
