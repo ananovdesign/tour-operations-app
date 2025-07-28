@@ -4544,7 +4544,7 @@ if (tourToGenerateContract) {
     );
 }
 
-return (
+  return (
     <div className="font-sans antialiased bg-gray-100 min-h-screen text-gray-900" style={{ fontFamily: 'Inter, sans-serif' }}>
       {/* New Top Navigation Header */}
       <header className="bg-gradient-to-r from-green-600 to-green-800 text-white p-4 shadow-lg sticky top-0 z-50">
@@ -4672,7 +4672,7 @@ return (
           setConfirmMessage('');
         }}
       />
-    </div> )/* This is the ONLY closing div for the outermost 'font-sans' div. */}
+    </div> {/* This is the ONLY closing div for the outermost 'font-sans' div. */}
   ); // This closes the 'return' statement of the App component
 
 }; // This closes the 'App' functional component itself.
