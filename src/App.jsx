@@ -406,6 +406,7 @@ const [tourForm, setTourForm] = useState({
       setSalesInvoices([]);
       setExpenseInvoices([]);
       setProducts([]);
+      setCampaigns([]); // Clear campaigns on logout
       setActiveTab('dashboard'); // Redirect to dashboard or login
     } catch (err) {
       console.error("Logout error:", err);
