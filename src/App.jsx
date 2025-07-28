@@ -18,6 +18,7 @@ import InvoicePrint from './InvoicePrint.jsx'; // New component for printing
 import CustomerContractPrint from './CustomerContractPrint.jsx'; // New component for contract generation
 import BusTourContractPrint from './BusTourContractPrint.jsx'; // NEW: Import for Bus Tour Contract
 import VoucherPrint from './VoucherPrint.jsx'; // NEW: Import for Voucher Print
+import MarketingHubModule from './MarketingHubModule.jsx'; // NEW: Import the Marketing Hub module
 
 // --- Notification Display Component ---
 const NotificationDisplay = ({ notifications, onDismiss }) => {
