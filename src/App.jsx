@@ -10,8 +10,7 @@ import {
   signInWithEmailAndPassword,
   signOut
 } from './firebase';
-import { collection, doc, addDoc, setDoc, deleteDoc, onSnapshot, query, where, getDocs } from 'firebase/firestore';
-
+import { collection, doc, addDoc, setDoc, deleteDoc, onSnapshot, query, where, getDocs, orderBy } from 'firebase/firestore';
 // Import your logo image
 import Logo from './Logo.png'; // Assuming Logo.png is in the same directory as App.jsx
 import InvoicePrint from './InvoicePrint.jsx'; // New component for printing
