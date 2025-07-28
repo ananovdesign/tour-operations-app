@@ -4727,6 +4727,5 @@ if (tourToGenerateContract) {
       />
     </div>
   );
-};
 
 export default App;
