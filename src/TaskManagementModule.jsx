@@ -332,7 +332,7 @@ const TaskManagementModule = ({ db, userId, isAuthReady, addNotification, setSho
                                         </button>
                                     </td>
                                 </tr>
-                                {selectedTask && selectedTask.id === task.id && (
+{(selectedTask && selectedTask.id === task.id) && ( // Only show description when editing
                                     <tr className="bg-gray-50">
                                         <td colSpan="5" className="p-4 text-sm text-gray-700 border-t">
                                             <p className="font-semibold mb-1">Description:</p>
