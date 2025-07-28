@@ -4663,7 +4663,7 @@ if (tourToGenerateContract) {
     </div> {/* This is the ONLY closing div for the outermost 'font-sans' div. */}
   ); // This closes the 'return' statement of the App component
 
-}; // This closes the 'App' functional component itself.
+};  // This closes the 'App' functional component itself.
 
 export default App;
          
