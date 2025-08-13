@@ -1274,19 +1274,15 @@ const dashboardStats = useMemo(() => {
     today.setHours(0, 0, 0, 0);
     const thirtyDaysFromNow = new Date();
     thirtyDaysFromNow.setDate(today.getDate() + 30);
-    thirtyDaysFromNow.setHours(23, 59, 59, 999);
+    thirtyDaysFromNow.setHours(23, 59, 59, 999); // End of day for 30 days later
 
-    // Filter out canceled reservations before any calculations
-    const activeReservations = reservations.filter(res => res.status !== 'Cancelled');
-    const profitableReservations = activeReservations.filter(res => (res.profit || 0) > 0);
-
-    const totalReservations = activeReservations.length; // Use active reservations count
-    const totalProfit = profitableReservations.reduce((sum, res) => sum + (res.profit || 0), 0);
+    const totalReservations = reservations.length;
+    const totalProfit = reservations.reduce((sum, res) => sum + (res.profit || 0), 0);
     const averageProfitPerReservation = totalReservations > 0 ? totalProfit / totalReservations : 0;
-    const totalNightsSum = activeReservations.reduce((sum, res) => sum + (res.totalNights || 0), 0);
+    const totalNightsSum = reservations.reduce((sum, res) => sum + (res.totalNights || 0), 0);
     const averageStayPerReservation = totalReservations > 0 ? totalNightsSum / totalReservations : 0;
 
-    const upcomingReservations = activeReservations.filter(res => {
+    const upcomingReservations = reservations.filter(res => {
         const checkInDate = new Date(res.checkIn);
         checkInDate.setHours(0, 0, 0, 0);
         return checkInDate >= today && checkInDate <= thirtyDaysFromNow;
@@ -1294,7 +1290,7 @@ const dashboardStats = useMemo(() => {
     const countUpcomingReservations = upcomingReservations.length;
     const profitUpcomingReservations = upcomingReservations.reduce((sum, res) => sum + (res.profit || 0), 0);
 
-    const pendingReservations = activeReservations.filter(res => res.status === 'Pending');
+    const pendingReservations = reservations.filter(res => res.status === 'Pending');
     const countPendingReservations = pendingReservations.length;
 
     const totalIncome = financialTransactions
@@ -1310,8 +1306,8 @@ const dashboardStats = useMemo(() => {
     let totalBusToursCount = 0;
 
     tours.forEach(tour => {
-        totalBusToursCount++;
-        const linkedReservations = activeReservations.filter(res => res.linkedTourId === tour.tourId); // Use activeReservations here as well
+        totalBusToursCount++; // Count all tours
+        const linkedReservations = reservations.filter(res => res.linkedTourId === tour.tourId);
         const bookedPassengersForTour = linkedReservations.reduce((sum, res) => sum + (res.adults || 0) + (res.children || 0), 0);
         totalBookedPassengersAcrossAllTours += bookedPassengersForTour;
         totalMaxPassengersAcrossAllTours += (tour.maxPassengers || 0);
@@ -1322,6 +1318,7 @@ const dashboardStats = useMemo(() => {
         : 0;
     const averageTourPassengers = totalBusToursCount > 0 ? totalBookedPassengersAcrossAllTours / totalBusToursCount : 0;
 
+    // --- Balance Calculations ---
     const balances = {
         Bank: { income: 0, expense: 0 },
         Cash: { income: 0, expense: 0 },
@@ -1338,17 +1335,21 @@ const dashboardStats = useMemo(() => {
     const cashBalance = balances.Cash.income - balances.Cash.expense;
     const cash2Balance = balances['Cash 2'].income - balances['Cash 2'].expense;
 
+    // --- New Sales/Expense Invoice Metrics ---
+    // For unpaid sales invoices, a simple approach: count if grandTotal > 0.
+    // A more complex real-world solution would involve linking payments to invoices.
     const unpaidSalesInvoices = salesInvoices.filter(inv => (inv.grandTotal || 0) > 0);
     const countUnpaidSalesInvoices = unpaidSalesInvoices.length;
     const totalUnpaidSalesAmount = unpaidSalesInvoices.reduce((sum, inv) => sum + (inv.grandTotal || 0), 0);
 
     const overdueExpenseInvoices = expenseInvoices.filter(inv => {
         const dueDate = new Date(inv.dueDate);
-        dueDate.setHours(23, 59, 59, 999);
+        dueDate.setHours(23, 59, 59, 999); // End of day for comparison
         return inv.dueDate && dueDate < today;
     });
     const countOverdueExpenseInvoices = overdueExpenseInvoices.length;
     const totalOverdueExpenseAmount = overdueExpenseInvoices.reduce((sum, inv) => sum + (inv.totalAmount || 0), 0);
+
 
     return {
         totalReservations,
@@ -1362,18 +1363,18 @@ const dashboardStats = useMemo(() => {
         bankBalance,
         cashBalance,
         cash2Balance,
-        totalCustomers: customers.length,
-        totalProducts: products.length,
-        countUpcomingReservations,
-        profitUpcomingReservations,
-        countPendingReservations,
-        averageTourPassengers,
-        countUnpaidSalesInvoices,
-        totalUnpaidSalesAmount,
-        countOverdueExpenseInvoices,
-        totalOverdueExpenseAmount,
+        totalCustomers: customers.length, // NEW
+        totalProducts: products.length, // NEW
+        countUpcomingReservations, // NEW
+        profitUpcomingReservations, // NEW
+        countPendingReservations, // NEW
+        averageTourPassengers, // NEW
+        countUnpaidSalesInvoices, // NEW
+        totalUnpaidSalesAmount, // NEW
+        countOverdueExpenseInvoices, // NEW
+        totalOverdueExpenseAmount, // NEW
     };
-}, [reservations, financialTransactions, tours, customers, products, salesInvoices, expenseInvoices]);
+}, [reservations, financialTransactions, tours, customers, products, salesInvoices, expenseInvoices]); // Added new dependencies
 
   // Invoicing Dashboard Calculations
   const invoicingDashboardStats = useMemo(() => {
