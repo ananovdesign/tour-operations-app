@@ -1,180 +1,137 @@
-import React from 'react';
-import { Edit2, Trash2, Printer, PlusCircle } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Edit2, Trash2, Printer, PlusCircle, Search, Filter } from 'lucide-react';
 
 const ReservationsPage = ({
     reservations,
     reservationForm,
     editingReservation,
-    handleReservationFormChange,
-    handleReservationSubmit,
-    handleEditReservation,
-    handleDeleteReservation,
     setReservationForm,
     setEditingReservation,
+    handleReservationSubmit,
+    handleDeleteReservation,
     setTab,
     setPrintData
 }) => {
-    return (
-        <div className="space-y-8">
-            <h2 className="text-3xl font-bold mb-8 text-gray-800 border-b pb-4">
-                Управление на Резервации
-            </h2>
+    // --- Локални състояния за филтриране ---
+    const [searchTerm, setSearchTerm] = useState('');
+    const [statusFilter, setStatusFilter] = useState('All');
 
-            {/* Форма за добавяне/редактиране */}
-            <div className="mb-8 p-6 bg-blue-50 rounded-lg shadow-inner border border-blue-200">
-                <h3 className="text-xl font-semibold text-gray-800 mb-4">
-                    {editingReservation ? 'Редактиране на Резервация' : 'Създаване на Нова Резервация'}
-                </h3>
-                <form onSubmit={handleReservationSubmit} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <input
-                        type="text"
-                        placeholder="Хотел"
-                        className="p-2 border rounded shadow-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                        value={reservationForm.hotel}
-                        onChange={(e) => handleReservationFormChange('hotel', e.target.value)}
-                        required
-                    />
-                    <input
-                        type="text"
-                        placeholder="Име на Гост"
-                        className="p-2 border rounded shadow-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                        value={reservationForm.guestName}
-                        onChange={(e) => handleReservationFormChange('guestName', e.target.value)}
-                        required
-                    />
-                    <input
-                        type="date"
-                        className="p-2 border rounded shadow-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                        value={reservationForm.checkIn}
-                        onChange={(e) => handleReservationFormChange('checkIn', e.target.value)}
-                        required
-                    />
-                    <input
-                        type="date"
-                        className="p-2 border rounded shadow-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                        value={reservationForm.checkOut}
-                        onChange={(e) => handleReservationFormChange('checkOut', e.target.value)}
-                        required
-                    />
-                    <input
-                        type="number"
-                        placeholder="Възрастни"
-                        className="p-2 border rounded shadow-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                        value={reservationForm.adults}
-                        onChange={(e) => handleReservationFormChange('adults', e.target.value)}
-                        required
-                    />
-                    <input
-                        type="number"
-                        placeholder="Деца"
-                        className="p-2 border rounded shadow-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                        value={reservationForm.children}
-                        onChange={(e) => handleReservationFormChange('children', e.target.value)}
-                    />
-                    <input
-                        type="text"
-                        placeholder="Тип стая"
-                        className="p-2 border rounded shadow-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                        value={reservationForm.roomType}
-                        onChange={(e) => handleReservationFormChange('roomType', e.target.value)}
-                    />
-                    <select
-                        className="p-2 border rounded shadow-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                        value={reservationForm.status}
-                        onChange={(e) => handleReservationFormChange('status', e.target.value)}
+    // --- Логика за филтриране (Идентична със стария App.jsx) ---
+    const filteredReservations = useMemo(() => {
+        return reservations.filter(res => {
+            const matchesSearch = 
+                res.guestName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                res.hotel?.toLowerCase().includes(searchTerm.toLowerCase());
+            const matchesStatus = statusFilter === 'All' || res.status === statusFilter;
+            return matchesSearch && matchesStatus;
+        });
+    }, [reservations, searchTerm, statusFilter]);
+
+    // --- Автоматично изчисляване при промяна на формата ---
+    const handleFormChange = (field, value) => {
+        const updatedForm = { ...reservationForm, [field]: value };
+        
+        // Автоматично пресмятане на нощувки, ако имаме две дати
+        if (field === 'checkIn' || field === 'checkOut') {
+            const start = new Date(updatedForm.checkIn);
+            const end = new Date(updatedForm.checkOut);
+            if (!isNaN(start) && !isNaN(end) && end > start) {
+                updatedForm.totalNights = (end - start) / (1000 * 60 * 60 * 24);
+            }
+        }
+        setReservationForm(updatedForm);
+    };
+
+    return (
+        <div className="space-y-6">
+            <div className="flex justify-between items-center">
+                <h2 className="text-2xl font-bold text-gray-800">Управление на Резервации</h2>
+                <div className="flex gap-4">
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                        <input 
+                            type="text"
+                            placeholder="Търси гост или хотел..."
+                            className="pl-10 pr-4 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none w-64"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                    </div>
+                    <select 
+                        className="px-4 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                        value={statusFilter}
+                        onChange={(e) => setStatusFilter(e.target.value)}
                     >
+                        <option value="All">Всички статуси</option>
+                        <option value="Confirmed">Потвърдени</option>
+                        <option value="Pending">Изчакващи</option>
+                        <option value="Cancelled">Анулирани</option>
+                    </select>
+                </div>
+            </div>
+
+            {/* Форма за Резервация */}
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                <form onSubmit={handleReservationSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <input type="text" placeholder="Хотел" className="p-2 border rounded-lg" value={reservationForm.hotel} onChange={(e) => handleFormChange('hotel', e.target.value)} required />
+                    <input type="text" placeholder="Име на гост" className="p-2 border rounded-lg" value={reservationForm.guestName} onChange={(e) => handleFormChange('guestName', e.target.value)} required />
+                    <input type="date" className="p-2 border rounded-lg" value={reservationForm.checkIn} onChange={(e) => handleFormChange('checkIn', e.target.value)} required />
+                    <input type="date" className="p-2 border rounded-lg" value={reservationForm.checkOut} onChange={(e) => handleFormChange('checkOut', e.target.value)} required />
+                    <input type="number" placeholder="Възрастни" className="p-2 border rounded-lg" value={reservationForm.adults} onChange={(e) => handleFormChange('adults', e.target.value)} />
+                    <input type="number" placeholder="Деца" className="p-2 border rounded-lg" value={reservationForm.children} onChange={(e) => handleFormChange('children', e.target.value)} />
+                    <input type="number" placeholder="Печалба (BGN)" className="p-2 border rounded-lg" value={reservationForm.profit} onChange={(e) => handleFormChange('profit', Number(e.target.value))} />
+                    <select className="p-2 border rounded-lg" value={reservationForm.status} onChange={(e) => handleFormChange('status', e.target.value)}>
                         <option value="Confirmed">Потвърдена</option>
                         <option value="Pending">Изчакваща</option>
                         <option value="Cancelled">Анулирана</option>
                     </select>
-                    
-                    <div className="lg:col-span-4 flex gap-2">
-                        <button
-                            type="submit"
-                            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition flex items-center gap-2 shadow-md"
-                        >
-                            <PlusCircle size={20} />
-                            {editingReservation ? 'Обнови Резервация' : 'Запази Резервация'}
+                    <div className="md:col-span-4 flex gap-2">
+                        <button type="submit" className="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold hover:bg-blue-700 transition flex items-center gap-2">
+                            <PlusCircle size={20} /> {editingReservation ? 'Обнови' : 'Запази'}
                         </button>
                         {editingReservation && (
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setEditingReservation(null);
-                                    setReservationForm({
-                                        hotel: '', guestName: '', checkIn: '', checkOut: '',
-                                        adults: 2, children: 0, roomType: '', status: 'Confirmed',
-                                        totalPrice: 0, paidAmount: 0
-                                    });
-                                }}
-                                className="bg-gray-500 text-white px-6 py-2 rounded-lg hover:bg-gray-600 transition shadow-md"
-                            >
-                                Отказ
-                            </button>
+                            <button type="button" onClick={() => setEditingReservation(null)} className="bg-gray-200 text-gray-700 px-6 py-2 rounded-xl hover:bg-gray-300 transition">Отказ</button>
                         )}
                     </div>
                 </form>
             </div>
 
-            {/* Таблица с резервации */}
-            <div className="overflow-x-auto rounded-xl shadow-md border border-gray-200">
-                <table className="min-w-full bg-white">
-                    <thead className="bg-gray-50 border-b border-gray-200">
+            {/* Таблица */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                <table className="w-full text-left border-collapse">
+                    <thead className="bg-gray-50 text-gray-500 text-xs uppercase font-bold">
                         <tr>
-                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Хотел / Гост</th>
-                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Период</th>
-                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Детайли</th>
-                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Статус</th>
-                            <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Действия</th>
+                            <th className="px-6 py-4">Хотел / Гост</th>
+                            <th className="px-6 py-4">Период / Нощувки</th>
+                            <th className="px-6 py-4">Печалба</th>
+                            <th className="px-6 py-4">Статус</th>
+                            <th className="px-6 py-4 text-right">Действия</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
-                        {reservations.map((res) => (
-                            <tr key={res.id} className="hover:bg-gray-50 transition duration-150">
+                        {filteredReservations.map((res) => (
+                            <tr key={res.id} className="hover:bg-blue-50/50 transition">
                                 <td className="px-6 py-4">
-                                    <div className="font-medium text-gray-900">{res.hotel}</div>
+                                    <div className="font-bold text-gray-900">{res.hotel}</div>
                                     <div className="text-sm text-gray-500">{res.guestName}</div>
                                 </td>
-                                <td className="px-6 py-4 text-sm text-gray-600">
-                                    <div>{res.checkIn}</div>
-                                    <div className="text-gray-400">до {res.checkOut}</div>
-                                </td>
-                                <td className="px-6 py-4 text-sm text-gray-600">
-                                    <div>{res.roomType}</div>
-                                    <div className="text-xs">{res.adults} възр. / {res.children} деца</div>
+                                <td className="px-6 py-4">
+                                    <div className="text-sm font-medium">{res.checkIn} - {res.checkOut}</div>
+                                    <div className="text-xs text-blue-600 font-bold">{res.totalNights || 0} нощувки</div>
                                 </td>
                                 <td className="px-6 py-4">
-                                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                                    <span className="font-bold text-green-700">BGN {(res.profit || 0).toFixed(2)}</span>
+                                </td>
+                                <td className="px-6 py-4">
+                                    <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${
                                         res.status === 'Confirmed' ? 'bg-green-100 text-green-700' :
-                                        res.status === 'Pending' ? 'bg-yellow-100 text-yellow-700' :
-                                        'bg-red-100 text-red-700'
-                                    }`}>
-                                        {res.status}
-                                    </span>
+                                        res.status === 'Pending' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
+                                    }`}>{res.status}</span>
                                 </td>
                                 <td className="px-6 py-4 text-right space-x-2">
-                                    <button
-                                        onClick={() => {
-                                            setPrintData(res);
-                                            setTab('VoucherPrint');
-                                        }}
-                                        className="text-purple-600 hover:text-purple-900 p-1 transition"
-                                        title="Печат на Ваучер"
-                                    >
-                                        <Printer size={18} />
-                                    </button>
-                                    <button
-                                        onClick={() => handleEditReservation(res)}
-                                        className="text-blue-600 hover:text-blue-900 p-1 transition"
-                                    >
-                                        <Edit2 size={18} />
-                                    </button>
-                                    <button
-                                        onClick={() => handleDeleteReservation(res.id)}
-                                        className="text-red-600 hover:text-red-900 p-1 transition"
-                                    >
-                                        <Trash2 size={18} />
-                                    </button>
+                                    <button onClick={() => { setPrintData(res); setTab('VoucherPrint'); }} className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition" title="Ваучер"><Printer size={18} /></button>
+                                    <button onClick={() => { setEditingReservation(res); setReservationForm(res); }} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition"><Edit2 size={18} /></button>
+                                    <button onClick={() => handleDeleteReservation(res.id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"><Trash2 size={18} /></button>
                                 </td>
                             </tr>
                         ))}
