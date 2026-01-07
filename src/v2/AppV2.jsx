@@ -1,97 +1,130 @@
-import React, { useState, useEffect } from 'react';
-import { dbService } from './services/dbService';
+import React, { useState, useEffect, useCallback } from 'react';
+import { 
+  auth, db, appId, 
+  onAuthStateChanged, 
+  signInWithEmailAndPassword, 
+  signOut 
+} from '../firebase'; 
+import { 
+  collection, query, onSnapshot, orderBy, 
+  addDoc, serverTimestamp, getDocs 
+} from 'firebase/firestore';
 
-// КОРИГИРАНИ ПЪТИЩА - търсим файловете в основната папка /src/
-import ReservationsManager from './modules/ReservationsManager';
-import InvoiceManager from './modules/InvoiceManager';
-import BusTourManager from './modules/BusTourManager';
-import FinancialDashboard from './modules/FinancialDashboard';
-
-// Тези два файла са в /src/, затова излизаме едно ниво нагоре от /v2/
-import MarketingHubModule from '../MarketingHubModule.jsx'; 
+// Импортираме твоите работещи модули
+import MarketingHubModule from '../MarketingHubModule.jsx';
 import TaskManagementModule from '../TaskManagementModule.jsx';
 
-const AppV2 = () => {
-  const [activeTab, setActiveTab] = useState('dashboard');
-  const [invoices, setInvoices] = useState([]);
-  const [loading, setLoading] = useState(false);
+// КОНСТАНТАТА ЗА ЕВРОТО
+const BGN_TO_EUR = 1.95583;
 
+const AppV2 = () => {
+  // --- СЪСТОЯНИЯ ОТ ТВОЯ СТАР КОД ---
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [tasks, setTasks] = useState([]);
+  const [invoices, setInvoices] = useState([]);
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+
+  // --- 1. ТВОЯТА ОРИГИНАЛНА AUTH ЛОГИКА ---
   useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        const data = await dbService.getDocuments('invoices');
-        setInvoices(data);
-      } catch (error) {
-        console.error("Грешка при зареждане:", error);
-      }
+    const unsubscribe = onAuthStateChanged(auth, (u) => {
+      setUser(u);
       setLoading(false);
-    };
-    fetchData();
+    });
+    return () => unsubscribe();
   }, []);
 
-  const menuItems = [
-    { id: 'dashboard', label: '🏠 Dashboard', color: 'bg-slate-800' },
-    { id: 'reservations', label: '📅 Reservations', color: 'bg-blue-600' },
-    { id: 'busTours', label: '🚌 Bus Tours', color: 'bg-cyan-600' },
-    { id: 'financial', label: '💰 Financial', color: 'bg-emerald-600' },
-    { id: 'documents', label: '📄 Invoices & Documents', color: 'bg-orange-600' },
-    { id: 'marketing', label: '🚀 Marketing Hub', color: 'bg-purple-600' },
-    { id: 'tasks', label: '✅ Task Management', color: 'bg-rose-600' },
-  ];
+  // --- 2. ТВОЯТА ОРИГИНАЛНА ЛОГИКА ЗА ДАННИ (TASKS) ---
+  useEffect(() => {
+    if (user) {
+      const q = query(
+        collection(db, `artifacts/${appId}/users/${user.uid}/tasks`), 
+        orderBy('createdAt', 'desc')
+      );
+      return onSnapshot(q, (snapshot) => {
+        setTasks(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      });
+    }
+  }, [user]);
 
-  return (
-    <div className="flex min-h-screen bg-slate-50 font-sans antialiased">
-      <aside className="w-72 bg-slate-900 text-white p-6 shadow-2xl flex flex-col fixed h-full">
-        <div className="mb-10 text-center">
-          <h2 className="text-2xl font-bold tracking-tight">DYNAMEX <span className="text-blue-500">v2</span></h2>
-          <p className="text-slate-400 text-xs mt-1 uppercase tracking-widest">Euro Era 2026</p>
+  // --- 3. ТВОЯТА ОРИГИНАЛНА ЛОГИКА ЗА ФАКТУРИ ---
+  useEffect(() => {
+    if (user) {
+      const q = query(collection(db, 'invoices'), orderBy('date', 'desc'));
+      return onSnapshot(q, (snapshot) => {
+        setInvoices(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      });
+    }
+  }, [user]);
+
+  // --- ФУНКЦИИ ЗА ВХОД/ИЗХОД ---
+  const handleLogin = (e) => {
+    e.preventDefault();
+    signInWithEmailAndPassword(auth, loginEmail, loginPassword).catch(err => alert(err.message));
+  };
+
+  if (loading) return <div className="p-10 text-center">Зареждане на Dynamex...</div>;
+
+  // АКО НЯМА ПОТРЕБИТЕЛ - ПОКАЗВАМЕ ТВОЯ ЛОГИН (със същия стил)
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+        <div className="bg-white p-8 rounded shadow-md w-96">
+          <h2 className="text-xl mb-4 font-bold">Dynamex Tour - Вход</h2>
+          <input className="w-full border p-2 mb-2" type="email" placeholder="Email" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} />
+          <input className="w-full border p-2 mb-4" type="password" placeholder="Password" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} />
+          <button onClick={handleLogin} className="w-full bg-blue-500 text-white p-2">Влез</button>
         </div>
-        
-        <nav className="space-y-2 flex-1">
-          {menuItems.map(item => (
-            <button
-              key={item.id}
-              onClick={() => setActiveTab(item.id)}
-              className={`w-full text-left p-4 rounded-xl transition-all duration-200 flex items-center gap-3 ${
-                activeTab === item.id 
-                  ? `${item.color} shadow-lg scale-105 z-10` 
-                  : 'hover:bg-slate-800 text-slate-400 hover:text-white'
-              }`}
+      </div>
+    );
+  }
+
+  // --- ГЛАВЕН ИНТЕРФЕЙС (Твоето съдържание, подредено) ---
+  return (
+    <div className="flex h-screen bg-gray-50">
+      {/* МЕНЮ (SIDEBAR) */}
+      <div className="w-64 bg-slate-900 text-white flex flex-col">
+        <div className="p-6 font-bold text-xl border-b border-slate-800">DYNAMEX 2026</div>
+        <nav className="flex-1 p-4 space-y-2">
+          {['dashboard', 'reservations', 'bus-tours', 'documents', 'marketing', 'tasks'].map(tab => (
+            <button 
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`w-full text-left p-3 rounded ${activeTab === tab ? 'bg-blue-600' : 'hover:bg-slate-800 uppercase text-xs font-bold'}`}
             >
-              <span className="text-lg">{item.label}</span>
+              {tab.replace('-', ' ')}
             </button>
           ))}
         </nav>
+        <button onClick={() => signOut(auth)} className="p-4 bg-red-800 hover:bg-red-700 text-sm">ИЗХОД ({user.email})</button>
+      </div>
 
-        <div className="mt-auto pt-6 border-t border-slate-800 text-center">
-          <p className="text-xs text-slate-500">Курс: 1.95583 BGN</p>
-        </div>
-      </aside>
-
-      <main className="flex-1 ml-72 p-10">
-        <header className="mb-8 flex justify-between items-center bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-          <div>
-            <h1 className="text-3xl font-extrabold text-slate-800">
-              {menuItems.find(i => i.id === activeTab)?.label.split(' ').slice(1).join(' ')}
-            </h1>
+      {/* СЪДЪРЖАНИЕ - ТУК СЛАГАМЕ ТВОЯТА ЛОГИКА */}
+      <div className="flex-1 overflow-auto p-8">
+        {activeTab === 'dashboard' && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+             <div className="bg-white p-6 rounded shadow border-l-4 border-blue-500">
+                <h3 className="text-gray-500 text-sm">Общо приходи (EUR)</h3>
+                <p className="text-2xl font-bold">€ {(invoices.reduce((s, i) => s + (i.totalAmount || 0), 0)).toFixed(2)}</p>
+             </div>
           </div>
-          <div className="text-right">
-            <p className="text-xs text-slate-400 uppercase font-bold">Текуща валута</p>
-            <p className="text-lg font-bold text-emerald-600">EURO (EUR)</p>
-          </div>
-        </header>
+        )}
 
-        <div className="animate-fadeIn">
-          {activeTab === 'dashboard' && <FinancialDashboard invoices={invoices} />}
-          {activeTab === 'reservations' && <ReservationsManager />}
-          {activeTab === 'busTours' && <BusTourManager />}
-          {activeTab === 'financial' && <FinancialDashboard invoices={invoices} />}
-          {activeTab === 'documents' && <InvoiceManager />}
-          {activeTab === 'marketing' && <MarketingHubModule db={dbService.db} />}
-          {activeTab === 'tasks' && <TaskManagementModule db={dbService.db} />}
-        </div>
-      </main>
+        {/* ТУК ВИНАГИ ЩЕ ИЗПОЛЗВАМЕ ТВОИТЕ ОРИГИНАЛНИ МОДУЛИ */}
+        {activeTab === 'marketing' && <MarketingHubModule db={db} userId={user.uid} isAuthReady={true} />}
+        {activeTab === 'tasks' && <TaskManagementModule db={db} userId={user.uid} isAuthReady={true} tasks={tasks} />}
+        
+        {/* ЗА ФАКТУРИТЕ И ДОГОВОРИТЕ - ЩЕ ИЗПОЛЗВАМЕ ТВОИТЕ ФУНКЦИИ, НО С ЕВРО */}
+        {activeTab === 'documents' && (
+          <div className="bg-white p-6 rounded shadow">
+             <h2 className="text-xl font-bold mb-4">Документи и Фактури</h2>
+             <p className="text-sm text-gray-500 mb-4 italic text-orange-600 font-bold">Всички нови документи се генерират по фиксиран курс {BGN_TO_EUR}</p>
+             {/* Тук ще вградим твоята функция renderInvoiceForm директно */}
+          </div>
+        )}
+      </div>
     </div>
   );
 };
