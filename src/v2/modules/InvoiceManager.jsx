@@ -1,39 +1,128 @@
 import React, { useState } from 'react';
+import EntityDataForm from '../components/EntityDataForm';
+import InvoiceItemsEditor from '../components/InvoiceItemsEditor';
+import CurrencyPriceInput from '../components/CurrencyPriceInput';
+import { dbService } from '../services/dbService';
 
-const FIXED_RATE = 1.95583;
+// Данни по подразбиране за твоята фирма (Доставчик)
+const DEFAULT_PROVIDER = {
+  name: 'ДАЙНАМЕКС ТУР ЕООД',
+  idNum: '201654158',
+  mol: 'КРАСИМИР АНАНОВ',
+  address: 'гр. Ракитово, ул. Бор 2',
+  bank: 'ДСК',
+  iban: 'BG...',
+};
 
 const InvoiceManager = () => {
-    const [priceEUR, setPriceEUR] = useState(0);
+  const [docType, setDocType] = useState('invoice'); // invoice, contract, voucher
+  const [provider, setProvider] = useState(DEFAULT_PROVIDER);
+  const [client, setClient] = useState({ name: '', idNum: '', mol: '', address: '' });
+  const [items, setItems] = useState([{ description: '', quantity: 1, price: 0 }]);
+  const [notes, setNotes] = useState('');
 
-    // Автоматично смятане на лева
-    const priceBGN = (priceEUR * FIXED_RATE).toFixed(2);
+  const calculateTotal = () => {
+    return items.reduce((sum, item) => sum + (item.quantity * item.price), 0);
+  };
 
-    return (
-        <div className="p-8 bg-slate-50 min-height-screen">
-            <h1 className="text-3xl font-bold text-blue-900 mb-6">Нова Фактура (v2 - EUR)</h1>
-            
-            <div className="bg-white p-6 rounded-xl shadow-md max-w-md">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Въведи сума в ЕВРО:
-                </label>
-                <input 
-                    type="number" 
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    placeholder="0.00 €"
-                    onChange={(e) => setPriceEUR(parseFloat(e.target.value) || 0)}
-                />
+  const handleSave = async () => {
+    const docData = {
+      type: docType,
+      provider,
+      client,
+      items,
+      totalEUR: calculateTotal(),
+      notes,
+      date: new Date().toISOString()
+    };
+    
+    try {
+      const id = await dbService.saveDocument('invoices', docData);
+      alert(`Документът е запазен с ID: ${id}. Вече можете да го принтирате.`);
+    } catch (e) {
+      alert("Грешка при запис.");
+    }
+  };
 
-                <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-100">
-                    <p className="text-blue-800 font-semibold text-lg">
-                        Общо: {priceEUR.toFixed(2)} €
-                    </p>
-                    <p className="text-blue-600 text-sm italic">
-                        Равностойност: {priceBGN} лв. (курс {FIXED_RATE})
-                    </p>
-                </div>
-            </div>
+  return (
+    <div className="space-y-8 animate-fadeIn">
+      {/* ИЗБОР НА ТИП ДОКУМЕНТ */}
+      <div className="flex bg-white p-2 rounded-2xl shadow-sm border border-slate-100 w-fit">
+        <button 
+          onClick={() => setDocType('invoice')}
+          className={`px-6 py-2 rounded-xl font-bold transition ${docType === 'invoice' ? 'bg-orange-500 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
+        >
+          📄 Фактура
+        </button>
+        <button 
+          onClick={() => setDocType('contract')}
+          className={`px-6 py-2 rounded-xl font-bold transition ${docType === 'contract' ? 'bg-orange-500 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
+        >
+          📜 Договор
+        </button>
+        <button 
+          onClick={() => setDocType('voucher')}
+          className={`px-6 py-2 rounded-xl font-bold transition ${docType === 'voucher' ? 'bg-orange-500 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
+        >
+          🎟️ Ваучер
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* ЛЯВА КОЛОНА: ДАННИ */}
+        <div className="space-y-6">
+          <EntityDataForm 
+            title="Доставчик / Изпълнител" 
+            data={provider} 
+            onChange={(field, val) => setProvider({...provider, [field]: val})} 
+          />
+          <EntityDataForm 
+            title="Клиент / Получател" 
+            data={client} 
+            onChange={(field, val) => setClient({...client, [field]: val})} 
+          />
         </div>
-    );
+
+        {/* ДЯСНА КОЛОНА: АРТИКУЛИ И СУМИ */}
+        <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col">
+          <InvoiceItemsEditor items={items} setItems={setItems} />
+          
+          <div className="mt-auto pt-6 border-t border-slate-100">
+            <div className="flex justify-between items-center mb-4">
+              <span className="text-slate-500 font-medium">Общо в ЕВРО:</span>
+              <span className="text-2xl font-black text-slate-800">€ {calculateTotal().toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between items-center mb-6">
+              <span className="text-slate-400 text-sm italic">Равностойност в BGN:</span>
+              <span className="text-lg font-bold text-slate-500">{(calculateTotal() * 1.95583).toFixed(2)} лв.</span>
+            </div>
+            
+            <textarea 
+              className="w-full p-3 border rounded-xl bg-slate-50 text-sm mb-4" 
+              placeholder="Допълнителни бележки / Основание за ДДС..."
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+            />
+
+            <div className="flex gap-4">
+              <button 
+                onClick={handleSave}
+                className="flex-1 bg-emerald-600 text-white py-4 rounded-xl font-bold hover:bg-emerald-700 shadow-lg shadow-emerald-100 transition"
+              >
+                💾 ЗАПАЗИ В БАЗАТА
+              </button>
+              <button 
+                className="flex-1 bg-slate-800 text-white py-4 rounded-xl font-bold hover:bg-slate-900 shadow-lg shadow-slate-200 transition"
+                onClick={() => window.print()}
+              >
+                🖨️ ПРИНТИРАЙ PDF
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 export default InvoiceManager;
