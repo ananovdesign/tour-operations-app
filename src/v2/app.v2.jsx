@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { auth, db, appId, onAuthStateChanged, signOut } from './services/firebase'; 
-import { collection, doc, addDoc, setDoc, deleteDoc, onSnapshot, query, orderBy, where } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 
 // Страници
 import Dashboard from './pages/Dashboard';
@@ -9,7 +9,7 @@ import InvoicesPage from './pages/Invoices';
 import FinancialsPage from './pages/Financials';
 import DocumentsPage from './pages/Documents';
 
-// Компоненти
+// Компоненти и Константи
 import { TABS } from './constants/appConstants';
 import { NotificationDisplay, ConfirmationModal } from './components/ui/Feedback';
 import MarketingHubModule from '../MarketingHubModule';
@@ -22,10 +22,14 @@ const AppV2 = () => {
     const [notifications, setNotifications] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    // СТРУКТУРИ ДАННИ (Идентични със стария App.jsx)
+    // --- ПЪЛЕН СПИСЪК С ДАННИ (ОТ СТАРИЯ APP.JSX) ---
     const [reservations, setReservations] = useState([]);
-    const [financialEntries, setFinancialEntries] = useState([]);
-    const [invoices, setInvoices] = useState([]);
+    const [customers, setCustomers] = useState([]);
+    const [tours, setTours] = useState([]);
+    const [financialTransactions, setFinancialTransactions] = useState([]);
+    const [salesInvoices, setSalesInvoices] = useState([]);
+    const [expenseInvoices, setExpenseInvoices] = useState([]);
+    const [products, setProducts] = useState([]);
     const [tasks, setTasks] = useState([]);
 
     // Системни състояния
@@ -40,86 +44,69 @@ const AppV2 = () => {
     }, []);
 
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, (u) => {
+        const unsubscribeAuth = onAuthStateChanged(auth, (u) => {
             setUser(u);
             setUserId(u ? u.uid : null);
             setLoading(false);
         });
-        return () => unsubscribe();
+        return () => unsubscribeAuth();
     }, []);
 
-    // СЛУШАТЕЛИ - ИЗПОЛЗВАМЕ ТОЧНИТЕ ПЪТИЩА ОТ СТАРОТО ПРИЛОЖЕНИЕ
+    // --- СЛУШАТЕЛИ ЗА ВСИЧКИ КОЛЕКЦИИ (ТОЧНИ ИМЕНА ОТ СТАР И КЪМ APP.JSX) ---
     useEffect(() => {
         if (!userId) return;
-
         const base = `artifacts/${appId}/users/${userId}`;
 
-        // 1. Резервации (За метриките: Total Reservations, Profit, Stay)
-        const unsubRes = onSnapshot(collection(db, `${base}/reservations`), (s) => {
-            setReservations(s.docs.map(d => ({ id: d.id, ...d.data() })));
-        });
+        const unsubRes = onSnapshot(collection(db, `${base}/reservations`), (s) => setReservations(s.docs.map(d => ({ id: d.id, ...d.data() }))));
+        const unsubCust = onSnapshot(collection(db, `${base}/customers`), (s) => setCustomers(s.docs.map(d => ({ id: d.id, ...d.data() }))));
+        const unsubTours = onSnapshot(collection(db, `${base}/tours`), (s) => setTours(s.docs.map(d => ({ id: d.id, ...d.data() }))));
+        const unsubFin = onSnapshot(collection(db, `${base}/financialTransactions`), (s) => setFinancialTransactions(s.docs.map(d => ({ id: d.id, ...d.data() }))));
+        const unsubSales = onSnapshot(collection(db, `${base}/salesInvoices`), (s) => setSalesInvoices(s.docs.map(d => ({ id: d.id, ...d.data() }))));
+        const unsubExp = onSnapshot(collection(db, `${base}/expenseInvoices`), (s) => setExpenseInvoices(s.docs.map(d => ({ id: d.id, ...d.data() }))));
+        const unsubProd = onSnapshot(collection(db, `${base}/products`), (s) => setProducts(s.docs.map(d => ({ id: d.id, ...d.data() }))));
+        const unsubTasks = onSnapshot(collection(db, `${base}/tasks`), (s) => setTasks(s.docs.map(d => ({ id: d.id, ...d.data() }))));
 
-        // 2. Финанси (За Financial Overview: Income, Expenses, Balances)
-        const unsubFin = onSnapshot(collection(db, `${base}/financials`), (s) => {
-            setFinancialEntries(s.docs.map(d => ({ id: d.id, ...d.data() })));
-        });
-
-        // 3. Фактури (За Invoice Health: Unpaid, Overdue)
-        const unsubInv = onSnapshot(collection(db, `${base}/invoices`), (s) => {
-            setInvoices(s.docs.map(d => ({ id: d.id, ...d.data() })));
-        });
-
-        // 4. Задачи
-        const unsubTasks = onSnapshot(collection(db, `${base}/tasks`), (s) => {
-            setTasks(s.docs.map(d => ({ id: d.id, ...d.data() })));
-        });
-
-        return () => { unsubRes(); unsubFin(); unsubInv(); unsubTasks(); };
+        return () => {
+            unsubRes(); unsubCust(); unsubTours(); unsubFin();
+            unsubSales(); unsubExp(); unsubProd(); unsubTasks();
+        };
     }, [userId]);
 
     const renderContent = () => {
-        const commonProps = { 
-            userId, db, appId, addNotification, setTab,
-            reservations, financialEntries, invoices, tasks,
+        const props = { 
+            userId, db, addNotification, setTab, 
+            reservations, customers, tours, financialTransactions, 
+            salesInvoices, expenseInvoices, products, tasks,
             setShowConfirmModal, setConfirmMessage, setConfirmAction 
         };
 
         switch (tab) {
-            case TABS.DASHBOARD: return <Dashboard {...commonProps} />;
-            case TABS.RESERVATIONS: return <ReservationsPage {...commonProps} />;
-            case TABS.INVOICES: return <InvoicesPage {...commonProps} />;
-            case TABS.FINANCIALS: return <FinancialsPage {...commonProps} />;
-            case TABS.TASKS: return <TaskManagementModule isAuthReady={!!user} {...commonProps} />;
-            case TABS.MARKETING: return <MarketingHubModule isAuthReady={!!user} {...commonProps} />;
-            default: return <Dashboard {...commonProps} />;
+            case TABS.DASHBOARD: return <Dashboard {...props} />;
+            case TABS.RESERVATIONS: return <ReservationsPage {...props} />;
+            case TABS.INVOICES: return <InvoicesPage {...props} />;
+            case TABS.FINANCIALS: return <FinancialsPage {...props} />;
+            case TABS.TASKS: return <TaskManagementModule isAuthReady={!!user} {...props} />;
+            case TABS.MARKETING: return <MarketingHubModule isAuthReady={!!user} {...props} />;
+            default: return <Dashboard {...props} />;
         }
     };
 
-    if (loading) return <div className="h-screen flex items-center justify-center font-bold">Зареждане...</div>;
-    if (!user) return <div className="h-screen flex items-center justify-center font-bold text-red-600 uppercase">Влезте в системата</div>;
+    if (loading) return <div className="h-screen flex items-center justify-center">Синхронизиране с Firebase...</div>;
+    if (!user) return <div className="h-screen flex items-center justify-center font-bold text-red-600">МОЛЯ, ВЛЕЗТЕ В СИСТЕМАТА</div>;
 
     return (
         <div className="flex h-screen bg-gray-50 overflow-hidden font-sans">
             <NotificationDisplay notifications={notifications} onDismiss={(id) => setNotifications(n => n.filter(x => x.id !== id))} />
-            
-            <aside className="w-64 bg-white border-r border-gray-200 flex flex-col z-20">
-                <div className="p-6 border-b text-center">
-                    <img src="../Logo.png" alt="Logo" className="h-10 mx-auto" />
-                </div>
+            <aside className="w-64 bg-white border-r flex flex-col z-20">
+                <div className="p-6 border-b text-center"><img src="../Logo.png" alt="Logo" className="h-10 mx-auto" /></div>
                 <nav className="flex-1 p-4 space-y-1">
-                    {Object.values(TABS).map((t) => (
-                        <button key={t} onClick={() => setTab(t)} className={`w-full text-left px-4 py-3 rounded-xl transition ${tab === t ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-600 hover:bg-gray-50'}`}>
-                            <span className="font-semibold text-sm">{t}</span>
-                        </button>
+                    {Object.values(TABS).map(t => (
+                        <button key={t} onClick={() => setTab(t)} className={`w-full text-left px-4 py-2 rounded-lg transition ${tab === t ? 'bg-blue-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-50'}`}>{t}</button>
                     ))}
                 </nav>
-                <div className="p-4 border-t bg-gray-50">
-                    <button onClick={() => signOut(auth)} className="w-full bg-red-50 text-red-600 p-2 rounded-lg font-bold text-sm">Изход</button>
-                </div>
+                <div className="p-4 border-t bg-gray-50"><button onClick={() => signOut(auth)} className="w-full bg-red-50 text-red-600 p-2 rounded-lg font-bold">Изход</button></div>
             </aside>
-
-            <main className="flex-1 overflow-y-auto p-8">{renderContent()}</main>
-            
+            <main className="flex-1 overflow-y-auto bg-gray-50">{renderContent()}</main>
             <ConfirmationModal show={showConfirmModal} message={confirmMessage} onConfirm={() => { confirmAction?.(); setShowConfirmModal(false); }} onCancel={() => setShowConfirmModal(false)} />
         </div>
     );
