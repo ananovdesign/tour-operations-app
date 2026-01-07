@@ -1,21 +1,21 @@
 import React, { useState, useEffect } from 'react';
-// Импортиране на услуги и компоненти
 import { dbService } from './services/dbService';
 
-// Импортиране на отделните модули (Увери се, че файловете съществуват в src/v2/modules/)
+// КОРИГИРАНИ ПЪТИЩА - търсим файловете в основната папка /src/
 import ReservationsManager from './modules/ReservationsManager';
 import InvoiceManager from './modules/InvoiceManager';
 import BusTourManager from './modules/BusTourManager';
 import FinancialDashboard from './modules/FinancialDashboard';
-import MarketingHubModule from './modules/MarketingHubModule';
-import TaskManagementModule from './modules/TaskManagementModule';
+
+// Тези два файла са в /src/, затова излизаме едно ниво нагоре от /v2/
+import MarketingHubModule from '../MarketingHubModule.jsx'; 
+import TaskManagementModule from '../TaskManagementModule.jsx';
 
 const AppV2 = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // Зареждане на финансови данни за Dashboard-а
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
@@ -42,7 +42,6 @@ const AppV2 = () => {
 
   return (
     <div className="flex min-h-screen bg-slate-50 font-sans antialiased">
-      {/* СТРАНИЧНО МЕНЮ (SIDEBAR) */}
       <aside className="w-72 bg-slate-900 text-white p-6 shadow-2xl flex flex-col fixed h-full">
         <div className="mb-10 text-center">
           <h2 className="text-2xl font-bold tracking-tight">DYNAMEX <span className="text-blue-500">v2</span></h2>
@@ -67,51 +66,30 @@ const AppV2 = () => {
 
         <div className="mt-auto pt-6 border-t border-slate-800 text-center">
           <p className="text-xs text-slate-500">Курс: 1.95583 BGN</p>
-          <p className="text-[10px] text-slate-600 mt-1 italic italic">Data Backup: Active</p>
         </div>
       </aside>
 
-      {/* ОСНОВНА ЧАСТ */}
       <main className="flex-1 ml-72 p-10">
-        {/* Хедър на страницата */}
         <header className="mb-8 flex justify-between items-center bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
           <div>
             <h1 className="text-3xl font-extrabold text-slate-800">
               {menuItems.find(i => i.id === activeTab)?.label.split(' ').slice(1).join(' ')}
             </h1>
-            <p className="text-slate-500 text-sm">Управление на бизнес процеси в реално време</p>
           </div>
-          <div className="flex gap-4">
-            <div className="text-right">
-              <p className="text-xs text-slate-400 uppercase font-bold">Текуща валута</p>
-              <p className="text-lg font-bold text-emerald-600">EURO (EUR)</p>
-            </div>
+          <div className="text-right">
+            <p className="text-xs text-slate-400 uppercase font-bold">Текуща валута</p>
+            <p className="text-lg font-bold text-emerald-600">EURO (EUR)</p>
           </div>
         </header>
 
-        {/* ДИНАМИЧНО СЪДЪРЖАНИЕ */}
         <div className="animate-fadeIn">
-          {activeTab === 'dashboard' && (
-            <div className="space-y-6">
-              <FinancialDashboard invoices={invoices} />
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 h-64 flex items-center justify-center text-slate-400 italic">
-                   Графики на продажбите (в процес на разработка)
-                </div>
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-                   <h3 className="font-bold mb-4">Последни задачи</h3>
-                   <TaskManagementModule limit={5} />
-                </div>
-              </div>
-            </div>
-          )}
-
+          {activeTab === 'dashboard' && <FinancialDashboard invoices={invoices} />}
           {activeTab === 'reservations' && <ReservationsManager />}
           {activeTab === 'busTours' && <BusTourManager />}
           {activeTab === 'financial' && <FinancialDashboard invoices={invoices} />}
           {activeTab === 'documents' && <InvoiceManager />}
-          {activeTab === 'marketing' && <MarketingHubModule />}
-          {activeTab === 'tasks' && <TaskManagementModule />}
+          {activeTab === 'marketing' && <MarketingHubModule db={dbService.db} />}
+          {activeTab === 'tasks' && <TaskManagementModule db={dbService.db} />}
         </div>
       </main>
     </div>
