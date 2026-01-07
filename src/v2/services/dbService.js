@@ -1,4 +1,5 @@
-import { db } from '../firebase'; // Увери се, че пътят е коректен спрямо src/v2/
+// src/v2/services/dbService.js
+import { db } from '../../firebase'; // Трябва да са две точки (../../), за да се върне в папката src
 import { 
   collection, 
   addDoc, 
@@ -32,16 +33,21 @@ export const dbService = {
 
   // Функция за вземане на документи с интелигентно превалутиране
   getDocuments: async (collectionName) => {
-    const q = query(collection(db, collectionName));
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => {
-      const data = doc.data();
-      // Ако е стар документ (преди 2026), го маркираме за визуализация в Лева
-      return { 
-        id: doc.id, 
-        ...data,
-        isLegacy: !data.v2 
-      };
-    });
+    try {
+      const q = query(collection(db, collectionName));
+      const querySnapshot = await getDocs(q);
+      return querySnapshot.docs.map(doc => {
+        const data = doc.data();
+        // Ако е стар документ (преди 2026), го маркираме за визуализация в Лева
+        return { 
+          id: doc.id, 
+          ...data,
+          isLegacy: !data.v2 
+        };
+      });
+    } catch (e) {
+      console.error("Грешка при четене от Firestore: ", e);
+      return [];
+    }
   }
 };
