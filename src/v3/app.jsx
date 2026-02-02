@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import Reservations from './modules/Reservations/Reservations';
+import { auth } from '../firebase'; // За да вземем реалния потребител
 import { 
   LayoutDashboard, ClipboardList, Bus, Wallet, 
   FileText, Package, Files, Megaphone, CheckSquare, Settings 
