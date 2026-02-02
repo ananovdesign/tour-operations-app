@@ -22,11 +22,11 @@ const ReservationsPage = ({
     // Списък с уникални хотели за филтъра
     const uniqueHotels = useMemo(() => ['All', ...new Set(reservations.map(r => r.hotel).filter(Boolean))], [reservations]);
 
-    // --- ФИЛТРИРАНЕ И СОРТИРАНЕ ---
+    // --- ФИЛТРИРАНЕ И СОРТИРАНЕ (КОРИГИРАНО) ---
     const filteredReservations = useMemo(() => {
         return reservations.filter(res => {
             const matchesSearch = res.guestName?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                                 res.reservationNumber?.toString().includes(searchTerm);
+                                 res.reservationNumber?.toString().toLowerCase().includes(searchTerm.toLowerCase());
             const matchesHotel = hotelFilter === 'All' || res.hotel === hotelFilter;
             const matchesTourType = tourTypeFilter === 'All' || res.tourType === tourTypeFilter;
             const matchesStatus = statusFilter === 'All' || res.status === statusFilter;
@@ -36,7 +36,12 @@ const ReservationsPage = ({
                                 (!dateRange.end || resDate <= new Date(dateRange.end));
 
             return matchesSearch && matchesHotel && matchesTourType && matchesStatus && matchesDate;
-        }).sort((a, b) => Number(b.reservationNumber) - Number(a.reservationNumber)); 
+        }).sort((a, b) => {
+            // Премахваме всички не-цифрови символи (напр. "DYT100291" -> 100291)
+            const numA = parseInt(a.reservationNumber?.toString().replace(/\D/g, '')) || 0;
+            const numB = parseInt(b.reservationNumber?.toString().replace(/\D/g, '')) || 0;
+            return numB - numA; // Най-големите (най-новите) излизат първи
+        }); 
     }, [reservations, searchTerm, hotelFilter, tourTypeFilter, statusFilter, dateRange]);
 
     const openModal = (res = null) => {
@@ -45,13 +50,16 @@ const ReservationsPage = ({
             setReservationForm(res);
         } else {
             setEditingReservation(null);
-            // Автоматично генериране на следващ номер
-            const nextResNumber = reservations.length > 0 
-                ? Math.max(...reservations.map(r => Number(r.reservationNumber) || 0)) + 1 
-                : 1001;
+            
+            // --- КОРЕКТНО ГЕНЕРИРАНЕ НА СЛЕДВАЩ НОМЕР ---
+            // Намираме най-голямото число в текущите резервации
+            const maxNumber = reservations.reduce((max, r) => {
+                const currentNum = parseInt(r.reservationNumber?.toString().replace(/\D/g, '')) || 0;
+                return currentNum > max ? currentNum : max;
+            }, 100118); // Базова стойност, ако списъкът е празен
             
             setReservationForm({
-                reservationNumber: nextResNumber,
+                reservationNumber: `DYT${maxNumber + 1}`,
                 hotel: '', guestName: '', checkIn: '', checkOut: '', 
                 tourType: 'Hotel', status: 'Pending', paymentStatus: 'Unpaid',
                 clientPrice: 0, providerPrice: 0, profit: 0,
@@ -63,7 +71,6 @@ const ReservationsPage = ({
 
     const handleFormChange = (field, value) => {
         const updated = { ...reservationForm, [field]: value };
-        // Автоматично изчисляване на печалба
         if (field === 'clientPrice' || field === 'providerPrice') {
             updated.profit = (Number(updated.clientPrice) || 0) - (Number(updated.providerPrice) || 0);
         }
