@@ -12,7 +12,7 @@ const ReservationsPage = ({
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
     const [selectedForPreview, setSelectedForPreview] = useState(null);
     
-    // --- ПЪЛЕН НАБОР ФИЛТРИ ---
+    // --- ФИЛТРИ ---
     const [searchTerm, setSearchTerm] = useState('');
     const [hotelFilter, setHotelFilter] = useState('All');
     const [tourTypeFilter, setTourTypeFilter] = useState('All');
@@ -22,7 +22,7 @@ const ReservationsPage = ({
     // Списък с уникални хотели за филтъра
     const uniqueHotels = useMemo(() => ['All', ...new Set(reservations.map(r => r.hotel).filter(Boolean))], [reservations]);
 
-    // --- ФИЛТРИРАНЕ И СОРТИРАНЕ (НАЙ-НОВИТЕ ОТГОРЕ) ---
+    // --- ФИЛТРИРАНЕ И СОРТИРАНЕ ---
     const filteredReservations = useMemo(() => {
         return reservations.filter(res => {
             const matchesSearch = res.guestName?.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -36,7 +36,7 @@ const ReservationsPage = ({
                                 (!dateRange.end || resDate <= new Date(dateRange.end));
 
             return matchesSearch && matchesHotel && matchesTourType && matchesStatus && matchesDate;
-        }).sort((a, b) => Number(b.reservationNumber) - Number(a.reservationNumber)); // Сортиране по номер DESC
+        }).sort((a, b) => Number(b.reservationNumber) - Number(a.reservationNumber)); 
     }, [reservations, searchTerm, hotelFilter, tourTypeFilter, statusFilter, dateRange]);
 
     const openModal = (res = null) => {
@@ -45,7 +45,11 @@ const ReservationsPage = ({
             setReservationForm(res);
         } else {
             setEditingReservation(null);
-            const nextResNumber = reservations.length > 0 ? Math.max(...reservations.map(r => Number(r.reservationNumber) || 0)) + 1 : 1001;
+            // Автоматично генериране на следващ номер
+            const nextResNumber = reservations.length > 0 
+                ? Math.max(...reservations.map(r => Number(r.reservationNumber) || 0)) + 1 
+                : 1001;
+            
             setReservationForm({
                 reservationNumber: nextResNumber,
                 hotel: '', guestName: '', checkIn: '', checkOut: '', 
@@ -59,6 +63,7 @@ const ReservationsPage = ({
 
     const handleFormChange = (field, value) => {
         const updated = { ...reservationForm, [field]: value };
+        // Автоматично изчисляване на печалба
         if (field === 'clientPrice' || field === 'providerPrice') {
             updated.profit = (Number(updated.clientPrice) || 0) - (Number(updated.providerPrice) || 0);
         }
@@ -107,7 +112,7 @@ const ReservationsPage = ({
                 </div>
             </div>
 
-            {/* --- ТАБЛИЦА С ПОДРЕДБАТА --- */}
+            {/* --- ТАБЛИЦА --- */}
             <div className="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full text-left">
@@ -115,11 +120,11 @@ const ReservationsPage = ({
                             <tr>
                                 <th className="px-6 py-4">№</th>
                                 <th className="px-6 py-4">Хотел</th>
-                                <th className="px-6 py-4">Lead Guest</th>
+                                <th className="px-6 py-4">Клиент</th>
                                 <th className="px-6 py-4">Дати</th>
                                 <th className="px-6 py-4">Статус</th>
                                 <th className="px-6 py-4">Плащане</th>
-                                <th className="px-6 py-4">Печалба</th>
+                                <th className="px-6 py-4 text-center">Печалба</th>
                                 <th className="px-6 py-4 text-right">Действия</th>
                             </tr>
                         </thead>
@@ -150,6 +155,7 @@ const ReservationsPage = ({
                                             <button onClick={() => { setPrintData(res); setTab('VoucherPrint'); }} className="p-2 text-blue-600 hover:bg-white rounded-lg shadow-sm sm:shadow-none" title="Ваучер"><Printer size={17} /></button>
                                             <button onClick={() => { setPrintData(res); setTab('CustomerContractPrint'); }} className="p-2 text-orange-600 hover:bg-white rounded-lg" title="Договор"><FileText size={17} /></button>
                                             <button onClick={() => openModal(res)} className="p-2 text-indigo-600 hover:bg-white rounded-lg"><Edit2 size={17} /></button>
+                                            <button onClick={() => handleDeleteReservation(res.id)} className="p-2 text-red-400 hover:text-red-600 hover:bg-white rounded-lg" title="Изтрий"><Trash2 size={17} /></button>
                                         </div>
                                     </td>
                                 </tr>
@@ -159,14 +165,14 @@ const ReservationsPage = ({
                 </div>
             </div>
 
-            {/* --- MODAL PREVIEW (БЪРЗ ПРЕГЛЕД) --- */}
+            {/* --- MODAL PREVIEW --- */}
             {isPreviewOpen && selectedForPreview && (
                 <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
                     <div className="bg-white rounded-[2.5rem] w-full max-w-xl shadow-2xl p-10 relative border border-indigo-50">
                         <button onClick={() => setIsPreviewOpen(false)} className="absolute top-6 right-6 p-2 hover:bg-gray-100 rounded-full transition-all text-gray-400"><X /></button>
                         <div className="space-y-6">
                             <div className="border-b pb-6">
-                                <span className="text-xs font-black text-indigo-500 uppercase tracking-widest">Резервация №</span>
+                                <span className="text-xs font-black text-indigo-500 uppercase tracking-widest">Детайли за резервация</span>
                                 <h3 className="text-4xl font-black text-gray-800">#{selectedForPreview.reservationNumber}</h3>
                             </div>
                             <div className="grid grid-cols-2 gap-y-8 gap-x-4">
@@ -194,7 +200,7 @@ const ReservationsPage = ({
                                     <p className="text-2xl font-black text-indigo-900">{Number(selectedForPreview.clientPrice).toFixed(2)} лв.</p>
                                 </div>
                                 <div className="text-right">
-                                    <p className="text-[10px] font-black text-indigo-400 uppercase">Печалба</p>
+                                    <p className="text-[10px] font-black text-indigo-400 uppercase">Марж</p>
                                     <p className="text-2xl font-black text-indigo-600">{Number(selectedForPreview.profit).toFixed(2)} лв.</p>
                                 </div>
                             </div>
@@ -207,7 +213,7 @@ const ReservationsPage = ({
                 </div>
             )}
 
-            {/* --- МОДАЛЕН ПРОЗОРЕЦ ЗА РЕДАКЦИЯ/НОВА (ВЕЧЕ СЪЩЕСТВУВАЩ) --- */}
+            {/* --- MODAL FORM --- */}
             {isModalOpen && (
                 <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex items-center justify-center p-4">
                     <div className="bg-white rounded-[2rem] w-full max-w-4xl shadow-2xl overflow-hidden overflow-y-auto max-h-[90vh]">
@@ -216,13 +222,13 @@ const ReservationsPage = ({
                                 <h3 className="text-2xl font-black text-gray-800">
                                     {editingReservation ? `Редакция на #${reservationForm.reservationNumber}` : 'Нова Резервация'}
                                 </h3>
-                                <p className="text-sm text-gray-500 font-medium">Попълнете детайли за договора и ваучера</p>
+                                <p className="text-sm text-gray-500 font-medium">Управление на данни за договор и ваучер</p>
                             </div>
                             <button onClick={() => setIsModalOpen(false)} className="p-3 hover:bg-white hover:shadow-md rounded-2xl transition-all"><X /></button>
                         </div>
                         
                         <form onSubmit={(e) => { handleReservationSubmit(e); setIsModalOpen(false); }} className="p-8 grid grid-cols-1 md:grid-cols-3 gap-8">
-                            {/* Секция 1: Клиент и Тур */}
+                            {/* Секция 1 */}
                             <div className="space-y-5">
                                 <h4 className="text-xs font-black text-indigo-500 uppercase tracking-widest flex items-center gap-2">
                                     <UserPlus size={14}/> Основна Информация
@@ -239,7 +245,7 @@ const ReservationsPage = ({
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="text-[10px] font-black text-gray-400 uppercase">Lead Guest Name</label>
+                                    <label className="text-[10px] font-black text-gray-400 uppercase">Име на гост (Lead)</label>
                                     <input type="text" className="w-full mt-1 p-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold" value={reservationForm.guestName} onChange={e => handleFormChange('guestName', e.target.value)} required />
                                 </div>
                                 <div>
@@ -252,10 +258,10 @@ const ReservationsPage = ({
                                 </div>
                             </div>
 
-                            {/* Секция 2: Детайли за Хотела */}
+                            {/* Секция 2 */}
                             <div className="space-y-5 border-x px-8 border-gray-100">
                                 <h4 className="text-xs font-black text-indigo-500 uppercase tracking-widest flex items-center gap-2">
-                                    <Filter size={14}/> Детайли на настаняване
+                                    <Filter size={14}/> Настаняване
                                 </h4>
                                 <input type="text" placeholder="Име на хотел" className="w-full p-3 bg-gray-50 border-none rounded-2xl font-bold" value={reservationForm.hotel} onChange={e => handleFormChange('hotel', e.target.value)} required />
                                 <div className="grid grid-cols-2 gap-3">
@@ -276,16 +282,16 @@ const ReservationsPage = ({
                                 </select>
                             </div>
 
-                            {/* Секция 3: Финанси */}
+                            {/* Секция 3 */}
                             <div className="space-y-5">
-                                <h4 className="text-xs font-black text-indigo-500 uppercase tracking-widest">Финанси и Плащане</h4>
+                                <h4 className="text-xs font-black text-indigo-500 uppercase tracking-widest">Финанси</h4>
                                 <div className="grid grid-cols-1 gap-4">
                                     <div>
                                         <label className="text-[10px] font-black text-gray-400 uppercase">Цена за клиент (BGN)</label>
                                         <input type="number" step="0.01" className="w-full p-3 bg-green-50 border-none rounded-2xl font-black text-green-700 text-xl" value={reservationForm.clientPrice} onChange={e => handleFormChange('clientPrice', e.target.value)} />
                                     </div>
                                     <div>
-                                        <label className="text-[10px] font-black text-gray-400 uppercase">Цена доставчик (BGN)</label>
+                                        <label className="text-[10px] font-black text-gray-400 uppercase">Цена към доставчик</label>
                                         <input type="number" step="0.01" className="w-full p-3 bg-red-50 border-none rounded-2xl font-bold text-red-700" value={reservationForm.providerPrice} onChange={e => handleFormChange('providerPrice', e.target.value)} />
                                     </div>
                                     <div className="flex justify-between items-center p-4 bg-indigo-900 rounded-2xl text-white">
