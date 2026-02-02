@@ -1,13 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { auth, db, appId, onAuthStateChanged, signOut } from './services/firebase'; 
-import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, addDoc, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 
 // Страници
 import Dashboard from './pages/Dashboard';
 import ReservationsPage from './pages/Reservations';
 import InvoicesPage from './pages/Invoices';
 import FinancialsPage from './pages/Financials';
-import DocumentsPage from './pages/Documents';
 
 // Компоненти и Константи
 import { TABS } from './constants/appConstants';
@@ -22,7 +21,7 @@ const AppV2 = () => {
     const [notifications, setNotifications] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    // --- ПЪЛЕН СПИСЪК С ДАННИ (ОТ СТАРИЯ APP.JSX) ---
+    // --- ДАННИ ОТ FIREBASE ---
     const [reservations, setReservations] = useState([]);
     const [customers, setCustomers] = useState([]);
     const [tours, setTours] = useState([]);
@@ -31,6 +30,14 @@ const AppV2 = () => {
     const [expenseInvoices, setExpenseInvoices] = useState([]);
     const [products, setProducts] = useState([]);
     const [tasks, setTasks] = useState([]);
+
+    // --- СЪСТОЯНИЯ ЗА ФОРМИТЕ (КРИТИЧНО ЗА РЕЗЕРВАЦИИТЕ) ---
+    const [editingReservation, setEditingReservation] = useState(null);
+    const [reservationForm, setReservationForm] = useState({
+        hotel: '', guestName: '', checkIn: '', checkOut: '', 
+        adults: 2, children: 0, status: 'Confirmed', profit: 0, totalNights: 0
+    });
+    const [printData, setPrintData] = useState(null);
 
     // Системни състояния
     const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -52,7 +59,7 @@ const AppV2 = () => {
         return () => unsubscribeAuth();
     }, []);
 
-    // --- СЛУШАТЕЛИ ЗА ВСИЧКИ КОЛЕКЦИИ (ТОЧНИ ИМЕНА ОТ СТАР И КЪМ APP.JSX) ---
+    // --- СЛУШАТЕЛИ ЗА FIREBASE ---
     useEffect(() => {
         if (!userId) return;
         const base = `artifacts/${appId}/users/${userId}`;
@@ -72,11 +79,47 @@ const AppV2 = () => {
         };
     }, [userId]);
 
+    // --- ФУНКЦИИ ЗА УПРАВЛЕНИЕ НА РЕЗЕРВАЦИИ ---
+    const handleReservationSubmit = async (e) => {
+        e.preventDefault();
+        const path = `artifacts/${appId}/users/${userId}/reservations`;
+        try {
+            if (editingReservation) {
+                await updateDoc(doc(db, path, editingReservation.id), reservationForm);
+                addNotification('Резервацията е обновена!');
+                setEditingReservation(null);
+            } else {
+                await addDoc(collection(db, path), reservationForm);
+                addNotification('Успешно добавена резервация!');
+            }
+            setReservationForm({ hotel: '', guestName: '', checkIn: '', checkOut: '', adults: 2, children: 0, status: 'Confirmed', profit: 0, totalNights: 0 });
+        } catch (error) {
+            addNotification('Грешка при запис!', 'error');
+        }
+    };
+
+    const handleDeleteReservation = (id) => {
+        setConfirmMessage('Сигурни ли сте, че искате да изтриете тази резервация?');
+        setConfirmAction(() => async () => {
+            try {
+                await deleteDoc(doc(db, `artifacts/${appId}/users/${userId}/reservations`, id));
+                addNotification('Резервацията е изтрита!');
+            } catch (error) {
+                addNotification('Грешка при изтриване!', 'error');
+            }
+        });
+        setShowConfirmModal(true);
+    };
+
     const renderContent = () => {
         const props = { 
             userId, db, addNotification, setTab, 
             reservations, customers, tours, financialTransactions, 
             salesInvoices, expenseInvoices, products, tasks,
+            reservationForm, setReservationForm,
+            editingReservation, setEditingReservation,
+            handleReservationSubmit, handleDeleteReservation,
+            setPrintData,
             setShowConfirmModal, setConfirmMessage, setConfirmAction 
         };
 
@@ -91,23 +134,52 @@ const AppV2 = () => {
         }
     };
 
-    if (loading) return <div className="h-screen flex items-center justify-center">Синхронизиране с Firebase...</div>;
+    if (loading) return <div className="h-screen flex items-center justify-center bg-white">Синхронизиране с Firebase...</div>;
     if (!user) return <div className="h-screen flex items-center justify-center font-bold text-red-600">МОЛЯ, ВЛЕЗТЕ В СИСТЕМАТА</div>;
 
     return (
-        <div className="flex h-screen bg-gray-50 overflow-hidden font-sans">
+        <div className="flex h-screen bg-gray-50 overflow-hidden font-sans text-gray-900">
             <NotificationDisplay notifications={notifications} onDismiss={(id) => setNotifications(n => n.filter(x => x.id !== id))} />
-            <aside className="w-64 bg-white border-r flex flex-col z-20">
-                <div className="p-6 border-b text-center"><img src="../Logo.png" alt="Logo" className="h-10 mx-auto" /></div>
-                <nav className="flex-1 p-4 space-y-1">
+            
+            <aside className="w-64 bg-white border-r flex flex-col z-20 shadow-sm">
+                <div className="p-6 border-b flex justify-center">
+                    <img src="/Logo.png" alt="Logo" className="h-10 object-contain" />
+                </div>
+                <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
                     {Object.values(TABS).map(t => (
-                        <button key={t} onClick={() => setTab(t)} className={`w-full text-left px-4 py-2 rounded-lg transition ${tab === t ? 'bg-blue-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-50'}`}>{t}</button>
+                        <button 
+                            key={t} 
+                            onClick={() => setTab(t)} 
+                            className={`w-full text-left px-4 py-2.5 rounded-xl transition-all duration-200 font-medium ${
+                                tab === t 
+                                ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' 
+                                : 'text-gray-500 hover:bg-gray-100'
+                            }`}
+                        >
+                            {t}
+                        </button>
                     ))}
                 </nav>
-                <div className="p-4 border-t bg-gray-50"><button onClick={() => signOut(auth)} className="w-full bg-red-50 text-red-600 p-2 rounded-lg font-bold">Изход</button></div>
+                <div className="p-4 border-t bg-gray-50">
+                    <div className="mb-4 px-2 text-xs text-gray-400 truncate">{user.email}</div>
+                    <button onClick={() => signOut(auth)} className="w-full bg-red-50 text-red-600 p-2.5 rounded-xl font-bold hover:bg-red-100 transition-colors">
+                        Изход
+                    </button>
+                </div>
             </aside>
-            <main className="flex-1 overflow-y-auto bg-gray-50">{renderContent()}</main>
-            <ConfirmationModal show={showConfirmModal} message={confirmMessage} onConfirm={() => { confirmAction?.(); setShowConfirmModal(false); }} onCancel={() => setShowConfirmModal(false)} />
+
+            <main className="flex-1 overflow-y-auto relative">
+                <div className="p-8 max-w-7xl mx-auto">
+                    {renderContent()}
+                </div>
+            </main>
+
+            <ConfirmationModal 
+                show={showConfirmModal} 
+                message={confirmMessage} 
+                onConfirm={() => { confirmAction?.(); setShowConfirmModal(false); }} 
+                onCancel={() => setShowConfirmModal(false)} 
+            />
         </div>
     );
 };
