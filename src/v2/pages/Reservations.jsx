@@ -25,8 +25,12 @@ const ReservationsPage = ({
     // --- ФИЛТРИРАНЕ И СОРТИРАНЕ (КОРИГИРАНО) ---
     const filteredReservations = useMemo(() => {
         return reservations.filter(res => {
-            const matchesSearch = res.guestName?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                                 res.reservationNumber?.toString().toLowerCase().includes(searchTerm.toLowerCase());
+            const name = res.guestName || '';
+            const num = res.reservationNumber || '';
+            
+            const matchesSearch = name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                                 num.toString().toLowerCase().includes(searchTerm.toLowerCase());
+            
             const matchesHotel = hotelFilter === 'All' || res.hotel === hotelFilter;
             const matchesTourType = tourTypeFilter === 'All' || res.tourType === tourTypeFilter;
             const matchesStatus = statusFilter === 'All' || res.status === statusFilter;
@@ -37,10 +41,9 @@ const ReservationsPage = ({
 
             return matchesSearch && matchesHotel && matchesTourType && matchesStatus && matchesDate;
         }).sort((a, b) => {
-            // Премахваме всички не-цифрови символи (напр. "DYT100291" -> 100291)
             const numA = parseInt(a.reservationNumber?.toString().replace(/\D/g, '')) || 0;
             const numB = parseInt(b.reservationNumber?.toString().replace(/\D/g, '')) || 0;
-            return numB - numA; // Най-големите (най-новите) излизат първи
+            return numB - numA;
         }); 
     }, [reservations, searchTerm, hotelFilter, tourTypeFilter, statusFilter, dateRange]);
 
@@ -50,13 +53,10 @@ const ReservationsPage = ({
             setReservationForm(res);
         } else {
             setEditingReservation(null);
-            
-            // --- КОРЕКТНО ГЕНЕРИРАНЕ НА СЛЕДВАЩ НОМЕР ---
-            // Намираме най-голямото число в текущите резервации
             const maxNumber = reservations.reduce((max, r) => {
                 const currentNum = parseInt(r.reservationNumber?.toString().replace(/\D/g, '')) || 0;
                 return currentNum > max ? currentNum : max;
-            }, 100118); // Базова стойност, ако списъкът е празен
+            }, 100118);
             
             setReservationForm({
                 reservationNumber: `DYT${maxNumber + 1}`,
@@ -140,29 +140,36 @@ const ReservationsPage = ({
                                 <tr key={res.id} className="hover:bg-indigo-50/30 transition-colors group">
                                     <td className="px-6 py-4 font-mono font-bold text-indigo-600">#{res.reservationNumber}</td>
                                     <td className="px-6 py-4 font-bold text-gray-800">{res.hotel}</td>
-                                    <td className="px-6 py-4 text-gray-600 font-medium">{res.guestName}</td>
+                                    <td className="px-6 py-4 text-gray-600 font-medium">{res.guestName || "—"}</td>
                                     <td className="px-6 py-4 text-[11px] leading-tight">
                                         <div className="font-bold">{res.checkIn}</div>
                                         <div className="text-gray-400">{res.checkOut}</div>
                                     </td>
                                     <td className="px-6 py-4">
                                         <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase ${
-                                            res.status === 'Confirmed' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+                                            res.status === 'Confirmed' ? 'bg-green-100 text-green-700' : 
+                                            res.status === 'Cancelled' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'
                                         }`}>{res.status}</span>
                                     </td>
                                     <td className="px-6 py-4">
-                                        <span className={`text-[10px] font-bold ${res.paymentStatus === 'Paid' ? 'text-green-600' : 'text-red-500'}`}>
-                                            ● {res.paymentStatus}
+                                        <span className={`text-[10px] font-bold flex items-center gap-1 ${
+                                            res.paymentStatus === 'Paid' ? 'text-green-600' : 
+                                            res.paymentStatus === 'Partially Paid' ? 'text-orange-500' : 'text-red-500'
+                                        }`}>
+                                            <span className="text-lg">●</span> {
+                                                res.paymentStatus === 'Paid' ? 'Платено' : 
+                                                res.paymentStatus === 'Partially Paid' ? 'Частично' : 'Неплатено'
+                                            }
                                         </span>
                                     </td>
                                     <td className="px-6 py-4 font-black text-gray-900 bg-gray-50/30 text-center">{Number(res.profit || 0).toFixed(2)} лв.</td>
                                     <td className="px-6 py-4 text-right">
                                         <div className="flex justify-end gap-1">
-                                            <button onClick={() => openPreview(res)} className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-white rounded-lg transition-all" title="Бърз преглед"><Eye size={17} /></button>
-                                            <button onClick={() => { setPrintData(res); setTab('VoucherPrint'); }} className="p-2 text-blue-600 hover:bg-white rounded-lg shadow-sm sm:shadow-none" title="Ваучер"><Printer size={17} /></button>
-                                            <button onClick={() => { setPrintData(res); setTab('CustomerContractPrint'); }} className="p-2 text-orange-600 hover:bg-white rounded-lg" title="Договор"><FileText size={17} /></button>
+                                            <button onClick={() => openPreview(res)} className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-white rounded-lg transition-all"><Eye size={17} /></button>
+                                            <button onClick={() => { setPrintData(res); setTab('VoucherPrint'); }} className="p-2 text-blue-600 hover:bg-white rounded-lg"><Printer size={17} /></button>
+                                            <button onClick={() => { setPrintData(res); setTab('CustomerContractPrint'); }} className="p-2 text-orange-600 hover:bg-white rounded-lg"><FileText size={17} /></button>
                                             <button onClick={() => openModal(res)} className="p-2 text-indigo-600 hover:bg-white rounded-lg"><Edit2 size={17} /></button>
-                                            <button onClick={() => handleDeleteReservation(res.id)} className="p-2 text-red-400 hover:text-red-600 hover:bg-white rounded-lg" title="Изтрий"><Trash2 size={17} /></button>
+                                            <button onClick={() => handleDeleteReservation(res.id)} className="p-2 text-red-400 hover:text-red-600 hover:bg-white rounded-lg"><Trash2 size={17} /></button>
                                         </div>
                                     </td>
                                 </tr>
@@ -189,7 +196,7 @@ const ReservationsPage = ({
                                 </div>
                                 <div>
                                     <label className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">Клиент</label>
-                                    <p className="text-lg font-bold text-gray-800 leading-tight">{selectedForPreview.guestName}</p>
+                                    <p className="text-lg font-bold text-gray-800 leading-tight">{selectedForPreview.guestName || "—"}</p>
                                 </div>
                                 <div>
                                     <label className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">Престой</label>
@@ -198,7 +205,10 @@ const ReservationsPage = ({
                                 </div>
                                 <div>
                                     <label className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">Статус Плащане</label>
-                                    <p className={`font-black uppercase text-sm ${selectedForPreview.paymentStatus === 'Paid' ? 'text-green-600' : 'text-red-500'}`}>{selectedForPreview.paymentStatus}</p>
+                                    <p className={`font-black uppercase text-sm ${
+                                        selectedForPreview.paymentStatus === 'Paid' ? 'text-green-600' : 
+                                        selectedForPreview.paymentStatus === 'Partially Paid' ? 'text-orange-500' : 'text-red-500'
+                                    }`}>{selectedForPreview.paymentStatus}</p>
                                 </div>
                             </div>
                             <div className="bg-indigo-50 p-6 rounded-3xl flex justify-between items-center">
@@ -212,7 +222,7 @@ const ReservationsPage = ({
                                 </div>
                             </div>
                             <div className="pt-2 flex gap-3">
-                                <button onClick={() => { setIsPreviewOpen(false); openModal(selectedForPreview); }} className="flex-1 bg-indigo-600 text-white py-4 rounded-2xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100">РЕДАКТИРАЙ</button>
+                                <button onClick={() => { setIsPreviewOpen(false); openModal(selectedForPreview); }} className="flex-1 bg-indigo-600 text-white py-4 rounded-2xl font-bold hover:bg-indigo-700 transition-all shadow-lg">РЕДАКТИРАЙ</button>
                                 <button onClick={() => setIsPreviewOpen(false)} className="px-8 py-4 bg-gray-100 text-gray-500 rounded-2xl font-bold hover:bg-gray-200 transition-all">ЗАТВОРИ</button>
                             </div>
                         </div>
@@ -229,13 +239,12 @@ const ReservationsPage = ({
                                 <h3 className="text-2xl font-black text-gray-800">
                                     {editingReservation ? `Редакция на #${reservationForm.reservationNumber}` : 'Нова Резервация'}
                                 </h3>
-                                <p className="text-sm text-gray-500 font-medium">Управление на данни за договор и ваучер</p>
+                                <p className="text-sm text-gray-500 font-medium">Управление на данни</p>
                             </div>
                             <button onClick={() => setIsModalOpen(false)} className="p-3 hover:bg-white hover:shadow-md rounded-2xl transition-all"><X /></button>
                         </div>
                         
                         <form onSubmit={(e) => { handleReservationSubmit(e); setIsModalOpen(false); }} className="p-8 grid grid-cols-1 md:grid-cols-3 gap-8">
-                            {/* Секция 1 */}
                             <div className="space-y-5">
                                 <h4 className="text-xs font-black text-indigo-500 uppercase tracking-widest flex items-center gap-2">
                                     <UserPlus size={14}/> Основна Информация
@@ -265,7 +274,6 @@ const ReservationsPage = ({
                                 </div>
                             </div>
 
-                            {/* Секция 2 */}
                             <div className="space-y-5 border-x px-8 border-gray-100">
                                 <h4 className="text-xs font-black text-indigo-500 uppercase tracking-widest flex items-center gap-2">
                                     <Filter size={14}/> Настаняване
@@ -289,7 +297,6 @@ const ReservationsPage = ({
                                 </select>
                             </div>
 
-                            {/* Секция 3 */}
                             <div className="space-y-5">
                                 <h4 className="text-xs font-black text-indigo-500 uppercase tracking-widest">Финанси</h4>
                                 <div className="grid grid-cols-1 gap-4">
@@ -298,7 +305,7 @@ const ReservationsPage = ({
                                         <input type="number" step="0.01" className="w-full p-3 bg-green-50 border-none rounded-2xl font-black text-green-700 text-xl" value={reservationForm.clientPrice} onChange={e => handleFormChange('clientPrice', e.target.value)} />
                                     </div>
                                     <div>
-                                        <label className="text-[10px] font-black text-gray-400 uppercase">Цена към доставчик</label>
+                                        <label className="text-[10px] font-black text-gray-400 uppercase">Цена доставчик</label>
                                         <input type="number" step="0.01" className="w-full p-3 bg-red-50 border-none rounded-2xl font-bold text-red-700" value={reservationForm.providerPrice} onChange={e => handleFormChange('providerPrice', e.target.value)} />
                                     </div>
                                     <div className="flex justify-between items-center p-4 bg-indigo-900 rounded-2xl text-white">
@@ -314,7 +321,7 @@ const ReservationsPage = ({
                             </div>
 
                             <div className="col-span-full pt-8 flex gap-4">
-                                <button type="submit" className="flex-1 bg-indigo-600 text-white py-4 rounded-2xl font-black text-lg hover:bg-indigo-700 shadow-xl shadow-indigo-100 transition-all">
+                                <button type="submit" className="flex-1 bg-indigo-600 text-white py-4 rounded-2xl font-black text-lg hover:bg-indigo-700 shadow-xl transition-all">
                                     {editingReservation ? 'ОБНОВИ РЕЗЕРВАЦИЯТА' : 'ЗАПИШИ РЕЗЕРВАЦИЯТА'}
                                 </button>
                             </div>
