@@ -1,331 +1,300 @@
 import React, { useState, useMemo } from 'react';
-import { Edit2, Trash2, Printer, PlusCircle, Search, FileText, X, UserPlus, Filter, Eye } from 'lucide-react';
+import { Edit2, Trash2, Printer, PlusCircle, Search, FileText, X, UserPlus, Filter, Eye, ChevronDown, ChevronUp } from 'lucide-react';
 
 const ReservationsPage = ({
-    reservations, customers,
-    reservationForm, setReservationForm,
-    editingReservation, setEditingReservation,
-    handleReservationSubmit, handleDeleteReservation,
-    setTab, setPrintData
-}) => {
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-    const [selectedForPreview, setSelectedForPreview] = useState(null);
+    // Данни от основния компонент
+    reservations, 
+    financialTransactions,
+    customers,
     
-    // --- ФИЛТРИ ---
-    const [searchTerm, setSearchTerm] = useState('');
-    const [hotelFilter, setHotelFilter] = useState('All');
-    const [tourTypeFilter, setTourTypeFilter] = useState('All');
-    const [statusFilter, setStatusFilter] = useState('All');
-    const [dateRange, setDateRange] = useState({ start: '', end: '' });
+    // Филтри (съвпадащи с твоя стар код)
+    filterReservationStatus, 
+    filterReservationHotel, 
+    filterReservationTourType,
+    filterReservationCheckInDate,
+    filterReservationCheckOutDate,
+    searchReservationTerm,
+    
+    // Функции за управление
+    handleReservationFilterChange,
+    setSearchReservationTerm,
+    resetReservationFilters,
+    handleEditReservation,
+    handleDeleteReservation,
+    
+    // Навигация и Принтиране
+    setActiveTab,
+    setReservationToGenerateContract,
+    setReservationToPrintVoucher
+}) => {
+    const [expandedReservationId, setExpandedReservationId] = useState(null);
+    const [viewingReservation, setViewingReservation] = useState(null);
 
-    // Списък с уникални хотели за филтъра
-    const uniqueHotels = useMemo(() => ['All', ...new Set(reservations.map(r => r.hotel).filter(Boolean))], [reservations]);
-
-    // --- ФИЛТРИРАНЕ И СОРТИРАНЕ (КОРИГИРАНО) ---
+    // Логика за филтриране (базирана на твоя стар код)
     const filteredReservations = useMemo(() => {
         return reservations.filter(res => {
-            const name = res.guestName || '';
-            const num = res.reservationNumber || '';
+            const matchesStatus = filterReservationStatus === 'All' || res.status === filterReservationStatus;
+            const matchesHotel = !filterReservationHotel || res.hotel.toLowerCase().includes(filterReservationHotel.toLowerCase());
+            const matchesTourType = filterReservationTourType === 'All' || res.tourType === filterReservationTourType;
             
-            const matchesSearch = name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                                 num.toString().toLowerCase().includes(searchTerm.toLowerCase());
+            const checkInMatch = !filterReservationCheckInDate || new Date(res.checkIn) >= new Date(filterReservationCheckInDate);
+            const checkOutMatch = !filterReservationCheckOutDate || new Date(res.checkOut) <= new Date(filterReservationCheckOutDate);
             
-            const matchesHotel = hotelFilter === 'All' || res.hotel === hotelFilter;
-            const matchesTourType = tourTypeFilter === 'All' || res.tourType === tourTypeFilter;
-            const matchesStatus = statusFilter === 'All' || res.status === statusFilter;
-            
-            const resDate = new Date(res.checkIn);
-            const matchesDate = (!dateRange.start || resDate >= new Date(dateRange.start)) &&
-                                (!dateRange.end || resDate <= new Date(dateRange.end));
+            const guestName = res.tourists && res.tourists.length > 0 
+                ? `${res.tourists[0].firstName} ${res.tourists[0].familyName}`.toLowerCase() 
+                : '';
+            const matchesSearch = !searchReservationTerm || guestName.includes(searchReservationTerm.toLowerCase());
 
-            return matchesSearch && matchesHotel && matchesTourType && matchesStatus && matchesDate;
-        }).sort((a, b) => {
-            const numA = parseInt(a.reservationNumber?.toString().replace(/\D/g, '')) || 0;
-            const numB = parseInt(b.reservationNumber?.toString().replace(/\D/g, '')) || 0;
-            return numB - numA;
-        }); 
-    }, [reservations, searchTerm, hotelFilter, tourTypeFilter, statusFilter, dateRange]);
-
-    const openModal = (res = null) => {
-        if (res) {
-            setEditingReservation(res);
-            setReservationForm(res);
-        } else {
-            setEditingReservation(null);
-            const maxNumber = reservations.reduce((max, r) => {
-                const currentNum = parseInt(r.reservationNumber?.toString().replace(/\D/g, '')) || 0;
-                return currentNum > max ? currentNum : max;
-            }, 100118);
-            
-            setReservationForm({
-                reservationNumber: `DYT${maxNumber + 1}`,
-                hotel: '', guestName: '', checkIn: '', checkOut: '', 
-                tourType: 'Hotel', status: 'Pending', paymentStatus: 'Unpaid',
-                clientPrice: 0, providerPrice: 0, profit: 0,
-                adults: 2, children: 0, mealPlan: 'BB'
-            });
-        }
-        setIsModalOpen(true);
-    };
-
-    const handleFormChange = (field, value) => {
-        const updated = { ...reservationForm, [field]: value };
-        if (field === 'clientPrice' || field === 'providerPrice') {
-            updated.profit = (Number(updated.clientPrice) || 0) - (Number(updated.providerPrice) || 0);
-        }
-        setReservationForm(updated);
-    };
-
-    const openPreview = (res) => {
-        setSelectedForPreview(res);
-        setIsPreviewOpen(true);
-    };
+            return matchesStatus && matchesHotel && matchesTourType && checkInMatch && checkOutMatch && matchesSearch;
+        });
+    }, [reservations, filterReservationStatus, filterReservationHotel, filterReservationTourType, filterReservationCheckInDate, filterReservationCheckOutDate, searchReservationTerm]);
 
     return (
         <div className="space-y-6 p-2">
+            {/* Хедър */}
             <div className="flex justify-between items-center">
-                <h2 className="text-2xl font-black text-gray-800 uppercase tracking-tight">Резервационна Система</h2>
-                <button onClick={() => openModal()} className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-lg transition-all text-sm">
-                    <PlusCircle size={18} /> Нова Резервация
+                <h2 className="text-3xl font-black text-gray-800 uppercase tracking-tight">Hotel Reservations</h2>
+                <button 
+                    onClick={() => setActiveTab('addReservation')} 
+                    className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-lg transition-all"
+                >
+                    <PlusCircle size={18} /> New Reservation
                 </button>
             </div>
 
-            {/* --- ПАНЕЛ С ФИЛТРИ --- */}
-            <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 grid grid-cols-1 md:grid-cols-5 gap-4">
-                <div className="relative">
-                    <Search className="absolute left-3 top-3 text-gray-400" size={18} />
-                    <input type="text" placeholder="Търси № или име..." className="w-full pl-10 pr-4 py-2.5 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+            {/* Панел с филтри (Твоята логика + нов дизайн) */}
+            <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4">
+                <div>
+                    <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Status</label>
+                    <select name="filterReservationStatus" value={filterReservationStatus} onChange={handleReservationFilterChange} className="w-full mt-1 p-2.5 bg-gray-50 border-none rounded-xl text-sm focus:ring-2 focus:ring-green-500">
+                        <option value="All">All Statuses</option>
+                        <option value="Pending">Pending</option>
+                        <option value="Confirmed">Confirmed</option>
+                        <option value="Cancelled">Cancelled</option>
+                    </select>
                 </div>
-                <select className="p-2.5 border rounded-xl text-sm" value={hotelFilter} onChange={e => setHotelFilter(e.target.value)}>
-                    <option value="All">Хотел (Всички)</option>
-                    {uniqueHotels.filter(h => h !== 'All').map(h => <option key={h} value={h}>{h}</option>)}
-                </select>
-                <select className="p-2.5 border rounded-xl text-sm" value={tourTypeFilter} onChange={e => setTourTypeFilter(e.target.value)}>
-                    <option value="All">Тип (Всички)</option>
-                    <option value="Hotel">Hotel Only</option>
-                    <option value="Bus Tour">Bus Tour</option>
-                    <option value="Flight">Flight</option>
-                </select>
-                <select className="p-2.5 border rounded-xl text-sm" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
-                    <option value="All">Статус (Всички)</option>
-                    <option value="Confirmed">Confirmed</option>
-                    <option value="Pending">Pending</option>
-                    <option value="Cancelled">Cancelled</option>
-                </select>
-                <div className="flex gap-2">
-                    <input type="date" className="w-full p-2.5 border rounded-xl text-xs" value={dateRange.start} onChange={e => setDateRange({...dateRange, start: e.target.value})} />
-                    <input type="date" className="w-full p-2.5 border rounded-xl text-xs" value={dateRange.end} onChange={e => setDateRange({...dateRange, end: e.target.value})} />
+                <div>
+                    <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Hotel Name</label>
+                    <input type="text" name="filterReservationHotel" value={filterReservationHotel} onChange={handleReservationFilterChange} placeholder="Filter hotel..." className="w-full mt-1 p-2.5 bg-gray-50 border-none rounded-xl text-sm focus:ring-2 focus:ring-green-500" />
+                </div>
+                <div>
+                    <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Tour Type</label>
+                    <select name="filterReservationTourType" value={filterReservationTourType} onChange={handleReservationFilterChange} className="w-full mt-1 p-2.5 bg-gray-50 border-none rounded-xl text-sm focus:ring-2 focus:ring-green-500">
+                        <option value="All">All Types</option>
+                        <option value="PARTNER">PARTNER</option>
+                        <option value="HOTEL ONLY">HOTEL ONLY</option>
+                    </select>
+                </div>
+                <div>
+                    <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Check-in After</label>
+                    <input type="date" name="filterReservationCheckInDate" value={filterReservationCheckInDate} onChange={handleReservationFilterChange} className="w-full mt-1 p-2.5 bg-gray-50 border-none rounded-xl text-sm" />
+                </div>
+                <div>
+                    <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Check-out Before</label>
+                    <input type="date" name="filterReservationCheckOutDate" value={filterReservationCheckOutDate} onChange={handleReservationFilterChange} className="w-full mt-1 p-2.5 bg-gray-50 border-none rounded-xl text-sm" />
+                </div>
+                <div className="xl:col-span-1">
+                    <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Search Guest</label>
+                    <input type="text" value={searchReservationTerm} onChange={e => setSearchReservationTerm(e.target.value)} placeholder="Name..." className="w-full mt-1 p-2.5 bg-gray-50 border-none rounded-xl text-sm focus:ring-2 focus:ring-green-500" />
+                </div>
+                <div className="flex items-end">
+                    <button onClick={resetReservationFilters} className="w-full p-2.5 bg-gray-100 text-gray-500 rounded-xl text-xs font-bold hover:bg-gray-200 transition-all uppercase">Reset</button>
                 </div>
             </div>
 
-            {/* --- ТАБЛИЦА --- */}
+            {/* Таблица */}
             <div className="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full text-left">
                         <thead className="bg-gray-50 border-b border-gray-100 text-gray-400 text-[11px] font-black uppercase tracking-widest">
                             <tr>
-                                <th className="px-6 py-4">№</th>
-                                <th className="px-6 py-4">Хотел</th>
-                                <th className="px-6 py-4">Клиент</th>
-                                <th className="px-6 py-4">Дати</th>
-                                <th className="px-6 py-4">Статус</th>
-                                <th className="px-6 py-4">Плащане</th>
-                                <th className="px-6 py-4 text-center">Печалба</th>
-                                <th className="px-6 py-4 text-right">Действия</th>
+                                <th className="px-6 py-4">Number</th>
+                                <th className="px-6 py-4">Hotel</th>
+                                <th className="px-6 py-4">Lead Guest</th>
+                                <th className="px-6 py-4">Dates</th>
+                                <th className="px-6 py-4">Status</th>
+                                <th className="px-6 py-4">Payment</th>
+                                <th className="px-6 py-4 text-right">Profit</th>
+                                <th className="px-6 py-4 text-center">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-50">
-                            {filteredReservations.map(res => (
-                                <tr key={res.id} className="hover:bg-indigo-50/30 transition-colors group">
-                                    <td className="px-6 py-4 font-mono font-bold text-indigo-600">#{res.reservationNumber}</td>
-                                    <td className="px-6 py-4 font-bold text-gray-800">{res.hotel}</td>
-                                    <td className="px-6 py-4 text-gray-600 font-medium">{res.guestName || "—"}</td>
-                                    <td className="px-6 py-4 text-[11px] leading-tight">
-                                        <div className="font-bold">{res.checkIn}</div>
-                                        <div className="text-gray-400">{res.checkOut}</div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase ${
-                                            res.status === 'Confirmed' ? 'bg-green-100 text-green-700' : 
-                                            res.status === 'Cancelled' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'
-                                        }`}>{res.status}</span>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <span className={`text-[10px] font-bold flex items-center gap-1 ${
-                                            res.paymentStatus === 'Paid' ? 'text-green-600' : 
-                                            res.paymentStatus === 'Partially Paid' ? 'text-orange-500' : 'text-red-500'
-                                        }`}>
-                                            <span className="text-lg">●</span> {
-                                                res.paymentStatus === 'Paid' ? 'Платено' : 
-                                                res.paymentStatus === 'Partially Paid' ? 'Частично' : 'Неплатено'
-                                            }
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4 font-black text-gray-900 bg-gray-50/30 text-center">{Number(res.profit || 0).toFixed(2)} лв.</td>
-                                    <td className="px-6 py-4 text-right">
-                                        <div className="flex justify-end gap-1">
-                                            <button onClick={() => openPreview(res)} className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-white rounded-lg transition-all"><Eye size={17} /></button>
-                                            <button onClick={() => { setPrintData(res); setTab('VoucherPrint'); }} className="p-2 text-blue-600 hover:bg-white rounded-lg"><Printer size={17} /></button>
-                                            <button onClick={() => { setPrintData(res); setTab('CustomerContractPrint'); }} className="p-2 text-orange-600 hover:bg-white rounded-lg"><FileText size={17} /></button>
-                                            <button onClick={() => openModal(res)} className="p-2 text-indigo-600 hover:bg-white rounded-lg"><Edit2 size={17} /></button>
-                                            <button onClick={() => handleDeleteReservation(res.id)} className="p-2 text-red-400 hover:text-red-600 hover:bg-white rounded-lg"><Trash2 size={17} /></button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
+                            {filteredReservations.map(res => {
+                                const linkedPayments = financialTransactions.filter(ft => ft.associatedReservationId === res.reservationNumber);
+                                const isExpanded = expandedReservationId === res.id;
+                                const leadGuest = res.tourists && res.tourists.length > 0 
+                                    ? `${res.tourists[0].firstName} ${res.tourists[0].familyName}` 
+                                    : 'N/A';
+
+                                return (
+                                    <React.Fragment key={res.id}>
+                                        <tr 
+                                            onClick={() => setExpandedReservationId(isExpanded ? null : res.id)}
+                                            className={`cursor-pointer transition-colors ${isExpanded ? 'bg-indigo-50/50' : 'hover:bg-gray-50'}`}
+                                        >
+                                            <td className="px-6 py-4 font-mono font-bold text-indigo-600">
+                                                <div className="flex items-center gap-2">
+                                                    {isExpanded ? <ChevronUp size={14}/> : <ChevronDown size={14}/>}
+                                                    {res.reservationNumber}
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 font-bold text-gray-800">{res.hotel}</td>
+                                            <td className="px-6 py-4 text-gray-600 font-medium">{leadGuest}</td>
+                                            <td className="px-6 py-4 text-[11px] leading-tight text-gray-500">
+                                                <div className="font-bold text-gray-700">{res.checkIn}</div>
+                                                <div>{res.checkOut}</div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase ${
+                                                    res.status === 'Confirmed' ? 'bg-green-100 text-green-700' : 
+                                                    res.status === 'Cancelled' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'
+                                                }`}>{res.status}</span>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className={`text-[10px] font-bold px-2 py-1 rounded-full inline-block ${res.paymentStatusColor || 'bg-gray-100'}`}>
+                                                    {res.paymentStatus}
+                                                </div>
+                                                {res.remainingAmount > 0 && (
+                                                    <div className="text-[10px] text-red-400 mt-1">Due: {res.remainingAmount.toFixed(2)}</div>
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-4 font-black text-gray-900 text-right">BGN {res.profit.toFixed(2)}</td>
+                                            <td className="px-6 py-4">
+                                                <div className="flex justify-center gap-1" onClick={e => e.stopPropagation()}>
+                                                    <button onClick={() => setViewingReservation(res)} className="p-2 text-blue-500 hover:bg-white rounded-full shadow-sm border border-transparent hover:border-blue-100"><Eye size={16} /></button>
+                                                    <button onClick={() => handleEditReservation(res)} className="p-2 text-green-600 hover:bg-white rounded-full shadow-sm border border-transparent hover:border-green-100"><Edit2 size={16} /></button>
+                                                    <button onClick={() => { setReservationToPrintVoucher(res); setActiveTab('printVoucher'); }} className="p-2 text-yellow-600 hover:bg-white rounded-full shadow-sm border border-transparent hover:border-yellow-100"><Printer size={16} /></button>
+                                                    <button onClick={() => { setReservationToGenerateContract(res); setActiveTab('customerContract'); }} className="p-2 text-purple-600 hover:bg-white rounded-full shadow-sm border border-transparent hover:border-purple-100"><FileText size={16} /></button>
+                                                    <button onClick={() => handleDeleteReservation(res.id)} className="p-2 text-red-500 hover:bg-white rounded-full shadow-sm border border-transparent hover:border-red-100"><Trash2 size={16} /></button>
+                                                </div>
+                                            </td>
+                                        </tr>
+
+                                        {/* Разгъната секция за транзакции */}
+                                        {isExpanded && (
+                                            <tr className="bg-gray-50/50">
+                                                <td colSpan="8" className="px-12 py-4">
+                                                    <div className="bg-white rounded-2xl p-4 shadow-inner border border-gray-100">
+                                                        <h4 className="text-[11px] font-black text-gray-400 uppercase mb-3 flex items-center gap-2">
+                                                            Financial History for {res.reservationNumber}
+                                                        </h4>
+                                                        {linkedPayments.length > 0 ? (
+                                                            <table className="w-full text-xs">
+                                                                <thead>
+                                                                    <tr className="text-gray-400 border-b">
+                                                                        <th className="py-2 font-medium">Date</th>
+                                                                        <th className="py-2 font-medium">Type</th>
+                                                                        <th className="py-2 font-medium">Method</th>
+                                                                        <th className="py-2 text-right font-medium">Amount</th>
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody className="divide-y divide-gray-50">
+                                                                    {linkedPayments.map(p => (
+                                                                        <tr key={p.id}>
+                                                                            <td className="py-2">{p.date}</td>
+                                                                            <td className="py-2">
+                                                                                <span className={`px-2 py-0.5 rounded-md ${p.type === 'income' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>{p.type}</span>
+                                                                            </td>
+                                                                            <td className="py-2 text-gray-500">{p.method}</td>
+                                                                            <td className="py-2 text-right font-bold text-gray-700">BGN {p.amount.toFixed(2)}</td>
+                                                                        </tr>
+                                                                    ))}
+                                                                </tbody>
+                                                            </table>
+                                                        ) : (
+                                                            <p className="text-xs text-gray-400 italic">No transactions linked to this reservation.</p>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </React.Fragment>
+                                );
+                            })}
                         </tbody>
                     </table>
                 </div>
             </div>
 
-            {/* --- MODAL PREVIEW --- */}
-            {isPreviewOpen && selectedForPreview && (
-                <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
-                    <div className="bg-white rounded-[2.5rem] w-full max-w-xl shadow-2xl p-10 relative border border-indigo-50">
-                        <button onClick={() => setIsPreviewOpen(false)} className="absolute top-6 right-6 p-2 hover:bg-gray-100 rounded-full transition-all text-gray-400"><X /></button>
-                        <div className="space-y-6">
-                            <div className="border-b pb-6">
-                                <span className="text-xs font-black text-indigo-500 uppercase tracking-widest">Детайли за резервация</span>
-                                <h3 className="text-4xl font-black text-gray-800">#{selectedForPreview.reservationNumber}</h3>
-                            </div>
-                            <div className="grid grid-cols-2 gap-y-8 gap-x-4">
-                                <div>
-                                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">Хотел</label>
-                                    <p className="text-lg font-bold text-gray-800 leading-tight">{selectedForPreview.hotel}</p>
-                                </div>
-                                <div>
-                                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">Клиент</label>
-                                    <p className="text-lg font-bold text-gray-800 leading-tight">{selectedForPreview.guestName || "—"}</p>
-                                </div>
-                                <div>
-                                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">Престой</label>
-                                    <p className="font-bold text-gray-700">{selectedForPreview.checkIn} — {selectedForPreview.checkOut}</p>
-                                    <p className="text-xs text-indigo-600 font-bold uppercase">{selectedForPreview.mealPlan}</p>
-                                </div>
-                                <div>
-                                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">Статус Плащане</label>
-                                    <p className={`font-black uppercase text-sm ${
-                                        selectedForPreview.paymentStatus === 'Paid' ? 'text-green-600' : 
-                                        selectedForPreview.paymentStatus === 'Partially Paid' ? 'text-orange-500' : 'text-red-500'
-                                    }`}>{selectedForPreview.paymentStatus}</p>
-                                </div>
-                            </div>
-                            <div className="bg-indigo-50 p-6 rounded-3xl flex justify-between items-center">
-                                <div>
-                                    <p className="text-[10px] font-black text-indigo-400 uppercase">Цена Клиент</p>
-                                    <p className="text-2xl font-black text-indigo-900">{Number(selectedForPreview.clientPrice).toFixed(2)} лв.</p>
-                                </div>
-                                <div className="text-right">
-                                    <p className="text-[10px] font-black text-indigo-400 uppercase">Марж</p>
-                                    <p className="text-2xl font-black text-indigo-600">{Number(selectedForPreview.profit).toFixed(2)} лв.</p>
-                                </div>
-                            </div>
-                            <div className="pt-2 flex gap-3">
-                                <button onClick={() => { setIsPreviewOpen(false); openModal(selectedForPreview); }} className="flex-1 bg-indigo-600 text-white py-4 rounded-2xl font-bold hover:bg-indigo-700 transition-all shadow-lg">РЕДАКТИРАЙ</button>
-                                <button onClick={() => setIsPreviewOpen(false)} className="px-8 py-4 bg-gray-100 text-gray-500 rounded-2xl font-bold hover:bg-gray-200 transition-all">ЗАТВОРИ</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* --- MODAL FORM --- */}
-            {isModalOpen && (
-                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex items-center justify-center p-4">
-                    <div className="bg-white rounded-[2rem] w-full max-w-4xl shadow-2xl overflow-hidden overflow-y-auto max-h-[90vh]">
-                        <div className="p-8 border-b flex justify-between items-center bg-gray-50/50">
+            {/* Модал за детайли (viewingReservation) */}
+            {viewingReservation && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+                    <div className="bg-white rounded-[2.5rem] w-full max-w-4xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col border border-white/20">
+                        <div className="p-8 border-b flex justify-between items-center bg-gray-50">
                             <div>
-                                <h3 className="text-2xl font-black text-gray-800">
-                                    {editingReservation ? `Редакция на #${reservationForm.reservationNumber}` : 'Нова Резервация'}
-                                </h3>
-                                <p className="text-sm text-gray-500 font-medium">Управление на данни</p>
+                                <span className="text-[10px] font-black text-blue-500 uppercase tracking-widest">Reservation Details</span>
+                                <h3 className="text-3xl font-black text-gray-800">#{viewingReservation.reservationNumber}</h3>
                             </div>
-                            <button onClick={() => setIsModalOpen(false)} className="p-3 hover:bg-white hover:shadow-md rounded-2xl transition-all"><X /></button>
+                            <button onClick={() => setViewingReservation(null)} className="p-3 hover:bg-white hover:shadow-md rounded-2xl transition-all"><X /></button>
                         </div>
                         
-                        <form onSubmit={(e) => { handleReservationSubmit(e); setIsModalOpen(false); }} className="p-8 grid grid-cols-1 md:grid-cols-3 gap-8">
-                            <div className="space-y-5">
-                                <h4 className="text-xs font-black text-indigo-500 uppercase tracking-widest flex items-center gap-2">
-                                    <UserPlus size={14}/> Основна Информация
+                        <div className="p-8 overflow-y-auto space-y-8">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-black text-gray-400 uppercase">Hotel & Location</label>
+                                    <p className="text-lg font-bold text-gray-800">{viewingReservation.hotel}</p>
+                                    <p className="text-sm text-gray-500">{viewingReservation.place}</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-black text-gray-400 uppercase">Stay Dates</label>
+                                    <p className="text-lg font-bold text-gray-800">{viewingReservation.checkIn} — {viewingReservation.checkOut}</p>
+                                    <p className="text-sm text-indigo-600 font-bold uppercase">{viewingReservation.totalNights} Nights • {viewingReservation.food}</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-black text-gray-400 uppercase">Financial Status</label>
+                                    <p className={`text-lg font-black ${viewingReservation.status === 'Confirmed' ? 'text-green-600' : 'text-yellow-600'}`}>{viewingReservation.status}</p>
+                                    <p className="text-sm text-gray-500">Op: {viewingReservation.tourOperator}</p>
+                                </div>
+                            </div>
+
+                            <div className="bg-slate-900 rounded-[2rem] p-8 text-white grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <div>
+                                    <p className="text-[10px] font-black text-slate-400 uppercase">Final Amount</p>
+                                    <p className="text-2xl font-black text-green-400">BGN {viewingReservation.finalAmount?.toFixed(2)}</p>
+                                </div>
+                                <div>
+                                    <p className="text-[10px] font-black text-slate-400 uppercase">Owed to Hotel</p>
+                                    <p className="text-2xl font-black text-red-400">BGN {viewingReservation.owedToHotel?.toFixed(2)}</p>
+                                </div>
+                                <div className="bg-white/10 p-4 rounded-2xl">
+                                    <p className="text-[10px] font-black text-slate-300 uppercase">Net Profit</p>
+                                    <p className="text-2xl font-black text-blue-300">BGN {viewingReservation.profit?.toFixed(2)}</p>
+                                </div>
+                            </div>
+
+                            <div className="space-y-4">
+                                <h4 className="text-sm font-black text-gray-800 uppercase flex items-center gap-2">
+                                    Tourists ({viewingReservation.adults} Adults, {viewingReservation.children} Children)
                                 </h4>
-                                <div>
-                                    <label className="text-[10px] font-black text-gray-400 uppercase">Избери Клиент (CRM)</label>
-                                    <select className="w-full mt-1 p-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none" 
-                                            onChange={(e) => {
-                                                const cust = customers.find(c => c.id === e.target.value);
-                                                if(cust) handleFormChange('guestName', cust.name);
-                                            }}>
-                                        <option value="">-- Избери съществуващ --</option>
-                                        {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="text-[10px] font-black text-gray-400 uppercase">Име на гост (Lead)</label>
-                                    <input type="text" className="w-full mt-1 p-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold" value={reservationForm.guestName} onChange={e => handleFormChange('guestName', e.target.value)} required />
-                                </div>
-                                <div>
-                                    <label className="text-[10px] font-black text-gray-400 uppercase">Тип Пътуване</label>
-                                    <select className="w-full mt-1 p-3 bg-gray-50 border-none rounded-2xl" value={reservationForm.tourType} onChange={e => handleFormChange('tourType', e.target.value)}>
-                                        <option value="Hotel">Hotel Only</option>
-                                        <option value="Bus Tour">Bus Tour</option>
-                                        <option value="Flight">Flight</option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div className="space-y-5 border-x px-8 border-gray-100">
-                                <h4 className="text-xs font-black text-indigo-500 uppercase tracking-widest flex items-center gap-2">
-                                    <Filter size={14}/> Настаняване
-                                </h4>
-                                <input type="text" placeholder="Име на хотел" className="w-full p-3 bg-gray-50 border-none rounded-2xl font-bold" value={reservationForm.hotel} onChange={e => handleFormChange('hotel', e.target.value)} required />
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div>
-                                        <label className="text-[10px] font-black text-gray-400 uppercase">Check-In</label>
-                                        <input type="date" className="w-full mt-1 p-2 bg-gray-50 border-none rounded-xl text-sm" value={reservationForm.checkIn} onChange={e => handleFormChange('checkIn', e.target.value)} required />
-                                    </div>
-                                    <div>
-                                        <label className="text-[10px] font-black text-gray-400 uppercase">Check-Out</label>
-                                        <input type="date" className="w-full mt-1 p-2 bg-gray-50 border-none rounded-xl text-sm" value={reservationForm.checkOut} onChange={e => handleFormChange('checkOut', e.target.value)} required />
-                                    </div>
-                                </div>
-                                <select className="w-full p-3 bg-gray-50 border-none rounded-2xl" value={reservationForm.mealPlan} onChange={e => handleFormChange('mealPlan', e.target.value)}>
-                                    <option value="BB">Bed & Breakfast (BB)</option>
-                                    <option value="HB">Half Board (HB)</option>
-                                    <option value="FB">Full Board (FB)</option>
-                                    <option value="AI">All Inclusive (AI)</option>
-                                </select>
-                            </div>
-
-                            <div className="space-y-5">
-                                <h4 className="text-xs font-black text-indigo-500 uppercase tracking-widest">Финанси</h4>
-                                <div className="grid grid-cols-1 gap-4">
-                                    <div>
-                                        <label className="text-[10px] font-black text-gray-400 uppercase">Цена за клиент (BGN)</label>
-                                        <input type="number" step="0.01" className="w-full p-3 bg-green-50 border-none rounded-2xl font-black text-green-700 text-xl" value={reservationForm.clientPrice} onChange={e => handleFormChange('clientPrice', e.target.value)} />
-                                    </div>
-                                    <div>
-                                        <label className="text-[10px] font-black text-gray-400 uppercase">Цена доставчик</label>
-                                        <input type="number" step="0.01" className="w-full p-3 bg-red-50 border-none rounded-2xl font-bold text-red-700" value={reservationForm.providerPrice} onChange={e => handleFormChange('providerPrice', e.target.value)} />
-                                    </div>
-                                    <div className="flex justify-between items-center p-4 bg-indigo-900 rounded-2xl text-white">
-                                        <span className="text-xs font-bold uppercase opacity-60">Марж:</span>
-                                        <span className="text-xl font-black">{(Number(reservationForm.profit) || 0).toFixed(2)} лв.</span>
-                                    </div>
-                                    <select className="w-full p-3 bg-gray-50 border-none rounded-2xl font-bold" value={reservationForm.paymentStatus} onChange={e => handleFormChange('paymentStatus', e.target.value)}>
-                                        <option value="Unpaid">Unpaid</option>
-                                        <option value="Partially Paid">Partially Paid</option>
-                                        <option value="Paid">Paid</option>
-                                    </select>
+                                <div className="overflow-hidden border border-gray-100 rounded-2xl">
+                                    <table className="w-full text-sm">
+                                        <thead className="bg-gray-50 text-gray-400 text-[10px] font-black uppercase">
+                                            <tr>
+                                                <th className="px-4 py-3 text-left">Name</th>
+                                                <th className="px-4 py-3 text-left">ID / Personal ID</th>
+                                                <th className="px-4 py-3 text-left">Contact</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-50">
+                                            {viewingReservation.tourists?.map((t, idx) => (
+                                                <tr key={idx}>
+                                                    <td className="px-4 py-3 font-bold">{t.firstName} {t.familyName}</td>
+                                                    <td className="px-4 py-3 text-gray-500">{t.id} <span className="text-[10px] block opacity-50">{t.realId}</span></td>
+                                                    <td className="px-4 py-3 text-gray-500">
+                                                        <div className="text-[11px]">{t.email}</div>
+                                                        <div className="text-[11px]">{t.phone}</div>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
                                 </div>
                             </div>
-
-                            <div className="col-span-full pt-8 flex gap-4">
-                                <button type="submit" className="flex-1 bg-indigo-600 text-white py-4 rounded-2xl font-black text-lg hover:bg-indigo-700 shadow-xl transition-all">
-                                    {editingReservation ? 'ОБНОВИ РЕЗЕРВАЦИЯТА' : 'ЗАПИШИ РЕЗЕРВАЦИЯТА'}
-                                </button>
-                            </div>
-                        </form>
+                        </div>
+                        
+                        <div className="p-8 bg-gray-50 border-t flex justify-end">
+                            <button onClick={() => setViewingReservation(null)} className="px-10 py-4 bg-slate-900 text-white rounded-2xl font-black hover:bg-slate-800 transition-all shadow-lg">CLOSE</button>
+                        </div>
                     </div>
                 </div>
             )}
