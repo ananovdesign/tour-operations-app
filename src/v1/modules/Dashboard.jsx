@@ -3,7 +3,7 @@ import { db, appId, auth } from '../../firebase';
 import { collection, onSnapshot, query } from 'firebase/firestore';
 import { 
   Users, Calendar, Wallet, Loader2, 
-  Bus, Landmark, AlertCircle, ArrowUpRight 
+  Bus, Landmark, ArrowUpRight 
 } from 'lucide-react';
 
 const MetricRow = ({ label, value, colorClass = "text-slate-600 dark:text-slate-400" }) => (
@@ -48,12 +48,7 @@ const Dashboard = () => {
     totalProducts: 0,
     countUpcomingReservations: 0,
     profitUpcomingReservations: 0,
-    countPendingReservations: 0,
-    averageTourPassengers: 0,
-    countUnpaidSalesInvoices: 0,
-    totalUnpaidSalesAmount: 0,
-    countOverdueExpenseInvoices: 0,
-    totalOverdueExpenseAmount: 0
+    countPendingReservations: 0
   });
 
   const userId = auth.currentUser?.uid;
@@ -61,12 +56,8 @@ const Dashboard = () => {
   useEffect(() => {
     if (!userId) return;
 
-    // Референции към всички необходими колекции
-    const collections = [
-      'reservations', 'financialTransactions', 'tours', 
-      'customers', 'products', 'salesInvoices', 'expenseInvoices'
-    ];
-
+    // Изключихме фактурите от списъка за следене
+    const collections = ['reservations', 'financialTransactions', 'tours', 'customers', 'products'];
     const unsubscribes = [];
     const rawData = {};
 
@@ -75,7 +66,6 @@ const Dashboard = () => {
       const unsub = onSnapshot(query(ref), (snapshot) => {
         rawData[colName] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         
-        // Стартираме изчисленията само ако имаме данни от всички основни източници
         if (Object.keys(rawData).length === collections.length) {
           calculateStats(rawData);
           setLoading(false);
@@ -94,11 +84,12 @@ const Dashboard = () => {
     thirtyDaysFromNow.setDate(today.getDate() + 30);
     thirtyDaysFromNow.setHours(23, 59, 59, 999);
 
-    // 1. Резервации
+    // 1. Резервации и Нощувки
     const activeReservations = (data.reservations || []).filter(res => res.status !== 'Cancelled');
-    const profitableReservations = activeReservations.filter(res => (res.profit || 0) > 0);
     const totalReservations = activeReservations.length;
-    const totalProfit = profitableReservations.reduce((sum, res) => sum + (Number(res.profit) || 0), 0);
+    
+    const totalProfit = activeReservations.reduce((sum, res) => sum + (Number(res.profit) || 0), 0);
+    const totalNights = activeReservations.reduce((sum, res) => sum + (Number(res.totalNights) || 0), 0);
     
     const upcomingReservations = activeReservations.filter(res => {
       const checkInDate = new Date(res.checkIn);
@@ -106,7 +97,7 @@ const Dashboard = () => {
       return checkInDate >= today && checkInDate <= thirtyDaysFromNow;
     });
 
-    // 2. Финанси и Баланси
+    // 2. Финанси
     const ft = data.financialTransactions || [];
     const totalIncome = ft.filter(f => f.type === 'income').reduce((sum, f) => sum + (Number(f.amount) || 0), 0);
     const totalExpenses = ft.filter(f => f.type === 'expense').reduce((sum, f) => sum + (Number(f.amount) || 0), 0);
@@ -119,25 +110,20 @@ const Dashboard = () => {
       }
     });
 
-    // 3. Турове
-    let bookedPass = 0, maxPass = 0;
+    // 3. Автобусни пътници (Общо)
+    let bookedPass = 0;
+    let maxPass = 0;
     (data.tours || []).forEach(tour => {
       const linked = activeReservations.filter(res => res.linkedTourId === tour.tourId);
       bookedPass += linked.reduce((sum, res) => sum + (Number(res.adults) || 0) + (Number(res.children) || 0), 0);
       maxPass += (Number(tour.maxPassengers) || 0);
     });
 
-    // 4. Фактури
-    const unpaidSales = (data.salesInvoices || []).filter(inv => (Number(inv.grandTotal) || 0) > 0);
-    const overdueExpenses = (data.expenseInvoices || []).filter(inv => {
-      const dueDate = new Date(inv.dueDate);
-      return inv.dueDate && dueDate < today;
-    });
-
     setStats({
       totalReservations,
       totalProfit,
       averageProfitPerReservation: totalReservations > 0 ? totalProfit / totalReservations : 0,
+      averageStayPerReservation: totalReservations > 0 ? totalNights / totalReservations : 0,
       totalIncome,
       totalExpenses,
       bankBalance: balances.Bank,
@@ -149,30 +135,28 @@ const Dashboard = () => {
       profitUpcomingReservations: upcomingReservations.reduce((sum, res) => sum + (Number(res.profit) || 0), 0),
       countPendingReservations: activeReservations.filter(res => res.status === 'Pending').length,
       totalCustomers: (data.customers || []).length,
-      totalProducts: (data.products || []).length,
-      countUnpaidSalesInvoices: unpaidSales.length,
-      totalUnpaidSalesAmount: unpaidSales.reduce((sum, inv) => sum + (Number(inv.grandTotal) || 0), 0),
-      countOverdueExpenseInvoices: overdueExpenses.length,
-      totalOverdueExpenseAmount: overdueExpenses.reduce((sum, inv) => sum + (Number(inv.totalAmount) || 0), 0)
+      totalProducts: (data.products || []).length
     });
   };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-700">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* РЕЗЕРВАЦИИ СЪС СРЕДЕН БРОЙ НОЩУВКИ */}
         <StatCard title="Резервации" mainValue={stats.totalReservations} icon={Users} color="bg-blue-600" loading={loading}>
-          <MetricRow label="Обща печалба" value={`BGN ${stats.totalProfit.toFixed(2)}`} colorClass="text-emerald-500" />
-          <MetricRow label="Ср. Печалба" value={`BGN ${stats.averageProfitPerReservation.toFixed(2)}`} />
+          <MetricRow label="Ср. нощувки" value={stats.averageStayPerReservation.toFixed(1)} />
+          <MetricRow label="Ср. печалба" value={`BGN ${stats.averageProfitPerReservation.toFixed(2)}`} />
         </StatCard>
 
         <StatCard title="Финансов отчет" mainValue={`BGN ${stats.totalIncome.toFixed(2)}`} icon={Wallet} color="bg-emerald-500" loading={loading}>
           <MetricRow label="Разходи" value={`BGN ${stats.totalExpenses.toFixed(2)}`} colorClass="text-rose-500" />
-          <MetricRow label="Баланс" value={`BGN ${(stats.totalIncome - stats.totalExpenses).toFixed(2)}`} />
+          <MetricRow label="Печалба" value={`BGN ${stats.totalProfit.toFixed(2)}`} colorClass="text-emerald-500" />
         </StatCard>
 
-        <StatCard title="Автобусни Турове" mainValue={stats.totalBusPassengersBooked} icon={Bus} color="bg-purple-600" loading={loading}>
+        {/* ОБЩ БРОЙ ПЪТНИЦИ */}
+        <StatCard title="Брой пътници (Общо)" mainValue={stats.totalBusPassengersBooked} icon={Bus} color="bg-purple-600" loading={loading}>
           <MetricRow label="Запълняемост" value={`${stats.overallBusTourFulfillment.toFixed(1)}%`} />
-          <MetricRow label="Клиенти/Продукти" value={`${stats.totalCustomers} / ${stats.totalProducts}`} />
+          <MetricRow label="Клиенти" value={stats.totalCustomers} />
         </StatCard>
 
         <StatCard title="Наличности (Bank)" mainValue={`BGN ${stats.bankBalance.toFixed(2)}`} icon={Landmark} color="bg-orange-500" loading={loading}>
@@ -181,22 +165,17 @@ const Dashboard = () => {
         </StatCard>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <StatCard title="Предстоящи" mainValue={stats.countUpcomingReservations} icon={Calendar} color="bg-indigo-500" loading={loading}>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <StatCard title="Следващи 30 дни" mainValue={stats.countUpcomingReservations} icon={Calendar} color="bg-indigo-500" loading={loading}>
           <MetricRow label="Очаквана печалба" value={`BGN ${stats.profitUpcomingReservations.toFixed(2)}`} colorClass="text-emerald-500" />
-          <MetricRow label="Pending" value={stats.countPendingReservations} colorClass="text-yellow-500" />
-        </StatCard>
-
-        <StatCard title="Фактури" mainValue={stats.countUnpaidSalesInvoices} icon={AlertCircle} color="bg-rose-500" loading={loading}>
-          <MetricRow label="Неплатени (Продажби)" value={`BGN ${stats.totalUnpaidSalesAmount.toFixed(2)}`} />
-          <MetricRow label="Просрочени (Разходи)" value={`BGN ${stats.totalOverdueExpenseAmount.toFixed(2)}`} colorClass="text-rose-600" />
+          <MetricRow label="Изчакващи (Pending)" value={stats.countPendingReservations} colorClass="text-yellow-500" />
         </StatCard>
 
         <div className="bg-slate-900 dark:bg-blue-700 p-8 rounded-[2.5rem] text-white flex flex-col justify-center relative overflow-hidden group">
-          <h3 className="text-2xl font-black mb-4 tracking-tighter uppercase italic">Бързи бутони</h3>
+          <h3 className="text-2xl font-black mb-4 tracking-tighter uppercase italic">Бързи действия</h3>
           <div className="grid grid-cols-2 gap-3 z-10">
-            <button className="bg-white/10 hover:bg-white/20 p-3 rounded-2xl text-xs font-bold border border-white/10">+ РЕЗЕРВАЦИЯ</button>
-            <button className="bg-white/10 hover:bg-white/20 p-3 rounded-2xl text-xs font-bold border border-white/10">+ ФАКТУРА</button>
+            <button className="bg-white/10 hover:bg-white/20 p-4 rounded-2xl text-xs font-bold border border-white/10 transition-colors uppercase tracking-widest">Нова Резервация</button>
+            <button className="bg-white/10 hover:bg-white/20 p-4 rounded-2xl text-xs font-bold border border-white/10 transition-colors uppercase tracking-widest">Добави Разход</button>
           </div>
           <ArrowUpRight className="absolute bottom-[-10px] right-[-10px] size-32 opacity-10" />
         </div>
