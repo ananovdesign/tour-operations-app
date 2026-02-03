@@ -2,14 +2,16 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { db, appId, auth } from '../../firebase';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { 
-  Search, Plus, Eye, Edit3, FileText, Loader2, User
+  Search, Plus, Eye, Edit3, FileText, Loader2, User, ChevronDown, ChevronUp, ArrowDownLeft, ArrowUpRight
 } from 'lucide-react';
 
 const Reservations = ({ lang = 'bg' }) => {
   const [loading, setLoading] = useState(true);
   const [reservations, setReservations] = useState([]);
+  const [transactions, setTransactions] = useState([]); // Добавено за плащанията
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
+  const [expandedId, setExpandedId] = useState(null); // Добавено за разгъване
 
   const userId = auth.currentUser?.uid;
 
@@ -24,15 +26,12 @@ const Reservations = ({ lang = 'bg' }) => {
         ...doc.data() 
       }));
 
-      // ПРАВИЛНО СОРТИРАНЕ ЗА НОМЕРА КАТО "dyt101"
       const sortedData = data.sort((b, a) => {
-        // Извличаме само цифрите от номера (напр. "dyt105" става 105)
         const getNum = (str) => {
           if (!str) return 0;
-          const cleaned = str.toString().replace(/\D/g, ''); // Маха всичко, което не е цифра
+          const cleaned = str.toString().replace(/\D/g, ''); 
           return parseInt(cleaned) || 0;
         };
-
         return getNum(a.reservationNumber) - getNum(b.reservationNumber);
       });
 
@@ -40,7 +39,13 @@ const Reservations = ({ lang = 'bg' }) => {
       setLoading(false);
     });
 
-    return () => unsub();
+    // Слушане за транзакции
+    const transRef = collection(db, `artifacts/${appId}/users/${userId}/financialTransactions`);
+    const unsubTrans = onSnapshot(transRef, (snapshot) => {
+      setTransactions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+
+    return () => { unsub(); unsubTrans(); };
   }, [userId]);
 
   const filteredReservations = useMemo(() => {
@@ -114,55 +119,95 @@ const Reservations = ({ lang = 'bg' }) => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50 dark:divide-slate-800 text-slate-800 dark:text-slate-200">
-              {filteredReservations.map((res) => (
-                <tr key={res.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors group">
-                  <td className="px-6 py-5 font-black text-blue-600 dark:text-blue-400 tracking-tighter">
-                    {res.reservationNumber}
-                  </td>
-                  <td className="px-6 py-5 text-sm font-bold truncate max-w-[140px]">{res.hotel}</td>
-                  <td className="px-6 py-5">
-                    <div className="flex items-center gap-2 font-bold text-sm">
-                       {res.tourists?.[0] ? `${res.tourists[0].firstName} ${res.tourists[0].familyName}` : 'N/A'}
-                    </div>
-                  </td>
-                  <td className="px-6 py-5 text-[10px] font-bold text-slate-500 italic leading-tight">
-                    {res.checkIn} <br/> {res.checkOut}
-                  </td>
-                  <td className="px-6 py-5 text-center">
-                    <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter ${
-                      res.status === 'Confirmed' ? 'bg-emerald-100 text-emerald-700' : 
-                      res.status === 'Pending' ? 'bg-amber-100 text-amber-700' : 
-                      'bg-rose-100 text-rose-700'
-                    }`}>
-                      {res.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-5">
-                    <div className="flex flex-col">
-                      <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-lg w-fit ${
-                         res.paymentStatus === 'Paid' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'
-                      }`}>
-                        {res.paymentStatus || 'Unpaid'}
-                      </span>
-                      {res.remainingAmount > 0 && (
-                        <span className="text-[10px] font-bold text-rose-500 mt-1">
-                          Due: {res.remainingAmount.toFixed(2)}
+              {filteredReservations.map((res) => {
+                const isExpanded = expandedId === res.id;
+                const linkedPayments = transactions.filter(t => t.associatedReservationId === res.reservationNumber);
+
+                return (
+                  <React.Fragment key={res.id}>
+                    <tr 
+                      onClick={() => setExpandedId(isExpanded ? null : res.id)}
+                      className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors group cursor-pointer"
+                    >
+                      <td className="px-6 py-5 font-black text-blue-600 dark:text-blue-400 tracking-tighter">
+                        <div className="flex items-center gap-2">
+                          {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                          {res.reservationNumber}
+                        </div>
+                      </td>
+                      <td className="px-6 py-5 text-sm font-bold truncate max-w-[140px]">{res.hotel}</td>
+                      <td className="px-6 py-5">
+                        <div className="flex items-center gap-2 font-bold text-sm">
+                           {res.tourists?.[0] ? `${res.tourists[0].firstName} ${res.tourists[0].familyName}` : 'N/A'}
+                        </div>
+                      </td>
+                      <td className="px-6 py-5 text-[10px] font-bold text-slate-500 italic leading-tight">
+                        {res.checkIn} <br/> {res.checkOut}
+                      </td>
+                      <td className="px-6 py-5 text-center">
+                        <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter ${
+                          res.status === 'Confirmed' ? 'bg-emerald-100 text-emerald-700' : 
+                          res.status === 'Pending' ? 'bg-amber-100 text-amber-700' : 
+                          'bg-rose-100 text-rose-700'
+                        }`}>
+                          {res.status}
                         </span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-6 py-5 font-black text-sm text-right">
-                    {res.profit?.toFixed(2)} <span className="text-[9px] text-slate-400">BGN</span>
-                  </td>
-                  <td className="px-6 py-5">
-                    <div className="flex justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button className="p-2 hover:bg-blue-50 text-blue-500 rounded-xl"><Eye size={14} /></button>
-                      <button className="p-2 hover:bg-emerald-50 text-emerald-500 rounded-xl"><Edit3 size={14} /></button>
-                      <button className="p-2 hover:bg-purple-50 text-purple-500 rounded-xl"><FileText size={14} /></button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                      </td>
+                      <td className="px-6 py-5">
+                        <div className="flex flex-col">
+                          <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-lg w-fit ${
+                             res.paymentStatus === 'Paid' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'
+                          }`}>
+                            {res.paymentStatus || 'Unpaid'}
+                          </span>
+                          {res.remainingAmount > 0 && (
+                            <span className="text-[10px] font-bold text-rose-500 mt-1">
+                              Due: {res.remainingAmount.toFixed(2)}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-6 py-5 font-black text-sm text-right">
+                        {res.profit?.toFixed(2)} <span className="text-[9px] text-slate-400">BGN</span>
+                      </td>
+                      <td className="px-6 py-5">
+                        <div className="flex justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button className="p-2 hover:bg-blue-50 text-blue-500 rounded-xl"><Eye size={14} /></button>
+                          <button className="p-2 hover:bg-emerald-50 text-emerald-500 rounded-xl"><Edit3 size={14} /></button>
+                          <button className="p-2 hover:bg-purple-50 text-purple-500 rounded-xl"><FileText size={14} /></button>
+                        </div>
+                      </td>
+                    </tr>
+
+                    {/* Показване на плащанията при разгъване */}
+                    {isExpanded && (
+                      <tr className="bg-slate-50/30 dark:bg-slate-800/20 border-l-4 border-blue-500">
+                        <td colSpan="8" className="px-12 py-4">
+                          <div className="space-y-2">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Financial Records:</p>
+                            {linkedPayments.length > 0 ? (
+                              linkedPayments.map(p => (
+                                <div key={p.id} className="flex justify-between items-center bg-white dark:bg-slate-900 p-2 rounded-xl border border-slate-100 dark:border-slate-800">
+                                  <div className="flex items-center gap-3 text-[11px] font-bold">
+                                    {p.type === 'income' ? <ArrowDownLeft size={14} className="text-emerald-500" /> : <ArrowUpRight size={14} className="text-rose-500" />}
+                                    <span className="uppercase">{p.method}</span>
+                                    <span className="text-slate-400 font-normal italic">{p.date}</span>
+                                  </div>
+                                  <span className={`text-xs font-black ${p.type === 'income' ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                    {p.type === 'income' ? '+' : '-'} {p.amount.toFixed(2)} BGN
+                                  </span>
+                                </div>
+                              ))
+                            ) : (
+                              <p className="text-[10px] italic text-slate-400 uppercase font-bold">No payments found for this ID.</p>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                );
+              })}
             </tbody>
           </table>
         </div>
