@@ -8,44 +8,71 @@ import {
 const Reservations = ({ lang = 'bg' }) => {
   const [loading, setLoading] = useState(true);
   const [reservations, setReservations] = useState([]);
-  const [transactions, setTransactions] = useState([]); // Добавено за плащанията
+  const [transactions, setTransactions] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
-  const [expandedId, setExpandedId] = useState(null); // Добавено за разгъване
+  const [expandedId, setExpandedId] = useState(null);
 
   const userId = auth.currentUser?.uid;
 
   useEffect(() => {
     if (!userId) return;
 
+    // Референции към колекциите
     const resRef = collection(db, `artifacts/${appId}/users/${userId}/reservations`);
+    const transRef = collection(db, `artifacts/${appId}/users/${userId}/financialTransactions`);
     
-    const unsub = onSnapshot(resRef, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ 
-        id: doc.id, 
-        ...doc.data() 
-      }));
+    // Първо изтегляме транзакциите, за да можем да ги ползваме при изчисляването на резервациите
+    const unsubTrans = onSnapshot(transRef, (transSnapshot) => {
+      const allTrans = transSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setTransactions(allTrans);
 
-      const sortedData = data.sort((b, a) => {
-        const getNum = (str) => {
-          if (!str) return 0;
-          const cleaned = str.toString().replace(/\D/g, ''); 
-          return parseInt(cleaned) || 0;
-        };
-        return getNum(a.reservationNumber) - getNum(b.reservationNumber);
+      // След като имаме транзакциите, обновяваме резервациите
+      const unsubRes = onSnapshot(resRef, (resSnapshot) => {
+        const rawData = resSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        // ПРИЛАГАНЕ НА ТВОЯТА ОРИГИНАЛНА ЛОГИКА ЗА ПЛАЩАНИЯТА
+        const dataWithPayments = rawData.map(res => {
+          const paymentsForRes = allTrans.filter(ft =>
+            ft.type === 'income' && ft.associatedReservationId === res.reservationNumber
+          );
+          const totalPaid = paymentsForRes.reduce((sum, ft) => sum + (ft.amount || 0), 0);
+          const remainingAmount = (res.finalAmount || 0) - totalPaid;
+
+          let paymentStatus = 'Unpaid';
+          let paymentStatusColor = 'bg-rose-100 text-rose-800'; // Използвам твоите цветове
+          
+          if (totalPaid >= (res.finalAmount || 0) && (res.finalAmount > 0)) {
+            paymentStatus = 'Paid';
+            paymentStatusColor = 'bg-emerald-100 text-emerald-800';
+          } else if (totalPaid > 0) {
+            paymentStatus = 'Partially Paid';
+            paymentStatusColor = 'bg-amber-100 text-amber-800';
+          }
+
+          return {
+            ...res,
+            totalPaid,
+            remainingAmount,
+            paymentStatus,
+            paymentStatusColor,
+          };
+        });
+
+        // Сортиране по номер (най-новите отгоре)
+        const sortedData = dataWithPayments.sort((b, a) => {
+          const getNum = (str) => parseInt(str?.toString().replace(/\D/g, '')) || 0;
+          return getNum(a.reservationNumber) - getNum(b.reservationNumber);
+        });
+
+        setReservations(sortedData);
+        setLoading(false);
       });
 
-      setReservations(sortedData);
-      setLoading(false);
+      return () => unsubRes();
     });
 
-    // Слушане за транзакции
-    const transRef = collection(db, `artifacts/${appId}/users/${userId}/financialTransactions`);
-    const unsubTrans = onSnapshot(transRef, (snapshot) => {
-      setTransactions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    });
-
-    return () => { unsub(); unsubTrans(); };
+    return () => unsubTrans();
   }, [userId]);
 
   const filteredReservations = useMemo(() => {
@@ -63,9 +90,9 @@ const Reservations = ({ lang = 'bg' }) => {
   }, [reservations, searchTerm, statusFilter]);
 
   if (loading) return (
-    <div className="flex h-64 flex-col items-center justify-center space-y-4 font-sans">
+    <div className="flex h-64 flex-col items-center justify-center space-y-4 font-sans text-center">
       <Loader2 className="animate-spin text-blue-500" size={32} />
-      <p className="text-slate-400 font-black italic uppercase tracking-widest">Подреждане на резервации...</p>
+      <p className="text-slate-400 font-black italic uppercase tracking-widest text-[10px]">Calculating status & sorting...</p>
     </div>
   );
 
@@ -136,10 +163,8 @@ const Reservations = ({ lang = 'bg' }) => {
                         </div>
                       </td>
                       <td className="px-6 py-5 text-sm font-bold truncate max-w-[140px]">{res.hotel}</td>
-                      <td className="px-6 py-5">
-                        <div className="flex items-center gap-2 font-bold text-sm">
-                           {res.tourists?.[0] ? `${res.tourists[0].firstName} ${res.tourists[0].familyName}` : 'N/A'}
-                        </div>
+                      <td className="px-6 py-5 font-bold text-sm">
+                        {res.tourists?.[0] ? `${res.tourists[0].firstName} ${res.tourists[0].familyName}` : 'N/A'}
                       </td>
                       <td className="px-6 py-5 text-[10px] font-bold text-slate-500 italic leading-tight">
                         {res.checkIn} <br/> {res.checkOut}
@@ -155,10 +180,8 @@ const Reservations = ({ lang = 'bg' }) => {
                       </td>
                       <td className="px-6 py-5">
                         <div className="flex flex-col">
-                          <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-lg w-fit ${
-                             res.paymentStatus === 'Paid' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'
-                          }`}>
-                            {res.paymentStatus || 'Unpaid'}
+                          <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-lg w-fit ${res.paymentStatusColor}`}>
+                            {res.paymentStatus}
                           </span>
                           {res.remainingAmount > 0 && (
                             <span className="text-[10px] font-bold text-rose-500 mt-1">
@@ -179,27 +202,26 @@ const Reservations = ({ lang = 'bg' }) => {
                       </td>
                     </tr>
 
-                    {/* Показване на плащанията при разгъване */}
                     {isExpanded && (
                       <tr className="bg-slate-50/30 dark:bg-slate-800/20 border-l-4 border-blue-500">
-                        <td colSpan="8" className="px-12 py-4">
+                        <td colSpan="8" className="px-12 py-4 animate-in slide-in-from-top-1 duration-200">
                           <div className="space-y-2">
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Financial Records:</p>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Financial Records:</p>
                             {linkedPayments.length > 0 ? (
                               linkedPayments.map(p => (
-                                <div key={p.id} className="flex justify-between items-center bg-white dark:bg-slate-900 p-2 rounded-xl border border-slate-100 dark:border-slate-800">
-                                  <div className="flex items-center gap-3 text-[11px] font-bold">
+                                <div key={p.id} className="flex justify-between items-center bg-white dark:bg-slate-900 p-2 rounded-xl border border-slate-100 dark:border-slate-800 text-[11px] shadow-sm">
+                                  <div className="flex items-center gap-3 font-bold">
                                     {p.type === 'income' ? <ArrowDownLeft size={14} className="text-emerald-500" /> : <ArrowUpRight size={14} className="text-rose-500" />}
                                     <span className="uppercase">{p.method}</span>
                                     <span className="text-slate-400 font-normal italic">{p.date}</span>
                                   </div>
-                                  <span className={`text-xs font-black ${p.type === 'income' ? 'text-emerald-600' : 'text-rose-600'}`}>
-                                    {p.type === 'income' ? '+' : '-'} {p.amount.toFixed(2)} BGN
+                                  <span className={`font-black ${p.type === 'income' ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                    {p.type === 'income' ? '+' : '-'} {p.amount?.toFixed(2)} BGN
                                   </span>
                                 </div>
                               ))
                             ) : (
-                              <p className="text-[10px] italic text-slate-400 uppercase font-bold">No payments found for this ID.</p>
+                              <p className="text-[10px] italic text-slate-400 uppercase font-bold px-2">No linked payments found.</p>
                             )}
                           </div>
                         </td>
