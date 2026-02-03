@@ -25,7 +25,7 @@ const Reservations = ({ lang = 'bg' }) => {
       }));
 
       // ПРАВИЛНО СОРТИРАНЕ ЗА НОМЕРА КАТО "dyt101"
-      const sortedData = data.sort((a, b) => {
+      const sortedData = data.sort((b, a) => {
         // Извличаме само цифрите от номера (напр. "dyt105" става 105)
         const getNum = (str) => {
           if (!str) return 0;
