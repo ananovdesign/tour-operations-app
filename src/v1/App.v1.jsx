@@ -1,123 +1,205 @@
-import React, { useState, useEffect } from 'react';
-import { auth } from '../firebase';
-import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
-import Sidebar from './layout/Sidebar';
-import Dashboard from './modules/Dashboard';
-import Reservations from './modules/Reservations'; // Новият модул
-import { AppProvider, useApp } from './AppContext';
+import React, { useState, useEffect, useMemo } from 'react';
+import { db, appId, auth } from '../../firebase';
+import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { 
+  Search, Plus, Printer, MoreVertical, 
+  Calendar, User, Loader2 
+} from 'lucide-react';
 
-const AppContent = () => {
-  const { t, language } = useApp();
-  const [user, setUser] = useState(null);
+const uiTranslations = {
+  bg: {
+    title: "Резервации",
+    searchPlaceholder: "Търси по име или номер...",
+    newRes: "Нова резервация",
+    all: "Всички",
+    confirmed: "Потвърдена",
+    pending: "Изчакваща",
+    cancelled: "Анулирана",
+    customer: "Клиент",
+    date: "Дата",
+    status: "Статус",
+    actions: "Действия",
+    noData: "Няма намерени резервации (Проверете базата данни)"
+  },
+  en: {
+    title: "Reservations",
+    searchPlaceholder: "Search by name or ID...",
+    newRes: "New Booking",
+    all: "All",
+    confirmed: "Confirmed",
+    pending: "Pending",
+    cancelled: "Cancelled",
+    customer: "Customer",
+    date: "Date",
+    status: "Status",
+    actions: "Actions",
+    noData: "No reservations found"
+  }
+};
+
+const Reservations = ({ lang = 'bg' }) => {
   const [loading, setLoading] = useState(true);
-  const [activeModule, setActiveModule] = useState('dashboard');
-  const [loginEmail, setLoginEmail] = useState('');
-  const [loginPassword, setLoginPassword] = useState('');
+  const [reservations, setReservations] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
 
-  // Следене на състоянието на логнатия потребител
+  const t = useMemo(() => uiTranslations[lang] || uiTranslations.bg, [lang]);
+  const userId = auth.currentUser?.uid;
+
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
+    if (!userId) {
+      console.log("Няма логнат потребител");
+      return;
+    }
+
+    // Опитваме първо без orderBy, за да избегнем нуждата от Index във Firebase в началото
+    const resRef = collection(db, `artifacts/${appId}/users/${userId}/reservations`);
+    
+    console.log("Слушам за промени в:", `artifacts/${appId}/users/${userId}/reservations`);
+
+    const unsub = onSnapshot(resRef, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ 
+        id: doc.id, 
+        ...doc.data() 
+      }));
+      
+      console.log("Заредени данни:", data.length, "броя");
+      
+      // Сортираме локално, за да не гърми Firebase за индекси
+      const sortedData = data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      
+      setReservations(sortedData);
+      setLoading(false);
+    }, (error) => {
+      console.error("Грешка при четене:", error);
       setLoading(false);
     });
-    return () => unsubscribe();
-  }, []);
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    try {
-      await signInWithEmailAndPassword(auth, loginEmail, loginPassword);
-    } catch (error) {
-      alert(t.loginError || "Грешка при вход: " + error.message);
+    return () => unsub();
+  }, [userId]);
+
+  const filteredReservations = useMemo(() => {
+    return reservations.filter(res => {
+      const name = res.customerName || "";
+      const id = res.resId || "";
+      const matchesSearch = 
+        name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        id.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesStatus = statusFilter === 'all' || res.status === statusFilter;
+      return matchesSearch && matchesStatus;
+    });
+  }, [reservations, searchTerm, statusFilter]);
+
+  const getStatusStyle = (status) => {
+    switch (status) {
+      case 'Confirmed': return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400';
+      case 'Pending': return 'bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400';
+      case 'Cancelled': return 'bg-rose-100 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400';
+      default: return 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400';
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-white dark:bg-slate-950 dark:text-white font-sans font-black uppercase tracking-widest italic">
-        {t.loading || 'Зареждане...'}
-      </div>
-    );
-  }
-
-  if (!user) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50 dark:bg-slate-950 p-4 transition-colors font-sans">
-        <div className="w-full max-w-md rounded-[2.5rem] bg-white dark:bg-slate-900 p-10 shadow-2xl border border-slate-100 dark:border-slate-800 text-center">
-          <h2 className="mb-8 text-3xl font-black text-slate-800 dark:text-white uppercase tracking-tight italic">
-            {t.systemTitle || 'Система за управление'}
-          </h2>
-          <form onSubmit={handleLogin} className="space-y-4">
-            <input 
-              type="email" 
-              placeholder={t.email || 'Email'} 
-              className="w-full rounded-2xl border-none bg-slate-100 dark:bg-slate-800 dark:text-white p-4 outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-              value={loginEmail} 
-              onChange={(e) => setLoginEmail(e.target.value)}
-              required
-            />
-            <input 
-              type="password" 
-              placeholder={t.password || 'Парола'} 
-              className="w-full rounded-2xl border-none bg-slate-100 dark:bg-slate-800 dark:text-white p-4 outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-              value={loginPassword} 
-              onChange={(e) => setLoginPassword(e.target.value)}
-              required
-            />
-            <button className="w-full mt-4 rounded-2xl bg-blue-600 py-4 font-black text-white transition hover:bg-blue-700 shadow-xl shadow-blue-500/30 active:scale-95">
-              {t.loginBtn || 'Вход'}
-            </button>
-          </form>
-        </div>
-      </div>
-    );
-  }
+  if (loading) return (
+    <div className="flex h-64 flex-col items-center justify-center space-y-4">
+      <Loader2 className="animate-spin text-blue-500" size={32} />
+      <p className="text-slate-400 font-medium">Зареждане на резервации...</p>
+    </div>
+  );
 
   return (
-    <div className="flex h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-300 overflow-hidden font-sans">
-      <Sidebar 
-        activeModule={activeModule} 
-        setActiveModule={setActiveModule} 
-        onLogout={() => signOut(auth)} 
-      />
-
-      <main className="flex-1 overflow-y-auto p-6 md:p-12">
-        <div className="max-w-7xl mx-auto">
-          <header className="mb-10 flex justify-between items-end">
-            <div className="animate-in slide-in-from-left duration-500">
-              <h1 className="text-4xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">
-                {t[activeModule] || activeModule}
-              </h1>
-              <p className="text-slate-500 dark:text-slate-400 mt-1 font-medium italic">
-                {t.welcome} {t[activeModule] || activeModule}.
-              </p>
-            </div>
-          </header>
-          
-          <div className="min-h-[600px]">
-            {/* ПРЕВКЛЮЧВАТЕЛ НА МОДУЛИТЕ */}
-            {activeModule === 'dashboard' ? (
-                <Dashboard lang={language} />
-            ) : activeModule === 'reservations' ? (
-                <Reservations lang={language} />
-            ) : (
-                <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-20 shadow-sm border border-slate-100 dark:border-slate-800 text-center animate-in fade-in zoom-in duration-300">
-                   <span className="text-slate-300 dark:text-slate-700 font-black uppercase tracking-widest text-lg italic">
-                     Модулът {t[activeModule] || activeModule} е в процес на разработка
-                   </span>
-                </div>
-            )}
-          </div>
+    <div className="space-y-6 animate-in fade-in duration-500">
+      <div className="flex flex-col md:flex-row gap-4 justify-between items-center">
+        <div className="relative w-full md:w-96">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+          <input 
+            type="text"
+            placeholder={t.searchPlaceholder}
+            className="w-full pl-12 pr-4 py-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 outline-none focus:ring-2 focus:ring-blue-500 shadow-sm dark:text-white"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
         </div>
-      </main>
+
+        <div className="flex items-center gap-3 w-full md:w-auto">
+          <select 
+            className="flex-1 md:w-40 p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 font-bold text-sm outline-none dark:text-white"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+          >
+            <option value="all">{t.all}</option>
+            <option value="Confirmed">{t.confirmed}</option>
+            <option value="Pending">{t.pending}</option>
+            <option value="Cancelled">{t.cancelled}</option>
+          </select>
+          
+          <button className="bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-2xl shadow-lg transition-all flex items-center gap-2 font-black uppercase text-xs">
+            <Plus size={18} />
+            <span className="hidden sm:inline">{t.newRes}</span>
+          </button>
+        </div>
+      </div>
+
+      <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-slate-50 dark:border-slate-800">
+                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">{t.customer}</th>
+                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">{t.date}</th>
+                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">{t.status}</th>
+                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">{t.actions}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50 dark:divide-slate-800 text-slate-800 dark:text-slate-200">
+              {filteredReservations.length > 0 ? filteredReservations.map((res) => (
+                <tr key={res.id} className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors">
+                  <td className="px-8 py-5">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-blue-500">
+                        <User size={20} />
+                      </div>
+                      <div>
+                        <p className="font-bold">{res.customerName || 'N/A'}</p>
+                        <p className="text-xs text-slate-400">ID: {res.resId || res.id.slice(0,8)}</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-8 py-5 text-sm font-medium">
+                    <div className="flex items-center gap-2">
+                      <Calendar size={14} className="text-slate-400" />
+                      {res.checkIn || '---'}
+                    </div>
+                  </td>
+                  <td className="px-8 py-5">
+                    <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter ${getStatusStyle(res.status)}`}>
+                      {res.status === 'Confirmed' ? t.confirmed : res.status === 'Pending' ? t.pending : res.status === 'Cancelled' ? t.cancelled : res.status}
+                    </span>
+                  </td>
+                  <td className="px-8 py-5 text-right">
+                    <div className="flex justify-end gap-2">
+                      <button className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl text-slate-400 transition-colors">
+                        <Printer size={18} />
+                      </button>
+                      <button className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl text-slate-400 transition-colors">
+                        <MoreVertical size={18} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              )) : (
+                <tr>
+                  <td colSpan="4" className="px-8 py-20 text-center text-slate-400 font-medium italic">
+                    {t.noData}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 };
 
-const AppV1 = () => (
-  <AppProvider>
-    <AppContent />
-  </AppProvider>
-);
-
-export default AppV1;
+export default Reservations;
