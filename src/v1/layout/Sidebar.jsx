@@ -1,7 +1,7 @@
 import React from 'react';
 import { LayoutDashboard, Users, Hotel, Bus, FileText, Megaphone, CheckSquare, LogOut, Sun, Moon, Languages } from 'lucide-react';
 import { useApp } from '../AppContext';
-import Logo from '../src/logo.png'; // Пътят до твоето лого
+import Logo from '../../Logo.png'; // Провери дали е Logo.png или logo.png
 
 const Sidebar = ({ activeModule, setActiveModule, onLogout }) => {
   const { theme, toggleTheme, language, toggleLanguage, t } = useApp();
@@ -17,13 +17,14 @@ const Sidebar = ({ activeModule, setActiveModule, onLogout }) => {
   ];
 
   return (
-    <aside className="w-72 bg-white dark:bg-slate-900 text-slate-800 dark:text-white flex flex-col border-r border-slate-200 dark:border-slate-800 transition-all duration-300">
+    <aside className="w-72 bg-white dark:bg-slate-900 text-slate-800 dark:text-white flex flex-col border-r border-slate-200 dark:border-slate-800 transition-all duration-300 h-screen sticky top-0">
       <div className="p-6 flex flex-col items-center border-b border-slate-100 dark:border-slate-800">
-        <img src={Logo} alt="Logo" className="w-20 h-20 object-contain mb-2 rounded-full shadow-md" />
+        {/* Използваме опит за зареждане на логото, ако липсва - показваме текст */}
+        <img src={Logo} alt="Logo" className="w-20 h-20 object-contain mb-2" onError={(e) => e.target.style.display='none'} />
         <p className="text-[10px] uppercase tracking-widest opacity-50 font-bold">Travel Management</p>
       </div>
 
-      <nav className="flex-1 px-4 mt-4 space-y-1">
+      <nav className="flex-1 px-4 mt-4 space-y-1 overflow-y-auto">
         {menuItems.map((item) => {
           const Icon = item.icon;
           return (
@@ -58,7 +59,7 @@ const Sidebar = ({ activeModule, setActiveModule, onLogout }) => {
             className="flex-1 flex items-center justify-center gap-2 p-2.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
           >
             <Languages size={18} className="text-blue-500" />
-            <span className="text-[10px] font-bold uppercase">{language === 'bg' ? 'English' : 'Български'}</span>
+            <span className="text-[10px] font-bold uppercase">{language === 'bg' ? 'EN' : 'BG'}</span>
           </button>
         </div>
 
