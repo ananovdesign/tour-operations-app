@@ -2,13 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { auth } from '../firebase';
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import Sidebar from './layout/Sidebar';
-import Dashboard from './modules/Dashboard'; 
+import Dashboard from './modules/Dashboard';
+import Reservations from './modules/Reservations'; // Новият модул
 import { AppProvider, useApp } from './AppContext';
 
 const AppContent = () => {
-  // Вземаме t (преводите) и language (текущия език: 'bg' или 'en') от AppContext
   const { t, language } = useApp();
-  
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeModule, setActiveModule] = useState('dashboard');
@@ -24,18 +23,15 @@ const AppContent = () => {
     return () => unsubscribe();
   }, []);
 
-  // Функция за вход
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
       await signInWithEmailAndPassword(auth, loginEmail, loginPassword);
     } catch (error) {
-      // Използваме t.errorLogin или стандартно съобщение
       alert(t.loginError || "Грешка при вход: " + error.message);
     }
   };
 
-  // Екран за зареждане
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center bg-white dark:bg-slate-950 dark:text-white font-sans font-black uppercase tracking-widest italic">
@@ -44,7 +40,6 @@ const AppContent = () => {
     );
   }
 
-  // Екран за вход (Login), ако няма потребител
   if (!user) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50 dark:bg-slate-950 p-4 transition-colors font-sans">
@@ -78,10 +73,8 @@ const AppContent = () => {
     );
   }
 
-  // Основна структура на приложението след вход
   return (
     <div className="flex h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-300 overflow-hidden font-sans">
-      {/* Sidebar-ът променя activeModule и езика чрез AppContext */}
       <Sidebar 
         activeModule={activeModule} 
         setActiveModule={setActiveModule} 
@@ -90,7 +83,6 @@ const AppContent = () => {
 
       <main className="flex-1 overflow-y-auto p-6 md:p-12">
         <div className="max-w-7xl mx-auto">
-          {/* Динамичен Header според активния модул */}
           <header className="mb-10 flex justify-between items-end">
             <div className="animate-in slide-in-from-left duration-500">
               <h1 className="text-4xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">
@@ -102,11 +94,12 @@ const AppContent = () => {
             </div>
           </header>
           
-          {/* Динамично зареждане на Dashboard или друг модул */}
           <div className="min-h-[600px]">
+            {/* ПРЕВКЛЮЧВАТЕЛ НА МОДУЛИТЕ */}
             {activeModule === 'dashboard' ? (
-                /* ПРЕДАВАМЕ language КЪМ DASHBOARD ЗА ПРЕВОДИТЕ ТАМ */
                 <Dashboard lang={language} />
+            ) : activeModule === 'reservations' ? (
+                <Reservations lang={language} />
             ) : (
                 <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-20 shadow-sm border border-slate-100 dark:border-slate-800 text-center animate-in fade-in zoom-in duration-300">
                    <span className="text-slate-300 dark:text-slate-700 font-black uppercase tracking-widest text-lg italic">
@@ -121,7 +114,6 @@ const AppContent = () => {
   );
 };
 
-// Главният компонент, обвит в AppProvider
 const AppV1 = () => (
   <AppProvider>
     <AppContent />
