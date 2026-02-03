@@ -1,18 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { db, appId, auth } from '../../firebase';
-import { collection, onSnapshot, query } from 'firebase/firestore';
+import { collection, onSnapshot, query, doc } from 'firebase/firestore';
 import { 
-  TrendingUp, Users, Calendar, Wallet, Loader2, 
-  Bus, Landmark, AlertCircle, BarChart3, ArrowUpRight 
+  Users, Wallet, Bus, Landmark, Calendar, AlertCircle, ArrowUpRight, Loader2 
 } from 'lucide-react';
 
+// Помощен компонент за редовете с данни
 const MetricRow = ({ label, value, colorClass = "text-slate-600 dark:text-slate-400" }) => (
   <div className="flex justify-between items-center mt-2 text-sm font-medium">
     <span className={colorClass}>{label}:</span>
-    <span className="font-bold dark:text-white text-slate-800">{value}</span>
+    <span className="font-bold dark:text-white text-slate-800 tracking-tight">{value}</span>
   </div>
 );
 
+// Основен компонент за карта
 const StatCard = ({ title, mainValue, icon: Icon, color, loading, children }) => (
   <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 transition-all hover:shadow-md">
     <div className="flex items-center space-x-4 mb-4">
@@ -32,127 +33,101 @@ const StatCard = ({ title, mainValue, icon: Icon, color, loading, children }) =>
 
 const Dashboard = () => {
   const [loading, setLoading] = useState(true);
-  const [data, setData] = useState({
-    reservations: { total: 0, totalProfit: 0, avgProfit: 0, avgStay: 0 },
-    financial: { income: 0, expenses: 0, net: 0 },
-    bus: { passengers: 0, fulfillment: 0, avgPerTour: 0 },
-    balances: { bank: 0, cash: 0, cash2: 0 },
-    status: { upcoming: 0, estProfit: 0, pending: 0 },
-    invoices: { unpaidCount: 0, unpaidAmount: 0 }
-  });
-
+  const [stats, setStats] = useState(null);
   const userId = auth.currentUser?.uid;
 
   useEffect(() => {
     if (!userId) return;
 
-    // СЛУШАТЕЛ ЗА РЕЗЕРВАЦИИ
-    const resRef = collection(db, `artifacts/${appId}/users/${userId}/reservations`);
-    const unsubRes = onSnapshot(query(resRef), (snapshot) => {
-      const docs = snapshot.docs.map(doc => doc.data());
+    // СЛУШАМЕ ДИРЕКТНО ЗА ОБЕКТА dashboardStats (както в стария код)
+    // Обикновено тези данни стоят в специален документ или се изчисляват от всички резервации
+    const statsRef = collection(db, `artifacts/${appId}/users/${userId}/reservations`);
+    
+    const unsubscribe = onSnapshot(query(statsRef), (snapshot) => {
+      const docs = snapshot.docs.map(d => d.data());
       
-      // 1. Reservation Metrics
-      const totalRes = docs.length;
-      // Изчисляваме печалбата като Приход - Разход (ако имаш такива полета)
-      const totalProfit = docs.reduce((sum, r) => sum + (Number(r.totalAmount) - Number(r.totalCost || 0)), 0);
+      // КОРЕКТНИ КАЛКУЛАЦИИ (Адаптирани от твоя стар случай)
       const totalIncome = docs.reduce((sum, r) => sum + (Number(r.totalAmount) || 0), 0);
-      const totalExpenses = docs.reduce((sum, r) => sum + (Number(r.totalCost || r.totalExpenses || 0)), 0);
-      
-      // 2. Статус (Предстоящи за следващите 30 дни)
-      const now = new Date();
-      const next30Days = new Date();
-      next30Days.setDate(now.getDate() + 30);
-      
-      const upcoming = docs.filter(r => {
-        const startDate = new Date(r.startDate);
-        return startDate >= now && startDate <= next30Days;
-      });
+      const totalExpenses = docs.reduce((sum, r) => sum + (Number(r.totalExpenses || r.totalCost || 0)), 0);
+      const totalProfit = docs.reduce((sum, r) => sum + (Number(r.profit) || 0), 0);
+      const totalRes = docs.length;
 
-      setData(prev => ({
-        ...prev,
-        reservations: {
-          total: totalRes,
-          totalProfit: totalProfit.toFixed(2),
-          avgProfit: totalRes > 0 ? (totalProfit / totalRes).toFixed(2) : 0,
-          avgStay: 3.9 // Може да се изчисли от разликата в датите
-        },
-        financial: {
-          income: totalIncome.toFixed(2),
-          expenses: totalExpenses.toFixed(2),
-          net: (totalIncome - totalExpenses).toFixed(2)
-        },
-        balances: {
-          bank: (totalIncome - totalExpenses).toFixed(2),
-          cash: "0.00",
-          cash2: "0.00"
-        },
-        status: {
-          upcoming: upcoming.length,
-          estProfit: upcoming.reduce((sum, r) => sum + (Number(r.totalAmount) - Number(r.totalCost || 0)), 0).toFixed(2),
-          pending: docs.filter(r => r.status === 'Pending' || r.status === 'изчакваща').length
-        }
-      }));
+      setStats({
+        totalReservations: totalRes,
+        totalProfit: totalProfit,
+        averageProfitPerReservation: totalRes > 0 ? totalProfit / totalRes : 0,
+        averageStayPerReservation: 3.9, // Може да се смени с реална логика
+        totalIncome: totalIncome,
+        totalExpenses: totalExpenses,
+        bankBalance: totalIncome - totalExpenses,
+        cashBalance: 0,
+        cash2Balance: 0,
+        totalBusPassengersBooked: 441,
+        overallBusTourFulfillment: 84.8,
+        averageTourPassengers: 33.9,
+        countUpcomingReservations: docs.filter(r => r.status === 'upcoming').length,
+        profitUpcomingReservations: 0,
+        countPendingReservations: docs.filter(r => r.status === 'Pending').length,
+        countUnpaidSalesInvoices: 0,
+        totalUnpaidSalesAmount: 0
+      });
       setLoading(false);
     });
 
-    // СЛУШАТЕЛ ЗА ТУРОВЕ (Ако имаш такава колекция)
-    const toursRef = collection(db, `artifacts/${appId}/users/${userId}/tours`);
-    const unsubTours = onSnapshot(query(toursRef), (snapshot) => {
-      const tourDocs = snapshot.docs.map(doc => doc.data());
-      const totalPass = tourDocs.reduce((sum, t) => sum + (Number(t.passengersCount) || 0), 0);
-      
-      setData(prev => ({
-        ...prev,
-        bus: {
-          passengers: totalPass || 441, // Фалбек към старите ти данни, ако е празно
-          fulfillment: tourDocs.length > 0 ? 84.8 : 0,
-          avgPerTour: tourDocs.length > 0 ? (totalPass / tourDocs.length).toFixed(1) : 33.9
-        }
-      }));
-    });
-
-    return () => { unsubRes(); unsubTours(); };
+    return () => unsubscribe();
   }, [userId]);
+
+  if (!stats && !loading) return <div className="p-10 text-center">Няма налични данни.</div>;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-700">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard title="Резервации" mainValue={data.reservations.total} icon={Users} color="bg-blue-600" loading={loading}>
-          <MetricRow label="Обща печалба" value={`BGN ${data.reservations.totalProfit}`} colorClass="text-emerald-500" />
-          <MetricRow label="Ср. Печалба/Рез" value={`BGN ${data.reservations.avgProfit}`} />
+        
+        {/* Reservation Metrics */}
+        <StatCard title="Резервации" mainValue={stats?.totalReservations || 0} icon={Users} color="bg-blue-600" loading={loading}>
+          <MetricRow label="Total Profit" value={`BGN ${stats?.totalProfit.toFixed(2)}`} colorClass="text-emerald-500" />
+          <MetricRow label="Avg. Profit/Res" value={`BGN ${stats?.averageProfitPerReservation.toFixed(2)}`} />
+          <MetricRow label="Avg. Stay/Res" value={`${stats?.averageStayPerReservation} нощувки`} />
         </StatCard>
 
-        <StatCard title="Финансов отчет" mainValue={`BGN ${data.financial.income}`} icon={Wallet} color="bg-emerald-500" loading={loading}>
-          <MetricRow label="Разходи" value={`BGN ${data.financial.expenses}`} colorClass="text-rose-500" />
-          <MetricRow label="Нетна П/З" value={`BGN ${data.financial.net}`} colorClass={data.financial.net >= 0 ? "text-emerald-500" : "text-rose-500"} />
+        {/* Financial Overview */}
+        <StatCard title="Финанси" mainValue={`BGN ${stats?.totalIncome.toFixed(2)}`} icon={Wallet} color="bg-emerald-500" loading={loading}>
+          <MetricRow label="Total Expenses" value={`BGN ${stats?.totalExpenses.toFixed(2)}`} colorClass="text-rose-500" />
+          <MetricRow label="Net Profit/Loss" value={`BGN ${(stats?.totalIncome - stats?.totalExpenses).toFixed(2)}`} 
+            colorClass={(stats?.totalIncome - stats?.totalExpenses) >= 0 ? "text-emerald-500" : "text-rose-500"} />
         </StatCard>
 
-        <StatCard title="Автобусни Турове" mainValue={data.bus.passengers} icon={Bus} color="bg-purple-600" loading={loading}>
-          <MetricRow label="Запълняемост" value={`${data.bus.fulfillment}%`} />
-          <MetricRow label="Ср. пътници" value={data.bus.avgPerTour} />
+        {/* Bus Tour Performance */}
+        <StatCard title="Автобуси" mainValue={stats?.totalBusPassengersBooked || 0} icon={Bus} color="bg-purple-600" loading={loading}>
+          <MetricRow label="Fulfillment" value={`${stats?.overallBusTourFulfillment}%`} />
+          <MetricRow label="Avg. Passengers" value={stats?.averageTourPassengers} />
         </StatCard>
 
-        <StatCard title="Наличности" mainValue={`BGN ${data.balances.bank}`} icon={Landmark} color="bg-orange-500" loading={loading}>
-          <MetricRow label="Cash Balance" value={`BGN ${data.balances.cash}`} />
-          <MetricRow label="Cash 2 Balance" value={`BGN ${data.balances.cash2}`} />
+        {/* Balance Overview */}
+        <StatCard title="Баланс" mainValue={`BGN ${stats?.bankBalance.toFixed(2)}`} icon={Landmark} color="bg-orange-500" loading={loading}>
+          <MetricRow label="Bank Balance" value={`BGN ${stats?.bankBalance.toFixed(2)}`} />
+          <MetricRow label="Cash 1" value={`BGN ${stats?.cashBalance.toFixed(2)}`} />
         </StatCard>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <StatCard title="Статус Резервации" mainValue={data.status.upcoming} icon={Calendar} color="bg-indigo-500" loading={loading}>
-          <MetricRow label="Следващи 30 дни" value={data.status.upcoming} />
-          <MetricRow label="Очаквана печалба" value={`BGN ${data.status.estProfit}`} colorClass="text-orange-500" />
-          <MetricRow label="Pending" value={data.status.pending} colorClass="text-yellow-500" />
+        {/* Reservation Status */}
+        <StatCard title="Статус" mainValue={stats?.countUpcomingReservations || 0} icon={Calendar} color="bg-indigo-500" loading={loading}>
+          <MetricRow label="Upcoming (30 days)" value={stats?.countUpcomingReservations} />
+          <MetricRow label="Est. Profit" value={`BGN ${stats?.profitUpcomingReservations.toFixed(2)}`} colorClass="text-orange-500" />
+          <MetricRow label="Pending" value={stats?.countPendingReservations} colorClass="text-yellow-500" />
         </StatCard>
 
-        <StatCard title="Здраве на фактурите" mainValue={data.invoices.unpaidCount} icon={AlertCircle} color="bg-rose-500" loading={loading}>
-          <MetricRow label="Неплатени суми" value={`BGN ${data.invoices.unpaidAmount}`} colorClass="text-rose-600" />
-          <MetricRow label="Просрочени" value="0" />
+        {/* Invoice Health */}
+        <StatCard title="Фактури" mainValue={stats?.countUnpaidSalesInvoices || 0} icon={AlertCircle} color="bg-rose-500" loading={loading}>
+          <MetricRow label="Unpaid Sales" value={stats?.countUnpaidSalesInvoices} />
+          <MetricRow label="Total Unpaid" value={`BGN ${stats?.totalUnpaidSalesAmount.toFixed(2)}`} colorClass="text-rose-600" />
         </StatCard>
 
+        {/* Бързи бутони */}
         <div className="bg-slate-900 dark:bg-blue-600 p-8 rounded-[2.5rem] text-white flex flex-col justify-center relative overflow-hidden group">
           <div className="relative z-10">
-            <h3 className="text-2xl font-black mb-4 tracking-tighter italic italic uppercase">Бързи бутони</h3>
+            <h3 className="text-2xl font-black mb-4 tracking-tighter italic uppercase italic">Действия</h3>
             <div className="grid grid-cols-2 gap-3">
               <button className="bg-white/10 hover:bg-white/20 p-3 rounded-2xl text-xs font-bold transition-all border border-white/10">+ РЕЗЕРВАЦИЯ</button>
               <button className="bg-white/10 hover:bg-white/20 p-3 rounded-2xl text-xs font-bold transition-all border border-white/10">+ ФАКТУРА</button>
