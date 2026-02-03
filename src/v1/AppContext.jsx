@@ -7,7 +7,6 @@ export const AppProvider = ({ children }) => {
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
 
   useEffect(() => {
-    // При промяна на темата, добавяме или махаме клас на целия сайт
     const root = window.document.documentElement;
     if (theme === 'dark') {
       root.classList.add('dark');
@@ -21,24 +20,49 @@ export const AppProvider = ({ children }) => {
     localStorage.setItem('lang', language);
   }, [language]);
 
-  const toggleTheme = () => setTheme(theme === 'light' ? 'dark' : 'light');
-  const toggleLanguage = () => setLanguage(language === 'bg' ? 'en' : 'bg');
+  const toggleTheme = () => setTheme(prev => prev === 'light' ? 'dark' : 'light');
+  const toggleLanguage = () => setLanguage(prev => prev === 'bg' ? 'en' : 'bg');
 
-  // Кратки преводи за интерфейса (ще ги допълваме)
-  const t = {
-    dashboard: language === 'bg' ? 'Табло' : 'Dashboard',
-    reservations: language === 'bg' ? 'Резервации' : 'Reservations',
-    hotels: language === 'bg' ? 'Хотели' : 'Hotels',
-    bus: language === 'bg' ? 'Автобуси' : 'Bus Tours',
-    invoices: language === 'bg' ? 'Фактури' : 'Invoices',
-    marketing: language === 'bg' ? 'Маркетинг' : 'Marketing',
-    tasks: language === 'bg' ? 'Задачи' : 'Tasks',
-    logout: language === 'bg' ? 'Изход' : 'Logout',
-    loginTitle: language === 'bg' ? 'Вход в Системата' : 'System Login',
-    email: language === 'bg' ? 'Имейл' : 'Email',
-    password: language === 'bg' ? 'Парола' : 'Password',
-    loginBtn: language === 'bg' ? 'Влез' : 'Login'
+  const translations = {
+    bg: {
+      dashboard: 'Табло',
+      reservations: 'Резервации',
+      hotels: 'Хотели',
+      bus: 'Автобуси',
+      invoices: 'Фактури',
+      marketing: 'Маркетинг',
+      tasks: 'Задачи',
+      logout: 'Изход',
+      loginTitle: 'Вход в Системата',
+      email: 'Имейл',
+      password: 'Парола',
+      loginBtn: 'Влез',
+      loading: 'Зареждане...',
+      welcome: 'Добре дошли в модул',
+      themeLight: 'Светла',
+      themeDark: 'Тъмна'
+    },
+    en: {
+      dashboard: 'Dashboard',
+      reservations: 'Reservations',
+      hotels: 'Hotels',
+      bus: 'Bus Tours',
+      invoices: 'Invoices',
+      marketing: 'Marketing',
+      tasks: 'Tasks',
+      logout: 'Logout',
+      loginTitle: 'System Login',
+      email: 'Email',
+      password: 'Password',
+      loginBtn: 'Login',
+      loading: 'Loading...',
+      welcome: 'Welcome to module',
+      themeLight: 'Light',
+      themeDark: 'Dark'
+    }
   };
+
+  const t = translations[language];
 
   return (
     <AppContext.Provider value={{ theme, toggleTheme, language, toggleLanguage, t }}>
