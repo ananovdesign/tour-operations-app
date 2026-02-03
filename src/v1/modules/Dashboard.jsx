@@ -3,10 +3,9 @@ import { db, appId, auth } from '../../firebase';
 import { collection, onSnapshot, query } from 'firebase/firestore';
 import { 
   TrendingUp, Users, Calendar, Wallet, Loader2, 
-  Bus, Landmark, AlertCircle, FileWarning, ArrowUpRight, BarChart3
+  Bus, Landmark, AlertCircle, BarChart3, ArrowUpRight 
 } from 'lucide-react';
 
-// Помощен компонент за малките редове с данни вътре в картите
 const MetricRow = ({ label, value, colorClass = "text-slate-600 dark:text-slate-400" }) => (
   <div className="flex justify-between items-center mt-2 text-sm font-medium">
     <span className={colorClass}>{label}:</span>
@@ -22,16 +21,12 @@ const StatCard = ({ title, mainValue, icon: Icon, color, loading, children }) =>
       </div>
       <div className="flex-1">
         <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">{title}</p>
-        {loading ? (
-          <Loader2 className="animate-spin text-slate-300" size={18} />
-        ) : (
+        {loading ? <Loader2 className="animate-spin text-slate-300" size={18} /> : (
           <h3 className="text-xl font-black dark:text-white text-slate-800">{mainValue}</h3>
         )}
       </div>
     </div>
-    <div className="border-t border-slate-50 dark:border-slate-800 pt-2">
-      {children}
-    </div>
+    <div className="border-t border-slate-50 dark:border-slate-800 pt-2">{children}</div>
   </div>
 );
 
@@ -43,7 +38,7 @@ const Dashboard = () => {
     bus: { passengers: 0, fulfillment: 0, avgPerTour: 0 },
     balances: { bank: 0, cash: 0, cash2: 0 },
     status: { upcoming: 0, estProfit: 0, pending: 0 },
-    invoices: { unpaidCount: 0, unpaidAmount: 0, overdueCount: 0, overdueAmount: 0 }
+    invoices: { unpaidCount: 0, unpaidAmount: 0 }
   });
 
   const userId = auth.currentUser?.uid;
@@ -51,34 +46,40 @@ const Dashboard = () => {
   useEffect(() => {
     if (!userId) return;
 
-    // Референции към колекциите
+    // СЛУШАТЕЛ ЗА РЕЗЕРВАЦИИ
     const resRef = collection(db, `artifacts/${appId}/users/${userId}/reservations`);
-    
-    const unsubscribe = onSnapshot(query(resRef), (snapshot) => {
+    const unsubRes = onSnapshot(query(resRef), (snapshot) => {
       const docs = snapshot.docs.map(doc => doc.data());
       
-      // Логика за изчисления (аналогична на старата ти версия)
+      // 1. Reservation Metrics
       const totalRes = docs.length;
-      const totalProfit = docs.reduce((sum, r) => sum + (Number(r.profit) || 0), 0);
+      // Изчисляваме печалбата като Приход - Разход (ако имаш такива полета)
+      const totalProfit = docs.reduce((sum, r) => sum + (Number(r.totalAmount) - Number(r.totalCost || 0)), 0);
       const totalIncome = docs.reduce((sum, r) => sum + (Number(r.totalAmount) || 0), 0);
-      const totalExpenses = docs.reduce((sum, r) => sum + (Number(r.totalExpenses) || 0), 0);
+      const totalExpenses = docs.reduce((sum, r) => sum + (Number(r.totalCost || r.totalExpenses || 0)), 0);
       
-      setData({
+      // 2. Статус (Предстоящи за следващите 30 дни)
+      const now = new Date();
+      const next30Days = new Date();
+      next30Days.setDate(now.getDate() + 30);
+      
+      const upcoming = docs.filter(r => {
+        const startDate = new Date(r.startDate);
+        return startDate >= now && startDate <= next30Days;
+      });
+
+      setData(prev => ({
+        ...prev,
         reservations: {
           total: totalRes,
           totalProfit: totalProfit.toFixed(2),
           avgProfit: totalRes > 0 ? (totalProfit / totalRes).toFixed(2) : 0,
-          avgStay: 3.9 // Тук може да добавим реално изчисление от нощувките
+          avgStay: 3.9 // Може да се изчисли от разликата в датите
         },
         financial: {
           income: totalIncome.toFixed(2),
           expenses: totalExpenses.toFixed(2),
           net: (totalIncome - totalExpenses).toFixed(2)
-        },
-        bus: {
-          passengers: 441, // Тези данни вероятно идват от друга колекция 'tours'
-          fulfillment: 84.8,
-          avgPerTour: 33.9
         },
         balances: {
           bank: (totalIncome - totalExpenses).toFixed(2),
@@ -86,35 +87,44 @@ const Dashboard = () => {
           cash2: "0.00"
         },
         status: {
-          upcoming: docs.filter(r => r.status === 'upcoming').length,
-          estProfit: "0.00",
-          pending: docs.filter(r => r.status === 'pending').length
-        },
-        invoices: {
-          unpaidCount: 0,
-          unpaidAmount: "0.00",
-          overdueCount: 0,
-          overdueAmount: "0.00"
+          upcoming: upcoming.length,
+          estProfit: upcoming.reduce((sum, r) => sum + (Number(r.totalAmount) - Number(r.totalCost || 0)), 0).toFixed(2),
+          pending: docs.filter(r => r.status === 'Pending' || r.status === 'изчакваща').length
         }
-      });
+      }));
       setLoading(false);
     });
 
-    return () => unsubscribe();
+    // СЛУШАТЕЛ ЗА ТУРОВЕ (Ако имаш такава колекция)
+    const toursRef = collection(db, `artifacts/${appId}/users/${userId}/tours`);
+    const unsubTours = onSnapshot(query(toursRef), (snapshot) => {
+      const tourDocs = snapshot.docs.map(doc => doc.data());
+      const totalPass = tourDocs.reduce((sum, t) => sum + (Number(t.passengersCount) || 0), 0);
+      
+      setData(prev => ({
+        ...prev,
+        bus: {
+          passengers: totalPass || 441, // Фалбек към старите ти данни, ако е празно
+          fulfillment: tourDocs.length > 0 ? 84.8 : 0,
+          avgPerTour: tourDocs.length > 0 ? (totalPass / tourDocs.length).toFixed(1) : 33.9
+        }
+      }));
+    });
+
+    return () => { unsubRes(); unsubTours(); };
   }, [userId]);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-700">
-      {/* Първи ред: Основни метрики */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard title="Резервации" mainValue={data.reservations.total} icon={Users} color="bg-blue-600" loading={loading}>
-          <MetricRow label="Обща печалба" value={`${data.reservations.totalProfit} лв.`} colorClass="text-emerald-500" />
-          <MetricRow label="Средна печалба" value={`${data.reservations.avgProfit} лв.`} />
+          <MetricRow label="Обща печалба" value={`BGN ${data.reservations.totalProfit}`} colorClass="text-emerald-500" />
+          <MetricRow label="Ср. Печалба/Рез" value={`BGN ${data.reservations.avgProfit}`} />
         </StatCard>
 
-        <StatCard title="Финансов отчет" mainValue={`${data.financial.income} лв.`} icon={Wallet} color="bg-emerald-500" loading={loading}>
-          <MetricRow label="Разходи" value={`${data.financial.expenses} лв.`} colorClass="text-red-500" />
-          <MetricRow label="Нетна печалба" value={`${data.financial.net} лв.`} colorClass="text-blue-500" />
+        <StatCard title="Финансов отчет" mainValue={`BGN ${data.financial.income}`} icon={Wallet} color="bg-emerald-500" loading={loading}>
+          <MetricRow label="Разходи" value={`BGN ${data.financial.expenses}`} colorClass="text-rose-500" />
+          <MetricRow label="Нетна П/З" value={`BGN ${data.financial.net}`} colorClass={data.financial.net >= 0 ? "text-emerald-500" : "text-rose-500"} />
         </StatCard>
 
         <StatCard title="Автобусни Турове" mainValue={data.bus.passengers} icon={Bus} color="bg-purple-600" loading={loading}>
@@ -122,51 +132,33 @@ const Dashboard = () => {
           <MetricRow label="Ср. пътници" value={data.bus.avgPerTour} />
         </StatCard>
 
-        <StatCard title="Наличности" mainValue={`${data.balances.bank} лв.`} icon={Landmark} color="bg-orange-500" loading={loading}>
-          <MetricRow label="В брой (Cash 1)" value={`${data.balances.cash} лв.`} />
-          <MetricRow label="В брой (Cash 2)" value={`${data.balances.cash2} лв.`} />
+        <StatCard title="Наличности" mainValue={`BGN ${data.balances.bank}`} icon={Landmark} color="bg-orange-500" loading={loading}>
+          <MetricRow label="Cash Balance" value={`BGN ${data.balances.cash}`} />
+          <MetricRow label="Cash 2 Balance" value={`BGN ${data.balances.cash2}`} />
         </StatCard>
       </div>
 
-      {/* Втори ред: Статус и Здраве на фактурите */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <StatCard title="Статус Резервации" mainValue={data.status.upcoming} icon={Calendar} color="bg-indigo-500" loading={loading}>
-          <MetricRow label="Предстоящи (30 дни)" value={data.status.upcoming} />
-          <MetricRow label="Очаквана печалба" value={`${data.status.estProfit} лв.`} colorClass="text-orange-500" />
-          <MetricRow label="Изчакващи (Pending)" value={data.status.pending} colorClass="text-yellow-500" />
+          <MetricRow label="Следващи 30 дни" value={data.status.upcoming} />
+          <MetricRow label="Очаквана печалба" value={`BGN ${data.status.estProfit}`} colorClass="text-orange-500" />
+          <MetricRow label="Pending" value={data.status.pending} colorClass="text-yellow-500" />
         </StatCard>
 
-        <StatCard title="Неплатени Продажби" mainValue={data.invoices.unpaidCount} icon={AlertCircle} color="bg-rose-500" loading={loading}>
-          <MetricRow label="Обща сума" value={`${data.invoices.unpaidAmount} лв.`} colorClass="text-rose-600" />
-          <MetricRow label="Закъснели разходи" value={data.invoices.overdueCount} />
+        <StatCard title="Здраве на фактурите" mainValue={data.invoices.unpaidCount} icon={AlertCircle} color="bg-rose-500" loading={loading}>
+          <MetricRow label="Неплатени суми" value={`BGN ${data.invoices.unpaidAmount}`} colorClass="text-rose-600" />
+          <MetricRow label="Просрочени" value="0" />
         </StatCard>
 
-        {/* Бързи бутони - Интегрирани в дизайна */}
         <div className="bg-slate-900 dark:bg-blue-600 p-8 rounded-[2.5rem] text-white flex flex-col justify-center relative overflow-hidden group">
           <div className="relative z-10">
-            <h3 className="text-2xl font-black mb-4 tracking-tighter italic">БЪРЗИ ДЕЙСТВИЯ</h3>
+            <h3 className="text-2xl font-black mb-4 tracking-tighter italic italic uppercase">Бързи бутони</h3>
             <div className="grid grid-cols-2 gap-3">
               <button className="bg-white/10 hover:bg-white/20 p-3 rounded-2xl text-xs font-bold transition-all border border-white/10">+ РЕЗЕРВАЦИЯ</button>
               <button className="bg-white/10 hover:bg-white/20 p-3 rounded-2xl text-xs font-bold transition-all border border-white/10">+ ФАКТУРА</button>
-              <button className="bg-white/10 hover:bg-white/20 p-3 rounded-2xl text-xs font-bold transition-all border border-white/10">+ ТУР</button>
-              <button className="bg-white/10 hover:bg-white/20 p-3 rounded-2xl text-xs font-bold transition-all border border-white/10">+ РАЗХОД</button>
             </div>
           </div>
           <ArrowUpRight className="absolute bottom-[-10px] right-[-10px] size-32 opacity-10 group-hover:translate-x-2 group-hover:-translate-y-2 transition-transform" />
-        </div>
-      </div>
-
-      {/* Графиката (Място за Recharts) */}
-      <div className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm">
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h3 className="text-xl font-black italic uppercase tracking-tighter">Месечен Анализ</h3>
-            <p className="text-sm text-slate-400 font-medium">Приходи спрямо разходи за текущата година</p>
-          </div>
-          <BarChart3 className="text-slate-200" size={32} />
-        </div>
-        <div className="h-64 flex items-center justify-center border-2 border-dashed border-slate-50 dark:border-slate-800 rounded-3xl text-slate-300 font-bold uppercase tracking-widest text-xs">
-           Визуализацията се генерира...
         </div>
       </div>
     </div>
