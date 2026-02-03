@@ -3,7 +3,7 @@ import { db, appId, auth } from '../../firebase';
 import { collection, onSnapshot, query } from 'firebase/firestore';
 import { 
   Users, Calendar, Wallet, Loader2, 
-  Bus, Landmark, ArrowUpRight, TrendingUp 
+  Bus, Landmark, ArrowUpRight, TrendingUp, Percent
 } from 'lucide-react';
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
@@ -36,7 +36,7 @@ const StatCard = ({ title, mainValue, icon: Icon, color, loading, children }) =>
 
 const Dashboard = () => {
   const [loading, setLoading] = useState(true);
-  const [data, setData] = useState({
+  const [collectionsData, setCollectionsData] = useState({
     reservations: [],
     financialTransactions: [],
     tours: [],
@@ -49,7 +49,6 @@ const Dashboard = () => {
   useEffect(() => {
     if (!userId) return;
 
-    // Списък без фактури
     const collections = ['reservations', 'financialTransactions', 'tours', 'customers', 'products'];
     const unsubscribes = [];
     const tempStore = {};
@@ -58,9 +57,8 @@ const Dashboard = () => {
       const ref = collection(db, `artifacts/${appId}/users/${userId}/${colName}`);
       const unsub = onSnapshot(query(ref), (snapshot) => {
         tempStore[colName] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        
         if (Object.keys(tempStore).length === collections.length) {
-          setData({ ...tempStore });
+          setCollectionsData({ ...tempStore });
           setLoading(false);
         }
       });
@@ -70,79 +68,95 @@ const Dashboard = () => {
     return () => unsubscribes.forEach(unsub => unsub());
   }, [userId]);
 
-  // --- Dashboard Calculations (Твоята логика, без фактури) ---
+  // --- ТОЧНИТЕ КАЛКУЛАЦИИ ОТ ТВОЯ КОД ---
   const stats = useMemo(() => {
+    const { reservations, financialTransactions, tours, customers, products } = collectionsData;
+    
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const thirtyDaysFromNow = new Date();
     thirtyDaysFromNow.setDate(today.getDate() + 30);
     thirtyDaysFromNow.setHours(23, 59, 59, 999);
 
-    const activeReservations = data.reservations.filter(res => res.status !== 'Cancelled');
+    const activeReservations = reservations.filter(res => res.status !== 'Cancelled');
+    const profitableReservations = activeReservations.filter(res => (Number(res.profit) || 0) > 0);
+
     const totalReservations = activeReservations.length;
-    const totalProfit = activeReservations.reduce((sum, res) => sum + (Number(res.profit) || 0), 0);
+    const totalProfit = profitableReservations.reduce((sum, res) => sum + (Number(res.profit) || 0), 0);
     const averageProfitPerReservation = totalReservations > 0 ? totalProfit / totalReservations : 0;
     const totalNightsSum = activeReservations.reduce((sum, res) => sum + (Number(res.totalNights) || 0), 0);
     const averageStayPerReservation = totalReservations > 0 ? totalNightsSum / totalReservations : 0;
 
     const upcomingReservations = activeReservations.filter(res => {
-      const checkInDate = new Date(res.checkIn);
-      checkInDate.setHours(0, 0, 0, 0);
-      return checkInDate >= today && checkInDate <= thirtyDaysFromNow;
+        const checkInDate = new Date(res.checkIn);
+        checkInDate.setHours(0, 0, 0, 0);
+        return checkInDate >= today && checkInDate <= thirtyDaysFromNow;
+    });
+    const countUpcomingReservations = upcomingReservations.length;
+    const profitUpcomingReservations = upcomingReservations.reduce((sum, res) => sum + (Number(res.profit) || 0), 0);
+
+    const pendingReservations = activeReservations.filter(res => res.status === 'Pending');
+    const countPendingReservations = pendingReservations.length;
+
+    const totalIncome = financialTransactions
+        .filter(ft => ft.type === 'income')
+        .reduce((sum, ft) => sum + (Number(ft.amount) || 0), 0);
+
+    const totalExpenses = financialTransactions
+        .filter(ft => ft.type === 'expense')
+        .reduce((sum, ft) => sum + (Number(ft.amount) || 0), 0);
+
+    let totalBookedPassengersAcrossAllTours = 0;
+    let totalMaxPassengersAcrossAllTours = 0;
+    let totalBusToursCount = 0;
+
+    tours.forEach(tour => {
+        totalBusToursCount++;
+        const linkedReservations = activeReservations.filter(res => res.linkedTourId === tour.tourId);
+        const bookedPassengersForTour = linkedReservations.reduce((sum, res) => sum + (Number(res.adults) || 0) + (Number(res.children) || 0), 0);
+        totalBookedPassengersAcrossAllTours += bookedPassengersForTour;
+        totalMaxPassengersAcrossAllTours += (Number(tour.maxPassengers) || 0);
     });
 
-    const totalIncome = data.financialTransactions
-      .filter(ft => ft.type === 'income')
-      .reduce((sum, ft) => sum + (Number(ft.amount) || 0), 0);
+    const overallBusTourFulfillment = totalMaxPassengersAcrossAllTours > 0
+        ? (totalBookedPassengersAcrossAllTours / totalMaxPassengersAcrossAllTours) * 100
+        : 0;
+    const averageTourPassengers = totalBusToursCount > 0 ? totalBookedPassengersAcrossAllTours / totalBusToursCount : 0;
 
-    const totalExpenses = data.financialTransactions
-      .filter(ft => ft.type === 'expense')
-      .reduce((sum, ft) => sum + (Number(ft.amount) || 0), 0);
+    const balances = {
+        Bank: { income: 0, expense: 0 },
+        Cash: { income: 0, expense: 0 },
+        'Cash 2': { income: 0, expense: 0 },
+    };
 
-    let bookedPass = 0;
-    let maxPass = 0;
-    data.tours.forEach(tour => {
-      const linked = activeReservations.filter(res => res.linkedTourId === tour.tourId);
-      bookedPass += linked.reduce((sum, res) => sum + (Number(res.adults) || 0) + (Number(res.children) || 0), 0);
-      maxPass += (Number(tour.maxPassengers) || 0);
+    financialTransactions.forEach(ft => {
+        if (balances[ft.method]) {
+            balances[ft.method][ft.type] += (Number(ft.amount) || 0);
+        }
     });
 
-    const balances = { Bank: 0, Cash: 0, 'Cash 2': 0 };
-    data.financialTransactions.forEach(ft => {
-      const amt = Number(ft.amount) || 0;
-      if (balances.hasOwnProperty(ft.method)) {
-        balances[ft.method] += (ft.type === 'income' ? amt : -amt);
-      }
-    });
+    const bankBalance = balances.Bank.income - balances.Bank.expense;
+    const cashBalance = balances.Cash.income - balances.Cash.expense;
+    const cash2Balance = balances['Cash 2'].income - balances['Cash 2'].expense;
 
-    // Данни за графиката (последните 7 дни с транзакции)
-    const chartMap = {};
-    data.financialTransactions.forEach(ft => {
+    // Подготовка за графиките
+    const chartDataMap = {};
+    financialTransactions.forEach(ft => {
       const d = ft.date || 'N/A';
-      if (!chartMap[d]) chartMap[d] = { date: d, income: 0, expense: 0 };
-      chartMap[d][ft.type] += Number(ft.amount) || 0;
+      if (!chartDataMap[d]) chartDataMap[d] = { date: d, income: 0, expense: 0 };
+      chartDataMap[d][ft.type] += Number(ft.amount) || 0;
     });
-    const financialChartData = Object.values(chartMap).sort((a,b) => new Date(a.date) - new Date(b.date)).slice(-7);
+    const financialChartData = Object.values(chartDataMap).sort((a,b) => new Date(a.date) - new Date(b.date)).slice(-7);
 
     return {
-      totalReservations,
-      totalProfit,
-      averageProfitPerReservation,
-      averageStayPerReservation,
-      totalIncome,
-      totalExpenses,
-      bankBalance: balances.Bank,
-      cashBalance: balances.Cash,
-      cash2Balance: balances['Cash 2'],
-      totalBusPassengersBooked: bookedPass,
-      overallBusTourFulfillment: maxPass > 0 ? (bookedPass / maxPass) * 100 : 0,
-      countUpcomingReservations: upcomingReservations.length,
-      profitUpcomingReservations: upcomingReservations.reduce((sum, res) => sum + (Number(res.profit) || 0), 0),
-      countPendingReservations: activeReservations.filter(res => res.status === 'Pending').length,
-      financialChartData,
-      pieData: [{ name: 'Заето', value: bookedPass }, { name: 'Свободно', value: Math.max(0, maxPass - bookedPass) }]
+        totalReservations, totalProfit, averageProfitPerReservation, averageStayPerReservation,
+        totalIncome, totalExpenses, overallBusTourFulfillment, totalBusPassengersBooked: totalBookedPassengersAcrossAllTours,
+        bankBalance, cashBalance, cash2Balance, totalCustomers: customers.length, totalProducts: products.length,
+        countUpcomingReservations, profitUpcomingReservations, countPendingReservations, averageTourPassengers,
+        financialChartData, 
+        pieData: [{ name: 'Заето', value: totalBookedPassengersAcrossAllTours }, { name: 'Свободно', value: Math.max(0, totalMaxPassengersAcrossAllTours - totalBookedPassengersAcrossAllTours) }]
     };
-  }, [data]);
+  }, [collectionsData]);
 
   const PIE_COLORS = ['#6366f1', '#e2e8f0'];
 
@@ -151,17 +165,17 @@ const Dashboard = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard title="Резервации" mainValue={stats.totalReservations} icon={Users} color="bg-blue-600" loading={loading}>
           <MetricRow label="Ср. нощувки" value={stats.averageStayPerReservation.toFixed(1)} />
-          <MetricRow label="Изчакващи" value={stats.countPendingReservations} colorClass="text-yellow-600" />
+          <MetricRow label="Изчакващи (Pending)" value={stats.countPendingReservations} colorClass="text-yellow-500" />
         </StatCard>
 
-        <StatCard title="Финанси" mainValue={`BGN ${stats.totalIncome.toFixed(2)}`} icon={TrendingUp} color="bg-emerald-500" loading={loading}>
+        <StatCard title="Финансов отчет" mainValue={`BGN ${stats.totalIncome.toFixed(2)}`} icon={TrendingUp} color="bg-emerald-500" loading={loading}>
           <MetricRow label="Разходи" value={`BGN ${stats.totalExpenses.toFixed(2)}`} colorClass="text-rose-500" />
-          <MetricRow label="Обща Печалба" value={`BGN ${stats.totalProfit.toFixed(2)}`} colorClass="text-emerald-600" />
+          <MetricRow label="Обща Печалба" value={`BGN ${stats.totalProfit.toFixed(2)}`} colorClass="text-emerald-500" />
         </StatCard>
 
         <StatCard title="Брой пътници (Общо)" mainValue={stats.totalBusPassengersBooked} icon={Bus} color="bg-purple-600" loading={loading}>
+          <MetricRow label="Ср. на тур" value={stats.averageTourPassengers.toFixed(1)} />
           <MetricRow label="Запълняемост" value={`${stats.overallBusTourFulfillment.toFixed(1)}%`} />
-          <MetricRow label="Клиенти" value={data.customers.length} />
         </StatCard>
 
         <StatCard title="Наличности (Bank)" mainValue={`BGN ${stats.bankBalance.toFixed(2)}`} icon={Landmark} color="bg-orange-500" loading={loading}>
@@ -172,7 +186,7 @@ const Dashboard = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
-          <h4 className="text-sm font-black text-slate-400 uppercase mb-6 tracking-widest">Движение на паричния поток</h4>
+          <h4 className="text-sm font-black text-slate-400 uppercase mb-6 tracking-widest">Финансов Тренд</h4>
           <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={stats.financialChartData}>
@@ -193,14 +207,49 @@ const Dashboard = () => {
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie data={stats.pieData} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
-                  {stats.pieData.map((_, index) => <Cell key={index} fill={PIE_COLORS[index]} />)}
+                  {stats.pieData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={PIE_COLORS[index]} />
+                  ))}
                 </Pie>
                 <Tooltip />
                 <Legend verticalAlign="bottom" height={36}/>
               </PieChart>
             </ResponsiveContainer>
           </div>
-          <p className="mt-4 text-2xl font-black text-slate-800 dark:text-white">{stats.overallBusTourFulfillment.toFixed(1)}%</p>
+          <div className="mt-4 text-center">
+             <span className="text-2xl font-black text-slate-800 dark:text-white">{stats.overallBusTourFulfillment.toFixed(1)}%</span>
+             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Общ капацитет</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Секция за бъдещи резервации (също използва твоите калкулации) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
+          <div className="flex items-center space-x-3 mb-4">
+             <Calendar className="text-indigo-500" size={20} />
+             <h4 className="text-sm font-black text-slate-400 uppercase tracking-widest">Следващи 30 дни</h4>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+             <div>
+               <p className="text-2xl font-black dark:text-white">{stats.countUpcomingReservations}</p>
+               <p className="text-[10px] text-slate-400 uppercase font-bold">Брой резервации</p>
+             </div>
+             <div>
+               <p className="text-2xl font-black text-emerald-500">BGN {stats.profitUpcomingReservations.toFixed(2)}</p>
+               <p className="text-[10px] text-slate-400 uppercase font-bold">Очаквана Печалба</p>
+             </div>
+          </div>
+        </div>
+        
+        <div className="bg-indigo-600 p-6 rounded-3xl text-white flex items-center justify-between">
+           <div>
+             <h4 className="font-black italic uppercase text-lg leading-tight">Бърз преглед</h4>
+             <p className="text-indigo-100 text-xs opacity-80">Средна печалба от резервация: BGN {stats.averageProfitPerReservation.toFixed(2)}</p>
+           </div>
+           <button className="bg-white text-indigo-600 p-3 rounded-2xl shadow-lg hover:scale-105 transition-transform">
+             <ArrowUpRight size={24} />
+           </button>
         </div>
       </div>
     </div>
