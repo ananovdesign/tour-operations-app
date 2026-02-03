@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { db, appId, auth } from '../../firebase';
 import { collection, onSnapshot, query } from 'firebase/firestore';
+// Импортираме преводите от новия файл
+import { uiTranslations } from './translations'; 
 import { 
   Users, Calendar, Loader2, Bus, Landmark, ArrowUpRight, TrendingUp 
 } from 'lucide-react';
@@ -8,30 +10,6 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   PieChart, Pie, Cell, Legend 
 } from 'recharts';
-
-// 1. ИЗНЕСЕНИ ПРЕВОДИ (Лесни за поддръжка и разширяване)
-const uiTranslations = {
-  bg: {
-    reservations: "Резервации", avgNights: "Ср. нощувки", pending: "Изчакващи",
-    finances: "Финансов отчет", expenses: "Разходи", totalProfit: "Обща Печалба",
-    passengers: "Брой пътници (Общо)", avgPerTour: "Ср. на тур", fulfillment: "Запълняемост",
-    balances: "Наличности", trend: "Финансов Тренд", tourOccupancy: "Заетост Турове",
-    booked: "Заето", free: "Свободно", next30Days: "Следващи 30 дни",
-    expectedProfit: "Очаквана Печалба", quickLook: "Бърз преглед",
-    avgProfitRes: "Ср. печалба от резервация", income: "Приход", expense: "Разход",
-    totalCapacity: "Общ капацитет", resCount: "Брой резервации", currency: "BGN"
-  },
-  en: {
-    reservations: "Reservations", avgNights: "Avg Nights", pending: "Pending",
-    finances: "Financial Report", expenses: "Expenses", totalProfit: "Total Profit",
-    passengers: "Total Passengers", avgPerTour: "Avg / Tour", fulfillment: "Fulfillment",
-    balances: "Balances", trend: "Financial Trend", tourOccupancy: "Tour Occupancy",
-    booked: "Booked", free: "Free", next30Days: "Next 30 Days",
-    expectedProfit: "Expected Profit", quickLook: "Quick Insight",
-    avgProfitRes: "Avg Profit / Res", income: "Income", expense: "Expense",
-    totalCapacity: "Total Capacity", resCount: "Res Count", currency: "BGN"
-  }
-};
 
 const MetricRow = ({ label, value, colorClass = "text-slate-600 dark:text-slate-400" }) => (
   <div className="flex justify-between items-center mt-2 text-sm font-medium">
@@ -63,6 +41,7 @@ const Dashboard = ({ lang = 'bg' }) => {
     reservations: [], financialTransactions: [], tours: [], customers: [], products: []
   });
 
+  // Взимаме правилния език
   const t = useMemo(() => uiTranslations[lang] || uiTranslations.bg, [lang]);
   const userId = auth.currentUser?.uid;
 
@@ -88,29 +67,28 @@ const Dashboard = ({ lang = 'bg' }) => {
 
   const stats = useMemo(() => {
     const { reservations, financialTransactions, tours } = collectionsData;
-    
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const thirtyDays = new Date(); thirtyDays.setDate(today.getDate() + 30);
 
     const activeRes = reservations.filter(res => res.status !== 'Cancelled');
     
-    // Калкулации (Твоята логика)
+    // Всички твои оригинални калкулации
     const totalReservations = activeRes.length;
     const totalProfit = activeRes.reduce((sum, res) => sum + (Number(res.profit) || 0), 0);
     const totalNights = activeRes.reduce((sum, res) => sum + (Number(res.totalNights) || 0), 0);
     
     const upcoming = activeRes.filter(res => {
-        const checkIn = new Date(res.checkIn);
-        return checkIn >= today && checkIn <= thirtyDays;
+        const d = new Date(res.checkIn);
+        return d >= today && d <= thirtyDays;
     });
 
-    const income = financialTransactions.filter(ft => ft.type === 'income').reduce((s, ft) => s + (Number(ft.amount) || 0), 0);
-    const expense = financialTransactions.filter(ft => ft.type === 'expense').reduce((s, ft) => s + (Number(ft.amount) || 0), 0);
+    const income = financialTransactions.filter(f => f.type === 'income').reduce((s, f) => s + (Number(f.amount) || 0), 0);
+    const expense = financialTransactions.filter(f => f.type === 'expense').reduce((s, f) => s + (Number(f.amount) || 0), 0);
 
     let booked = 0, max = 0;
     tours.forEach(tour => {
         const linked = activeRes.filter(res => res.linkedTourId === tour.tourId);
-        booked += linked.reduce((s, res) => s + (Number(res.adults) || 0) + (Number(res.children) || 0), 0);
+        booked += linked.reduce((s, r) => s + (Number(r.adults) || 0) + (Number(r.children) || 0), 0);
         max += (Number(tour.maxPassengers) || 0);
     });
 
@@ -136,24 +114,17 @@ const Dashboard = ({ lang = 'bg' }) => {
       avgTour: tours.length > 0 ? booked / tours.length : 0,
       bank: balances.Bank, cash: balances.Cash, cash2: balances['Cash 2'],
       upcomingCount: upcoming.length,
-      upcomingProfit: upcoming.reduce((s, res) => s + (Number(res.profit) || 0), 0),
-      pending: activeRes.filter(res => res.status === 'Pending').length,
+      upcomingProfit: upcoming.reduce((s, r) => s + (Number(r.profit) || 0), 0),
+      pending: activeRes.filter(r => r.status === 'Pending').length,
       chart: Object.values(chartMap).sort((a,b) => new Date(a.date) - new Date(b.date)).slice(-7),
       pie: [{ name: t.booked, value: booked }, { name: t.free, value: Math.max(0, max - booked) }]
     };
   }, [collectionsData, t]);
 
-  const PIE_COLORS = ['#6366f1', '#e2e8f0'];
-
-  if (loading) return (
-    <div className="flex h-screen items-center justify-center bg-slate-50 dark:bg-slate-950">
-      <Loader2 className="animate-spin text-indigo-500" size={40} />
-    </div>
-  );
+  if (loading) return <div className="flex h-screen items-center justify-center dark:bg-slate-950"><Loader2 className="animate-spin text-indigo-500" size={32} /></div>;
 
   return (
-    <div className="space-y-6 pb-10 animate-in fade-in duration-500">
-      {/* СТАТИСТИЧЕСКИ КАРТИ */}
+    <div className="space-y-6 pb-10">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard title={t.reservations} mainValue={stats.totalReservations} icon={Users} color="bg-blue-600">
           <MetricRow label={t.avgNights} value={stats.avgStay.toFixed(1)} />
@@ -177,46 +148,40 @@ const Dashboard = ({ lang = 'bg' }) => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* ГРАФИКА ТРЕНД */}
         <div className="lg:col-span-2 bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
           <h4 className="text-xs font-black text-slate-400 uppercase mb-6 tracking-widest">{t.trend}</h4>
           <div className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={stats.chart}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#94a3b8'}} />
-                <YAxis axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#94a3b8'}} />
-                <Tooltip contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
-                <Line type="monotone" dataKey="income" stroke="#10b981" strokeWidth={3} dot={{r:4}} name={t.income} />
-                <Line type="monotone" dataKey="expense" stroke="#f43f5e" strokeWidth={3} dot={{r:4}} name={t.expense} />
+                <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fontSize: 12}} />
+                <YAxis axisLine={false} tickLine={false} tick={{fontSize: 12}} />
+                <Tooltip />
+                <Line type="monotone" dataKey="income" stroke="#10b981" strokeWidth={3} name={t.income} />
+                <Line type="monotone" dataKey="expense" stroke="#f43f5e" strokeWidth={3} name={t.expense} />
               </LineChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* PIE CHART ЗАЕТОСТ */}
         <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col items-center">
           <h4 className="text-xs font-black text-slate-400 uppercase mb-2 tracking-widest self-start">{t.tourOccupancy}</h4>
           <div className="h-[250px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie data={stats.pie} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
-                  {stats.pie.map((_, index) => <Cell key={index} fill={PIE_COLORS[index]} />)}
+                  <Cell fill="#6366f1" /><Cell fill="#e2e8f0" />
                 </Pie>
                 <Tooltip />
                 <Legend verticalAlign="bottom" height={36}/>
               </PieChart>
             </ResponsiveContainer>
           </div>
-          <div className="mt-4 text-center">
-             <span className="text-2xl font-black text-slate-800 dark:text-white">{stats.fulfillment.toFixed(1)}%</span>
-             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{t.totalCapacity}</p>
-          </div>
+          <span className="text-2xl font-black mt-4">{stats.fulfillment.toFixed(1)}%</span>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* СЛЕДВАЩИ 30 ДНИ */}
         <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
           <div className="flex items-center space-x-3 mb-4">
              <Calendar className="text-indigo-500" size={20} />
@@ -224,7 +189,7 @@ const Dashboard = ({ lang = 'bg' }) => {
           </div>
           <div className="grid grid-cols-2 gap-4">
              <div>
-               <p className="text-2xl font-black dark:text-white">{stats.upcomingCount}</p>
+               <p className="text-2xl font-black">{stats.upcomingCount}</p>
                <p className="text-[10px] text-slate-400 uppercase font-bold">{t.resCount}</p>
              </div>
              <div>
@@ -234,18 +199,13 @@ const Dashboard = ({ lang = 'bg' }) => {
           </div>
         </div>
         
-        {/* ЕКШЪН КАРТА С РАБОТЕЩ БУТОН */}
         <div className="bg-indigo-600 p-6 rounded-3xl text-white flex items-center justify-between shadow-xl">
            <div>
              <h4 className="font-black italic uppercase text-lg leading-tight">{t.quickLook}</h4>
              <p className="text-indigo-100 text-xs opacity-80">{t.avgProfitRes}: {t.currency} {stats.avgProfit.toFixed(2)}</p>
            </div>
-           {/* БУТОНЪТ СЕГА ИМА ONCLICK */}
-           <button 
-             onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-             className="bg-white text-indigo-600 p-4 rounded-2xl shadow-lg hover:scale-110 active:scale-95 transition-all"
-           >
-             <ArrowUpRight size={24} strokeWidth={3} />
+           <button className="bg-white text-indigo-600 p-3 rounded-2xl shadow-lg hover:scale-105 transition-transform">
+             <ArrowUpRight size={24} />
            </button>
         </div>
       </div>
