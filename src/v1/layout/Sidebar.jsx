@@ -1,7 +1,7 @@
 import React from 'react';
 import { LayoutDashboard, Users, Hotel, Bus, FileText, Megaphone, CheckSquare, LogOut, Sun, Moon, Languages } from 'lucide-react';
 import { useApp } from '../AppContext';
-import Logo from '../../logo.png'; // Пътят до твоето лого
+import Logo from '../src/logo.png'; // Пътят до твоето лого
 
 const Sidebar = ({ activeModule, setActiveModule, onLogout }) => {
   const { theme, toggleTheme, language, toggleLanguage, t } = useApp();
