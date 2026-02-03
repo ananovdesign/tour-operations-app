@@ -18,31 +18,33 @@ const Reservations = ({ lang = 'bg' }) => {
   useEffect(() => {
     if (!userId) return;
 
-    // Референции към колекциите
     const resRef = collection(db, `artifacts/${appId}/users/${userId}/reservations`);
     const transRef = collection(db, `artifacts/${appId}/users/${userId}/financialTransactions`);
     
-    // Първо изтегляме транзакциите, за да можем да ги ползваме при изчисляването на резервациите
     const unsubTrans = onSnapshot(transRef, (transSnapshot) => {
       const allTrans = transSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setTransactions(allTrans);
 
-      // След като имаме транзакциите, обновяваме резервациите
       const unsubRes = onSnapshot(resRef, (resSnapshot) => {
         const rawData = resSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-        // ПРИЛАГАНЕ НА ТВОЯТА ОРИГИНАЛНА ЛОГИКА ЗА ПЛАЩАНИЯТА
         const dataWithPayments = rawData.map(res => {
           const paymentsForRes = allTrans.filter(ft =>
             ft.type === 'income' && ft.associatedReservationId === res.reservationNumber
           );
+          
           const totalPaid = paymentsForRes.reduce((sum, ft) => sum + (ft.amount || 0), 0);
-          const remainingAmount = (res.finalAmount || 0) - totalPaid;
+          const finalAmt = res.finalAmount || 0;
+          const remainingAmount = finalAmt - totalPaid;
 
           let paymentStatus = 'Unpaid';
-          let paymentStatusColor = 'bg-rose-100 text-rose-800'; // Използвам твоите цветове
+          let paymentStatusColor = 'bg-rose-100 text-rose-800';
           
-          if (totalPaid >= (res.finalAmount || 0) && (res.finalAmount > 0)) {
+          // ПРАВИЛО: АКО СУМАТА Е 0 ИЛИ ПО-МАЛКО, СЕ СЧИТА ЗА ПЛАТЕНА
+          if (finalAmt <= 0) {
+            paymentStatus = 'Paid';
+            paymentStatusColor = 'bg-emerald-100 text-emerald-800';
+          } else if (totalPaid >= finalAmt) {
             paymentStatus = 'Paid';
             paymentStatusColor = 'bg-emerald-100 text-emerald-800';
           } else if (totalPaid > 0) {
@@ -53,13 +55,12 @@ const Reservations = ({ lang = 'bg' }) => {
           return {
             ...res,
             totalPaid,
-            remainingAmount,
+            remainingAmount: remainingAmount < 0 ? 0 : remainingAmount,
             paymentStatus,
             paymentStatusColor,
           };
         });
 
-        // Сортиране по номер (най-новите отгоре)
         const sortedData = dataWithPayments.sort((b, a) => {
           const getNum = (str) => parseInt(str?.toString().replace(/\D/g, '')) || 0;
           return getNum(a.reservationNumber) - getNum(b.reservationNumber);
@@ -92,13 +93,12 @@ const Reservations = ({ lang = 'bg' }) => {
   if (loading) return (
     <div className="flex h-64 flex-col items-center justify-center space-y-4 font-sans text-center">
       <Loader2 className="animate-spin text-blue-500" size={32} />
-      <p className="text-slate-400 font-black italic uppercase tracking-widest text-[10px]">Calculating status & sorting...</p>
+      <p className="text-slate-400 font-black italic uppercase tracking-widest text-[10px]">Подреждане на резервации...</p>
     </div>
   );
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 font-sans">
-      {/* HEADER & SEARCH */}
       <div className="flex flex-col md:flex-row gap-4 justify-between items-center">
         <div className="relative w-full md:w-96">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
@@ -129,7 +129,6 @@ const Reservations = ({ lang = 'bg' }) => {
         </div>
       </div>
 
-      {/* TABLE */}
       <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
