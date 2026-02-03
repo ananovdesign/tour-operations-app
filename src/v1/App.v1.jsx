@@ -2,17 +2,20 @@ import React, { useState, useEffect } from 'react';
 import { auth } from '../firebase';
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import Sidebar from './layout/Sidebar';
-import Dashboard from './modules/Dashboard'; // УВЕРИ СЕ, ЧЕ ТОЗИ РЕД Е ТУК
+import Dashboard from './modules/Dashboard'; 
 import { AppProvider, useApp } from './AppContext';
 
 const AppContent = () => {
-  const { t } = useApp();
+  // Вземаме t (преводите) и language (текущия език: 'bg' или 'en') от AppContext
+  const { t, language } = useApp();
+  
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeModule, setActiveModule] = useState('dashboard');
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
 
+  // Следене на състоянието на логнатия потребител
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
@@ -21,33 +24,53 @@ const AppContent = () => {
     return () => unsubscribe();
   }, []);
 
+  // Функция за вход
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
       await signInWithEmailAndPassword(auth, loginEmail, loginPassword);
     } catch (error) {
-      alert("Грешка при вход: " + error.message);
+      // Използваме t.errorLogin или стандартно съобщение
+      alert(t.loginError || "Грешка при вход: " + error.message);
     }
   };
 
-  if (loading) return <div className="flex h-screen items-center justify-center bg-white dark:bg-slate-950 dark:text-white">{t.loading}</div>;
+  // Екран за зареждане
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-white dark:bg-slate-950 dark:text-white font-sans font-black uppercase tracking-widest italic">
+        {t.loading || 'Зареждане...'}
+      </div>
+    );
+  }
 
+  // Екран за вход (Login), ако няма потребител
   if (!user) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50 dark:bg-slate-950 p-4 transition-colors font-sans">
-        <div className="w-full max-w-md rounded-3xl bg-white dark:bg-slate-900 p-10 shadow-2xl border border-slate-100 dark:border-slate-800 text-center">
-          <h2 className="mb-8 text-3xl font-black text-slate-800 dark:text-white uppercase tracking-tight italic">Система за управление</h2>
+        <div className="w-full max-w-md rounded-[2.5rem] bg-white dark:bg-slate-900 p-10 shadow-2xl border border-slate-100 dark:border-slate-800 text-center">
+          <h2 className="mb-8 text-3xl font-black text-slate-800 dark:text-white uppercase tracking-tight italic">
+            {t.systemTitle || 'Система за управление'}
+          </h2>
           <form onSubmit={handleLogin} className="space-y-4">
             <input 
-              type="email" placeholder={t.email} className="w-full rounded-2xl border-none bg-slate-100 dark:bg-slate-800 dark:text-white p-4 outline-none focus:ring-2 focus:ring-blue-500"
-              value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)}
+              type="email" 
+              placeholder={t.email || 'Email'} 
+              className="w-full rounded-2xl border-none bg-slate-100 dark:bg-slate-800 dark:text-white p-4 outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+              value={loginEmail} 
+              onChange={(e) => setLoginEmail(e.target.value)}
+              required
             />
             <input 
-              type="password" placeholder={t.password} className="w-full rounded-2xl border-none bg-slate-100 dark:bg-slate-800 dark:text-white p-4 outline-none focus:ring-2 focus:ring-blue-500"
-              value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)}
+              type="password" 
+              placeholder={t.password || 'Парола'} 
+              className="w-full rounded-2xl border-none bg-slate-100 dark:bg-slate-800 dark:text-white p-4 outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+              value={loginPassword} 
+              onChange={(e) => setLoginPassword(e.target.value)}
+              required
             />
             <button className="w-full mt-4 rounded-2xl bg-blue-600 py-4 font-black text-white transition hover:bg-blue-700 shadow-xl shadow-blue-500/30 active:scale-95">
-              {t.loginBtn}
+              {t.loginBtn || 'Вход'}
             </button>
           </form>
         </div>
@@ -55,32 +78,50 @@ const AppContent = () => {
     );
   }
 
+  // Основна структура на приложението след вход
   return (
     <div className="flex h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-300 overflow-hidden font-sans">
-      <Sidebar activeModule={activeModule} setActiveModule={setActiveModule} onLogout={() => signOut(auth)} />
+      {/* Sidebar-ът променя activeModule и езика чрез AppContext */}
+      <Sidebar 
+        activeModule={activeModule} 
+        setActiveModule={setActiveModule} 
+        onLogout={() => signOut(auth)} 
+      />
+
       <main className="flex-1 overflow-y-auto p-6 md:p-12">
-          <div className="max-w-7xl mx-auto">
-            <header className="mb-10 flex justify-between items-end">
-              <div>
-                <h1 className="text-4xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">{t[activeModule]}</h1>
-                <p className="text-slate-500 dark:text-slate-400 mt-1 font-medium italic">{t.welcome} {t[activeModule]}.</p>
-              </div>
-            </header>
-            
-            {/* Динамично зареждане на модулите */}
+        <div className="max-w-7xl mx-auto">
+          {/* Динамичен Header според активния модул */}
+          <header className="mb-10 flex justify-between items-end">
+            <div className="animate-in slide-in-from-left duration-500">
+              <h1 className="text-4xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">
+                {t[activeModule] || activeModule}
+              </h1>
+              <p className="text-slate-500 dark:text-slate-400 mt-1 font-medium italic">
+                {t.welcome} {t[activeModule] || activeModule}.
+              </p>
+            </div>
+          </header>
+          
+          {/* Динамично зареждане на Dashboard или друг модул */}
+          <div className="min-h-[600px]">
             {activeModule === 'dashboard' ? (
-                <Dashboard />
+                /* ПРЕДАВАМЕ language КЪМ DASHBOARD ЗА ПРЕВОДИТЕ ТАМ */
+                <Dashboard lang={language} />
             ) : (
-                <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-20 shadow-sm border border-slate-100 dark:border-slate-800 text-center">
-                   <span className="text-slate-300 dark:text-slate-700 font-black uppercase tracking-widest text-lg italic">Модулът {t[activeModule]} е в процес на разработка</span>
+                <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-20 shadow-sm border border-slate-100 dark:border-slate-800 text-center animate-in fade-in zoom-in duration-300">
+                   <span className="text-slate-300 dark:text-slate-700 font-black uppercase tracking-widest text-lg italic">
+                     Модулът {t[activeModule] || activeModule} е в процес на разработка
+                   </span>
                 </div>
             )}
           </div>
+        </div>
       </main>
     </div>
   );
 };
 
+// Главният компонент, обвит в AppProvider
 const AppV1 = () => (
   <AppProvider>
     <AppContent />
