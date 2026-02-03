@@ -1,173 +1,219 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { db, appId, auth } from '../../firebase';
-import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
+// ВНИМАНИЕ: Провери дали този път е верен спрямо разположението на файла
+import { db, appId, auth } from '../../firebase'; 
+import { collection, onSnapshot, query } from 'firebase/firestore';
 import { 
-  Search, Filter, Plus, Printer, MoreVertical, 
-  Calendar, User, Tag, ChevronRight, Loader2 
+  Search, Plus, Printer, MoreVertical, Calendar, User, 
+  Loader2, Filter, X, ChevronDown, ChevronUp, Eye, Edit, Trash2, FileText
 } from 'lucide-react';
 
 const uiTranslations = {
   bg: {
-    title: "Резервации",
-    searchPlaceholder: "Търси по име или номер...",
-    newRes: "Нова резервация",
-    all: "Всички",
-    confirmed: "Потвърдена",
-    pending: "Изчакваща",
-    cancelled: "Анулирана",
-    customer: "Клиент",
-    date: "Дата",
-    status: "Статус",
-    actions: "Действия",
-    noData: "Няма намерени резервации"
+    status: "Статус", hotel: "Хотел", tourType: "Тип тур", checkInAfter: "Настаняване след",
+    checkOutBefore: "Напускане преди", searchLead: "Търси водещ клиент", reset: "Изчисти филтри",
+    resNumber: "Номер", leadGuest: "Клиент", dates: "Дати", payment: "Плащане", 
+    profit: "Печалба", actions: "Действия", noData: "Няма намерени резервации",
+    due: "Дължимо", details: "Детайли", adults: "Възрастни", children: "Деца"
   },
   en: {
-    title: "Reservations",
-    searchPlaceholder: "Search by name or ID...",
-    newRes: "New Booking",
-    all: "All",
-    confirmed: "Confirmed",
-    pending: "Pending",
-    cancelled: "Cancelled",
-    customer: "Customer",
-    date: "Date",
-    status: "Status",
-    actions: "Actions",
-    noData: "No reservations found"
+    status: "Status", hotel: "Hotel", tourType: "Tour Type", checkInAfter: "Check-in After",
+    checkOutBefore: "Check-out Before", searchLead: "Search by Lead Guest", reset: "Reset Filters",
+    resNumber: "Res Number", leadGuest: "Lead Guest", dates: "Dates", payment: "Payment Status",
+    profit: "Profit", actions: "Actions", noData: "No reservations found",
+    due: "Due", details: "Details", adults: "Adults", children: "Children"
   }
 };
 
 const Reservations = ({ lang = 'bg' }) => {
   const [loading, setLoading] = useState(true);
   const [reservations, setReservations] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [transactions, setTransactions] = useState([]);
+  const [expandedId, setExpandedId] = useState(null);
+  const [viewingRes, setViewingRes] = useState(null);
+
+  // Твоите филтри
+  const [filters, setFilters] = useState({
+    status: 'All', hotel: '', tourType: 'All', 
+    checkIn: '', checkOut: '', search: ''
+  });
 
   const t = useMemo(() => uiTranslations[lang] || uiTranslations.bg, [lang]);
   const userId = auth.currentUser?.uid;
 
   useEffect(() => {
     if (!userId) return;
+    
+    // Зареждане на резервации
     const resRef = collection(db, `artifacts/${appId}/users/${userId}/reservations`);
-    const q = query(resRef, orderBy('createdAt', 'desc'));
-
-    const unsub = onSnapshot(q, (snapshot) => {
-      setReservations(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    const unsubRes = onSnapshot(resRef, (snap) => {
+      setReservations(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
       setLoading(false);
     });
-    return () => unsub();
+
+    // Зареждане на транзакции (за логиката с плащанията)
+    const transRef = collection(db, `artifacts/${appId}/users/${userId}/financialTransactions`);
+    const unsubTrans = onSnapshot(transRef, (snap) => {
+      setTransactions(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+
+    return () => { unsubRes(); unsubTrans(); };
   }, [userId]);
 
-  const filteredReservations = useMemo(() => {
+  const filteredData = useMemo(() => {
     return reservations.filter(res => {
-      const matchesSearch = 
-        res.customerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        res.resId?.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesStatus = statusFilter === 'all' || res.status === statusFilter;
-      return matchesSearch && matchesStatus;
-    });
-  }, [reservations, searchTerm, statusFilter]);
+      const guestName = res.tourists?.[0] ? `${res.tourists[0].firstName} ${res.tourists[0].familyName}`.toLowerCase() : '';
+      const matchesSearch = guestName.includes(filters.search.toLowerCase()) || res.reservationNumber?.includes(filters.search);
+      const matchesStatus = filters.status === 'All' || res.status === filters.status;
+      const matchesHotel = !filters.hotel || res.hotel?.toLowerCase().includes(filters.hotel.toLowerCase());
+      const matchesTour = filters.tourType === 'All' || res.tourType === filters.tourType;
+      const matchesIn = !filters.checkIn || res.checkIn >= filters.checkIn;
+      const matchesOut = !filters.checkOut || res.checkOut <= filters.checkOut;
 
-  const getStatusStyle = (status) => {
-    switch (status) {
-      case 'Confirmed': return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400';
-      case 'Pending': return 'bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400';
-      case 'Cancelled': return 'bg-rose-100 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400';
-      default: return 'bg-slate-100 text-slate-700';
-    }
-  };
+      return matchesSearch && matchesStatus && matchesHotel && matchesTour && matchesIn && matchesOut;
+    });
+  }, [reservations, filters]);
 
   if (loading) return <div className="flex h-64 items-center justify-center"><Loader2 className="animate-spin text-blue-500" /></div>;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      {/* ЛЕНТА С ИНСТРУМЕНТИ */}
-      <div className="flex flex-col md:flex-row gap-4 justify-between items-center">
-        <div className="relative w-full md:w-96">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+      
+      {/* СЕКЦИЯ ФИЛТРИ (Твоята логика в нов дизайн) */}
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 p-6 bg-white dark:bg-slate-900 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm">
+        <div className="space-y-1">
+          <label className="text-[10px] font-black uppercase text-slate-400 ml-2">{t.status}</label>
+          <select 
+            value={filters.status} 
+            onChange={e => setFilters({...filters, status: e.target.value})}
+            className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border-none text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="All">All</option>
+            <option value="Pending">Pending</option>
+            <option value="Confirmed">Confirmed</option>
+            <option value="Cancelled">Cancelled</option>
+          </select>
+        </div>
+        <div className="space-y-1">
+          <label className="text-[10px] font-black uppercase text-slate-400 ml-2">{t.hotel}</label>
           <input 
-            type="text"
-            placeholder={t.searchPlaceholder}
-            className="w-full pl-12 pr-4 py-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 outline-none focus:ring-2 focus:ring-blue-500 transition-all shadow-sm"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            type="text" 
+            placeholder="Hotel name..."
+            value={filters.hotel}
+            onChange={e => setFilters({...filters, hotel: e.target.value})}
+            className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border-none text-sm outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
-
-        <div className="flex items-center gap-3 w-full md:w-auto">
-          <select 
-            className="flex-1 md:w-40 p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 font-bold text-sm outline-none"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+        <div className="space-y-1">
+          <label className="text-[10px] font-black uppercase text-slate-400 ml-2">{t.checkInAfter}</label>
+          <input 
+            type="date" 
+            value={filters.checkIn}
+            onChange={e => setFilters({...filters, checkIn: e.target.value})}
+            className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border-none text-sm outline-none"
+          />
+        </div>
+        <div className="lg:col-span-2 space-y-1">
+          <label className="text-[10px] font-black uppercase text-slate-400 ml-2">{t.searchLead}</label>
+          <input 
+            type="text" 
+            placeholder="Search name..."
+            value={filters.search}
+            onChange={e => setFilters({...filters, search: e.target.value})}
+            className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border-none text-sm outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+        <div className="flex items-end pb-1">
+          <button 
+            onClick={() => setFilters({status:'All', hotel:'', tourType:'All', checkIn:'', checkOut:'', search:''})}
+            className="w-full p-3 text-xs font-black uppercase text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-xl transition-colors"
           >
-            <option value="all">{t.all}</option>
-            <option value="Confirmed">{t.confirmed}</option>
-            <option value="Pending">{t.pending}</option>
-            <option value="Cancelled">{t.cancelled}</option>
-          </select>
-          
-          <button className="bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-2xl shadow-lg shadow-blue-500/30 transition-all flex items-center gap-2 font-black uppercase text-xs">
-            <Plus size={18} />
-            <span className="hidden sm:inline">{t.newRes}</span>
+            {t.reset}
           </button>
         </div>
       </div>
 
-      {/* ТАБЛИЦА / СПИСЪК */}
-      <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
+      {/* ТАБЛИЦА */}
+      <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b border-slate-50 dark:border-slate-800">
-                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">{t.customer}</th>
-                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">{t.date}</th>
-                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">{t.status}</th>
-                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">{t.actions}</th>
+          <table className="w-full text-left">
+            <thead className="bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
+              <tr>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">{t.resNumber}</th>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">{t.leadGuest}</th>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">{t.dates}</th>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">{t.payment}</th>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">{t.profit}</th>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">{t.actions}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
-              {filteredReservations.length > 0 ? filteredReservations.map((res) => (
-                <tr key={res.id} className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors">
-                  <td className="px-8 py-5">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-blue-500">
-                        <User size={20} />
-                      </div>
-                      <div>
-                        <p className="font-bold dark:text-white text-slate-800">{res.customerName}</p>
-                        <p className="text-xs text-slate-400">ID: {res.resId}</p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-8 py-5 text-sm font-medium dark:text-slate-300">
-                    <div className="flex items-center gap-2">
-                      <Calendar size={14} className="text-slate-400" />
-                      {res.checkIn}
-                    </div>
-                  </td>
-                  <td className="px-8 py-5">
-                    <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter ${getStatusStyle(res.status)}`}>
-                      {t[res.status?.toLowerCase()] || res.status}
-                    </span>
-                  </td>
-                  <td className="px-8 py-5 text-right">
-                    <div className="flex justify-end gap-2">
-                      <button className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl text-slate-400 transition-colors">
-                        <Printer size={18} />
-                      </button>
-                      <button className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl text-slate-400 transition-colors">
-                        <MoreVertical size={18} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              )) : (
-                <tr>
-                  <td colSpan="4" className="px-8 py-20 text-center text-slate-400 font-medium italic">
-                    {t.noData}
-                  </td>
-                </tr>
-              )}
+              {filteredData.map(res => {
+                const linkedTrans = transactions.filter(ft => ft.associatedReservationId === res.reservationNumber);
+                const isExpanded = expandedId === res.id;
+
+                return (
+                  <React.Fragment key={res.id}>
+                    <tr 
+                      onClick={() => setExpandedId(isExpanded ? null : res.id)}
+                      className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/50 cursor-pointer transition-colors"
+                    >
+                      <td className="px-6 py-4 font-bold text-blue-600 dark:text-blue-400">{res.reservationNumber}</td>
+                      <td className="px-6 py-4">
+                        <div className="font-bold dark:text-white">
+                          {res.tourists?.[0] ? `${res.tourists[0].firstName} ${res.tourists[0].familyName}` : 'N/A'}
+                        </div>
+                        <div className="text-[10px] text-slate-400 uppercase font-medium">{res.hotel}</div>
+                      </td>
+                      <td className="px-6 py-4 text-xs font-medium dark:text-slate-300">
+                        {res.checkIn} — {res.checkOut}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${res.paymentStatusColor || 'bg-slate-100 text-slate-600'}`}>
+                          {res.paymentStatus}
+                        </span>
+                        {res.remainingAmount > 0 && (
+                          <div className="text-[10px] mt-1 text-rose-500 font-bold italic">{t.due}: BGN {res.remainingAmount.toFixed(2)}</div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-right font-black text-emerald-500">
+                        BGN {(Number(res.profit) || 0).toFixed(2)}
+                      </td>
+                      <td className="px-6 py-4">
+                         <div className="flex justify-center gap-2" onClick={e => e.stopPropagation()}>
+                            <button onClick={() => setViewingRes(res)} className="p-2 hover:bg-blue-50 dark:hover:bg-blue-500/10 text-blue-500 rounded-lg transition-colors"><Eye size={16}/></button>
+                            <button className="p-2 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 text-emerald-500 rounded-lg transition-colors"><Edit size={16}/></button>
+                            <button className="p-2 hover:bg-amber-50 dark:hover:bg-amber-500/10 text-amber-500 rounded-lg transition-colors"><Printer size={16}/></button>
+                         </div>
+                      </td>
+                    </tr>
+                    
+                    {/* Твоят разширяващ се ред с транзакции */}
+                    {isExpanded && (
+                      <tr className="bg-slate-50/30 dark:bg-slate-800/30">
+                        <td colSpan="6" className="px-10 py-4">
+                          <div className="border-l-2 border-blue-500 pl-6 space-y-3">
+                            <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Linked Transactions</h4>
+                            {linkedTrans.length > 0 ? (
+                              <div className="grid grid-cols-1 gap-2">
+                                {linkedTrans.map(p => (
+                                  <div key={p.id} className="flex justify-between items-center text-xs p-2 bg-white dark:bg-slate-800 rounded-lg shadow-sm">
+                                    <span className="font-medium">{p.date} • <span className="uppercase text-blue-500">{p.method}</span></span>
+                                    <span className={`font-black ${p.type === 'income' ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                      {p.type === 'income' ? '+' : '-'} BGN {p.amount.toFixed(2)}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-xs italic text-slate-400">No linked payments.</p>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                );
+              })}
             </tbody>
           </table>
         </div>
