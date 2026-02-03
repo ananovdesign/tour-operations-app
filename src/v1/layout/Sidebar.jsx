@@ -1,6 +1,7 @@
 import React from 'react';
 import { LayoutDashboard, Users, Hotel, Bus, FileText, Megaphone, CheckSquare, LogOut, Sun, Moon, Languages } from 'lucide-react';
 import { useApp } from '../AppContext';
+import Logo from '../../logo.png'; // Пътят до твоето лого
 
 const Sidebar = ({ activeModule, setActiveModule, onLogout }) => {
   const { theme, toggleTheme, language, toggleLanguage, t } = useApp();
@@ -17,12 +18,12 @@ const Sidebar = ({ activeModule, setActiveModule, onLogout }) => {
 
   return (
     <aside className="w-72 bg-white dark:bg-slate-900 text-slate-800 dark:text-white flex flex-col border-r border-slate-200 dark:border-slate-800 transition-all duration-300">
-      <div className="p-8 text-center">
-        <h1 className="text-2xl font-black tracking-tighter text-blue-600 dark:text-blue-400">DYNAMAX</h1>
-        <p className="text-[10px] uppercase tracking-widest opacity-50 font-bold mt-1">Travel Management</p>
+      <div className="p-6 flex flex-col items-center border-b border-slate-100 dark:border-slate-800">
+        <img src={Logo} alt="Logo" className="w-20 h-20 object-contain mb-2 rounded-full shadow-md" />
+        <p className="text-[10px] uppercase tracking-widest opacity-50 font-bold">Travel Management</p>
       </div>
 
-      <nav className="flex-1 px-4 space-y-1">
+      <nav className="flex-1 px-4 mt-4 space-y-1">
         {menuItems.map((item) => {
           const Icon = item.icon;
           return (
@@ -42,23 +43,22 @@ const Sidebar = ({ activeModule, setActiveModule, onLogout }) => {
         })}
       </nav>
 
-      {/* Настройки - Тема и Език */}
       <div className="p-4 border-t border-slate-100 dark:border-slate-800 space-y-2">
         <div className="flex gap-2">
           <button 
             onClick={toggleTheme}
-            className="flex-1 flex items-center justify-center gap-2 p-2 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
+            className="flex-1 flex items-center justify-center gap-2 p-2.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
           >
-            {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
-            <span className="text-xs font-bold uppercase">{theme === 'light' ? 'Dark' : 'Light'}</span>
+            {theme === 'light' ? <Moon size={18} className="text-slate-600" /> : <Sun size={18} className="text-yellow-400" />}
+            <span className="text-[10px] font-bold uppercase">{theme === 'light' ? t.themeDark : t.themeLight}</span>
           </button>
           
           <button 
             onClick={toggleLanguage}
-            className="flex-1 flex items-center justify-center gap-2 p-2 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
+            className="flex-1 flex items-center justify-center gap-2 p-2.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
           >
-            <Languages size={18} />
-            <span className="text-xs font-bold uppercase">{language === 'bg' ? 'EN' : 'BG'}</span>
+            <Languages size={18} className="text-blue-500" />
+            <span className="text-[10px] font-bold uppercase">{language === 'bg' ? 'English' : 'Български'}</span>
           </button>
         </div>
 
