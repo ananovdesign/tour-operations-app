@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { db, appId, auth } from '../../firebase';
 import { collection, onSnapshot, query } from 'firebase/firestore';
-// Импортираме преводите от новия файл
-import { uiTranslations } from './translations'; 
 import { 
   Users, Calendar, Loader2, Bus, Landmark, ArrowUpRight, TrendingUp 
 } from 'lucide-react';
@@ -10,6 +8,30 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   PieChart, Pie, Cell, Legend 
 } from 'recharts';
+
+// ДЕФИНИРАМЕ ПРЕВОДИТЕ ТУК, ЗА ДА НЯМА ГРЕШКИ ПРИ BUILD В NETLIFY
+const uiTranslations = {
+  bg: {
+    reservations: "Резервации", avgNights: "Ср. нощувки", pending: "Изчакващи (Pending)",
+    finances: "Финансов отчет", expenses: "Разходи", totalProfit: "Обща Печалба",
+    passengers: "Брой пътници (Общо)", avgPerTour: "Ср. на тур", fulfillment: "Запълняемост",
+    balances: "Наличности", bank: "Bank", trend: "Финансов Тренд", tourOccupancy: "Заетост Турове",
+    booked: "Заето", free: "Свободно", next30Days: "Следващи 30 дни",
+    expectedProfit: "Очаквана Печалба", quickLook: "Бърз преглед",
+    avgProfitRes: "Ср. печалба от резервация", income: "Приход", expense: "Разход",
+    totalCapacity: "Общ капацитет", resCount: "Брой резервации"
+  },
+  en: {
+    reservations: "Reservations", avgNights: "Avg Nights", pending: "Pending",
+    finances: "Financial Report", expenses: "Expenses", totalProfit: "Total Profit",
+    passengers: "Total Passengers", avgPerTour: "Avg / Tour", fulfillment: "Fulfillment",
+    balances: "Balances", bank: "Bank", trend: "Financial Trend", tourOccupancy: "Tour Occupancy",
+    booked: "Booked", free: "Free", next30Days: "Next 30 Days",
+    expectedProfit: "Expected Profit", quickLook: "Quick Insight",
+    avgProfitRes: "Avg Profit / Res", income: "Income", expense: "Expense",
+    totalCapacity: "Total Capacity", resCount: "Res Count"
+  }
+};
 
 const MetricRow = ({ label, value, colorClass = "text-slate-600 dark:text-slate-400" }) => (
   <div className="flex justify-between items-center mt-2 text-sm font-medium">
@@ -41,8 +63,7 @@ const Dashboard = ({ lang = 'bg' }) => {
     reservations: [], financialTransactions: [], tours: [], customers: [], products: []
   });
 
-  // Взимаме правилния език
-  const t = useMemo(() => uiTranslations[lang] || uiTranslations.bg, [lang]);
+  const t = uiTranslations[lang] || uiTranslations.bg;
   const userId = auth.currentUser?.uid;
 
   useEffect(() => {
@@ -65,85 +86,116 @@ const Dashboard = ({ lang = 'bg' }) => {
     return () => unsubscribes.forEach(unsub => unsub());
   }, [userId]);
 
+  // --- ВРЪЩАМЕ ТВОИТЕ ТОЧНИ КАЛКУЛАЦИИ БЕЗ ПРОМЯНА ---
   const stats = useMemo(() => {
-    const { reservations, financialTransactions, tours } = collectionsData;
+    const { reservations, financialTransactions, tours, customers, products } = collectionsData;
+    
     const today = new Date(); today.setHours(0, 0, 0, 0);
-    const thirtyDays = new Date(); thirtyDays.setDate(today.getDate() + 30);
+    const thirtyDaysFromNow = new Date();
+    thirtyDaysFromNow.setDate(today.getDate() + 30);
+    thirtyDaysFromNow.setHours(23, 59, 59, 999);
 
-    const activeRes = reservations.filter(res => res.status !== 'Cancelled');
-    
-    // Всички твои оригинални калкулации
-    const totalReservations = activeRes.length;
-    const totalProfit = activeRes.reduce((sum, res) => sum + (Number(res.profit) || 0), 0);
-    const totalNights = activeRes.reduce((sum, res) => sum + (Number(res.totalNights) || 0), 0);
-    
-    const upcoming = activeRes.filter(res => {
-        const d = new Date(res.checkIn);
-        return d >= today && d <= thirtyDays;
+    const activeReservations = reservations.filter(res => res.status !== 'Cancelled');
+    const profitableReservations = activeReservations.filter(res => (Number(res.profit) || 0) > 0);
+
+    const totalReservations = activeReservations.length;
+    const totalProfit = profitableReservations.reduce((sum, res) => sum + (Number(res.profit) || 0), 0);
+    const averageProfitPerReservation = totalReservations > 0 ? totalProfit / totalReservations : 0;
+    const totalNightsSum = activeReservations.reduce((sum, res) => sum + (Number(res.totalNights) || 0), 0);
+    const averageStayPerReservation = totalReservations > 0 ? totalNightsSum / totalReservations : 0;
+
+    const upcomingReservations = activeReservations.filter(res => {
+        const checkInDate = new Date(res.checkIn);
+        checkInDate.setHours(0, 0, 0, 0);
+        return checkInDate >= today && checkInDate <= thirtyDaysFromNow;
     });
+    const countUpcomingReservations = upcomingReservations.length;
+    const profitUpcomingReservations = upcomingReservations.reduce((sum, res) => sum + (Number(res.profit) || 0), 0);
 
-    const income = financialTransactions.filter(f => f.type === 'income').reduce((s, f) => s + (Number(f.amount) || 0), 0);
-    const expense = financialTransactions.filter(f => f.type === 'expense').reduce((s, f) => s + (Number(f.amount) || 0), 0);
+    const pendingReservations = activeReservations.filter(res => res.status === 'Pending');
+    const countPendingReservations = pendingReservations.length;
 
-    let booked = 0, max = 0;
+    const totalIncome = financialTransactions
+        .filter(ft => ft.type === 'income')
+        .reduce((sum, ft) => sum + (Number(ft.amount) || 0), 0);
+
+    const totalExpenses = financialTransactions
+        .filter(ft => ft.type === 'expense')
+        .reduce((sum, ft) => sum + (Number(ft.amount) || 0), 0);
+
+    let totalBookedPassengersAcrossAllTours = 0;
+    let totalMaxPassengersAcrossAllTours = 0;
+    let totalBusToursCount = 0;
+
     tours.forEach(tour => {
-        const linked = activeRes.filter(res => res.linkedTourId === tour.tourId);
-        booked += linked.reduce((s, r) => s + (Number(r.adults) || 0) + (Number(r.children) || 0), 0);
-        max += (Number(tour.maxPassengers) || 0);
+        totalBusToursCount++;
+        const linkedReservations = activeReservations.filter(res => res.linkedTourId === tour.tourId);
+        const bookedPassengersForTour = linkedReservations.reduce((sum, res) => sum + (Number(res.adults) || 0) + (Number(res.children) || 0), 0);
+        totalBookedPassengersAcrossAllTours += bookedPassengersForTour;
+        totalMaxPassengersAcrossAllTours += (Number(tour.maxPassengers) || 0);
     });
 
-    const balances = { Bank: 0, Cash: 0, 'Cash 2': 0 };
+    const overallBusTourFulfillment = totalMaxPassengersAcrossAllTours > 0
+        ? (totalBookedPassengersAcrossAllTours / totalMaxPassengersAcrossAllTours) * 100
+        : 0;
+    const averageTourPassengers = totalBusToursCount > 0 ? totalBookedPassengersAcrossAllTours / totalBusToursCount : 0;
+
+    const balances = {
+        Bank: { income: 0, expense: 0 },
+        Cash: { income: 0, expense: 0 },
+        'Cash 2': { income: 0, expense: 0 },
+    };
+
     financialTransactions.forEach(ft => {
-        const amt = Number(ft.amount) || 0;
-        if (balances.hasOwnProperty(ft.method)) balances[ft.method] += (ft.type === 'income' ? amt : -amt);
+        if (balances[ft.method]) {
+            balances[ft.method][ft.type] += (Number(ft.amount) || 0);
+        }
     });
 
-    const chartMap = {};
+    const bankBalance = balances.Bank.income - balances.Bank.expense;
+    const cashBalance = balances.Cash.income - balances.Cash.expense;
+    const cash2Balance = balances['Cash 2'].income - balances['Cash 2'].expense;
+
+    const chartDataMap = {};
     financialTransactions.forEach(ft => {
       const d = ft.date || 'N/A';
-      if (!chartMap[d]) chartMap[d] = { date: d, income: 0, expense: 0 };
-      chartMap[d][ft.type] += Number(ft.amount) || 0;
+      if (!chartDataMap[d]) chartDataMap[d] = { date: d, income: 0, expense: 0 };
+      chartDataMap[d][ft.type] += Number(ft.amount) || 0;
     });
+    const financialChartData = Object.values(chartDataMap).sort((a,b) => new Date(a.date) - new Date(b.date)).slice(-7);
 
     return {
-      totalReservations, totalProfit,
-      avgProfit: totalReservations > 0 ? totalProfit / totalReservations : 0,
-      avgStay: totalReservations > 0 ? totalNights / totalReservations : 0,
-      income, expense, booked,
-      fulfillment: max > 0 ? (booked / max) * 100 : 0,
-      avgTour: tours.length > 0 ? booked / tours.length : 0,
-      bank: balances.Bank, cash: balances.Cash, cash2: balances['Cash 2'],
-      upcomingCount: upcoming.length,
-      upcomingProfit: upcoming.reduce((s, r) => s + (Number(r.profit) || 0), 0),
-      pending: activeRes.filter(r => r.status === 'Pending').length,
-      chart: Object.values(chartMap).sort((a,b) => new Date(a.date) - new Date(b.date)).slice(-7),
-      pie: [{ name: t.booked, value: booked }, { name: t.free, value: Math.max(0, max - booked) }]
+        totalReservations, totalProfit, averageProfitPerReservation, averageStayPerReservation,
+        totalIncome, totalExpenses, overallBusTourFulfillment, totalBusPassengersBooked: totalBookedPassengersAcrossAllTours,
+        bankBalance, cashBalance, cash2Balance, countUpcomingReservations, profitUpcomingReservations, 
+        countPendingReservations, averageTourPassengers, financialChartData, 
+        pieData: [{ name: t.booked, value: totalBookedPassengersAcrossAllTours }, { name: t.free, value: Math.max(0, totalMaxPassengersAcrossAllTours - totalBookedPassengersAcrossAllTours) }]
     };
   }, [collectionsData, t]);
 
-  if (loading) return <div className="flex h-screen items-center justify-center dark:bg-slate-950"><Loader2 className="animate-spin text-indigo-500" size={32} /></div>;
+  if (loading) return <div className="flex h-64 items-center justify-center dark:bg-slate-950"><Loader2 className="animate-spin text-indigo-500" /></div>;
 
   return (
     <div className="space-y-6 pb-10">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard title={t.reservations} mainValue={stats.totalReservations} icon={Users} color="bg-blue-600">
-          <MetricRow label={t.avgNights} value={stats.avgStay.toFixed(1)} />
-          <MetricRow label={t.pending} value={stats.pending} colorClass="text-yellow-500" />
+          <MetricRow label={t.avgNights} value={stats.averageStayPerReservation.toFixed(1)} />
+          <MetricRow label={t.pending} value={stats.countPendingReservations} colorClass="text-yellow-500" />
         </StatCard>
 
-        <StatCard title={t.finances} mainValue={`${t.currency} ${stats.income.toFixed(2)}`} icon={TrendingUp} color="bg-emerald-500">
-          <MetricRow label={t.expenses} value={`${t.currency} ${stats.expense.toFixed(2)}`} colorClass="text-rose-500" />
-          <MetricRow label={t.totalProfit} value={`${t.currency} ${stats.totalProfit.toFixed(2)}`} colorClass="text-emerald-500" />
+        <StatCard title={t.finances} mainValue={`BGN ${stats.totalIncome.toFixed(2)}`} icon={TrendingUp} color="bg-emerald-500">
+          <MetricRow label={t.expenses} value={`BGN ${stats.totalExpenses.toFixed(2)}`} colorClass="text-rose-500" />
+          <MetricRow label={t.totalProfit} value={`BGN ${stats.totalProfit.toFixed(2)}`} colorClass="text-emerald-500" />
         </StatCard>
 
-        <StatCard title={t.passengers} mainValue={stats.booked} icon={Bus} color="bg-purple-600">
-          <MetricRow label={t.avgPerTour} value={stats.avgTour.toFixed(1)} />
-          <MetricRow label={t.fulfillment} value={`${stats.fulfillment.toFixed(1)}%`} />
+        <StatCard title={t.passengers} mainValue={stats.totalBusPassengersBooked} icon={Bus} color="bg-purple-600">
+          <MetricRow label={t.avgPerTour} value={stats.averageTourPassengers.toFixed(1)} />
+          <MetricRow label={t.fulfillment} value={`${stats.overallBusTourFulfillment.toFixed(1)}%`} />
         </StatCard>
 
-        <StatCard title={`${t.balances} (Bank)`} mainValue={`${t.currency} ${stats.bank.toFixed(2)}`} icon={Landmark} color="bg-orange-500">
-          <MetricRow label="Cash" value={`${t.currency} ${stats.cash.toFixed(2)}`} />
-          <MetricRow label="Cash 2" value={`${t.currency} ${stats.cash2.toFixed(2)}`} />
+        <StatCard title={`${t.balances} (${t.bank})`} mainValue={`BGN ${stats.bankBalance.toFixed(2)}`} icon={Landmark} color="bg-orange-500">
+          <MetricRow label="Cash" value={`BGN ${stats.cashBalance.toFixed(2)}`} />
+          <MetricRow label="Cash 2" value={`BGN ${stats.cash2Balance.toFixed(2)}`} />
         </StatCard>
       </div>
 
@@ -152,7 +204,7 @@ const Dashboard = ({ lang = 'bg' }) => {
           <h4 className="text-xs font-black text-slate-400 uppercase mb-6 tracking-widest">{t.trend}</h4>
           <div className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={stats.chart}>
+              <LineChart data={stats.financialChartData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                 <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fontSize: 12}} />
                 <YAxis axisLine={false} tickLine={false} tick={{fontSize: 12}} />
@@ -169,7 +221,7 @@ const Dashboard = ({ lang = 'bg' }) => {
           <div className="h-[250px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie data={stats.pie} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
+                <Pie data={stats.pieData} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
                   <Cell fill="#6366f1" /><Cell fill="#e2e8f0" />
                 </Pie>
                 <Tooltip />
@@ -177,7 +229,10 @@ const Dashboard = ({ lang = 'bg' }) => {
               </PieChart>
             </ResponsiveContainer>
           </div>
-          <span className="text-2xl font-black mt-4">{stats.fulfillment.toFixed(1)}%</span>
+          <div className="mt-4 text-center">
+             <span className="text-2xl font-black">{stats.overallBusTourFulfillment.toFixed(1)}%</span>
+             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{t.totalCapacity}</p>
+          </div>
         </div>
       </div>
 
@@ -189,11 +244,11 @@ const Dashboard = ({ lang = 'bg' }) => {
           </div>
           <div className="grid grid-cols-2 gap-4">
              <div>
-               <p className="text-2xl font-black">{stats.upcomingCount}</p>
+               <p className="text-2xl font-black">{stats.countUpcomingReservations}</p>
                <p className="text-[10px] text-slate-400 uppercase font-bold">{t.resCount}</p>
              </div>
              <div>
-               <p className="text-2xl font-black text-emerald-500">{t.currency} {stats.upcomingProfit.toFixed(2)}</p>
+               <p className="text-2xl font-black text-emerald-500">BGN {stats.profitUpcomingReservations.toFixed(2)}</p>
                <p className="text-[10px] text-slate-400 uppercase font-bold">{t.expectedProfit}</p>
              </div>
           </div>
@@ -202,7 +257,7 @@ const Dashboard = ({ lang = 'bg' }) => {
         <div className="bg-indigo-600 p-6 rounded-3xl text-white flex items-center justify-between shadow-xl">
            <div>
              <h4 className="font-black italic uppercase text-lg leading-tight">{t.quickLook}</h4>
-             <p className="text-indigo-100 text-xs opacity-80">{t.avgProfitRes}: {t.currency} {stats.avgProfit.toFixed(2)}</p>
+             <p className="text-indigo-100 text-xs opacity-80">{t.avgProfitRes}: BGN {stats.averageProfitPerReservation.toFixed(2)}</p>
            </div>
            <button className="bg-white text-indigo-600 p-3 rounded-2xl shadow-lg hover:scale-105 transition-transform">
              <ArrowUpRight size={24} />
