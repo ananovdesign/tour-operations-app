@@ -1,4 +1,5 @@
-case 'addReservation':
+
+import React from 'react';case 'addReservation':
   return (
     <div className="p-8 bg-gray-50 min-h-screen">
       <div className="max-w-5xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden">
