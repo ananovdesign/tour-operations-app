@@ -83,7 +83,6 @@ const AppContent = () => {
 
       <main className="flex-1 overflow-y-auto p-6 md:p-12">
         <div className="max-w-7xl mx-auto">
-          {/* Header се показва само ако не сме в режим "Добавяне", който има собствен хедър */}
           <header className="mb-10 flex justify-between items-end">
             <div className="animate-in slide-in-from-left duration-500">
               <h1 className="text-4xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">
@@ -99,8 +98,7 @@ const AppContent = () => {
             {activeModule === 'dashboard' ? (
                 <Dashboard lang={language} />
             ) : activeModule === 'reservations' ? (
-                /* Подаваме userId, за да може модулът сам да си дърпа резервациите */
-                <Reservations lang={language} userId={user.uid} />
+                <Reservations lang={language} />
             ) : (
                 <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-20 shadow-sm border border-slate-100 dark:border-slate-800 text-center animate-in fade-in zoom-in duration-300">
                    <span className="text-slate-300 dark:text-slate-700 font-black uppercase tracking-widest text-lg italic">
