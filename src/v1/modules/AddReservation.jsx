@@ -14,20 +14,23 @@ const AddReservation = ({
   // 1. Изчисляваме следващия номер динамично
   const nextResNumber = useMemo(() => {
     if (!reservations || reservations.length === 0) return 'dyt100001';
-    const lastNum = [...reservations]
+    
+    // Извличаме само чистите номера и намираме най-големия
+    const numericParts = reservations
       .map(r => r.reservationNumber)
       .filter(n => n && typeof n === 'string' && n.startsWith('dyt'))
-      .sort()
-      .pop();
+      .map(n => parseInt(n.replace('dyt', '')))
+      .filter(n => !isNaN(n));
+
+    if (numericParts.length === 0) return 'dyt100001';
     
-    if (!lastNum) return 'dyt100001';
-    const numericPart = parseInt(lastNum.replace('dyt', ''));
-    return `dyt${numericPart + 1}`;
+    const maxNum = Math.max(...numericParts);
+    return `dyt${maxNum + 1}`;
   }, [reservations]);
 
   const [reservationForm, setReservationForm] = useState({
     creationDate: new Date().toISOString().split('T')[0],
-    reservationNumber: nextResNumber,
+    reservationNumber: 'Зареждане...', // Временен статус
     tourType: 'HOTEL ONLY',
     hotel: '',
     food: '',
@@ -62,14 +65,19 @@ const AddReservation = ({
     linkedTourId: '',
   });
 
-  // СИНХРОНИЗАЦИЯ: Обновява номера, когато резервациите заредят от Firebase
+  // ЕФЕКТ: Синхронизира номера веднага щом резервациите дойдат от Firebase
   useEffect(() => {
-    if (nextResNumber !== reservationForm.reservationNumber) {
-      setReservationForm(prev => ({ ...prev, reservationNumber: nextResNumber }));
+    if (reservations.length > 0 || nextResNumber !== 'dyt100001') {
+      setReservationForm(prev => ({
+        ...prev,
+        reservationNumber: nextResNumber
+      }));
+    } else if (reservations.length === 0) {
+        setReservationForm(prev => ({ ...prev, reservationNumber: 'dyt100001' }));
     }
-  }, [nextResNumber]);
+  }, [nextResNumber, reservations]);
 
-  // АВТОМАТИЧНИ ИЗЧИСЛЕНИЯ (Нощувки и Печалба)
+  // ЕФЕКТ: Автоматични изчисления за нощувки и печалба
   useEffect(() => {
     let calculatedNights = 0;
     if (reservationForm.checkIn && reservationForm.checkOut) {
@@ -168,7 +176,7 @@ const AddReservation = ({
         </h1>
         <button 
           onClick={onSave}
-          disabled={loading}
+          disabled={loading || reservationForm.reservationNumber === 'Зареждане...'}
           className="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-2 rounded-xl shadow-lg flex items-center gap-2 font-black uppercase text-[10px]"
         >
           <Save size={16} /> {loading ? '...' : (lang === 'bg' ? 'Запази' : 'Save')}
@@ -177,6 +185,7 @@ const AddReservation = ({
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
+          {/* Информация за престоя */}
           <div className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm">
             <div className="flex items-center gap-2 mb-6">
               <Hotel size={18} className="text-blue-500" />
@@ -190,7 +199,7 @@ const AddReservation = ({
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] font-black uppercase text-slate-400 px-1">Град / Дестинация</label>
-                <input type="text" name="place" value={reservationForm.place} onChange={handleFormChange} className="w-full bg-slate-50 dark:bg-slate-800 rounded-xl p-2.5 text-sm outline-none border-none" />
+                <input type="text" name="place" placeholder="Град/Курорт" value={reservationForm.place} onChange={handleFormChange} className="w-full bg-slate-50 dark:bg-slate-800 rounded-xl p-2.5 text-sm outline-none border-none" />
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] font-black uppercase text-slate-400 px-1">Настаняване</label>
@@ -215,16 +224,17 @@ const AddReservation = ({
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
                   <label className="text-[10px] font-black uppercase text-slate-400 px-1">Възрастни</label>
-                  <input type="number" name="adults" value={reservationForm.adults} onChange={handleFormChange} className="w-full bg-slate-50 dark:bg-slate-800 rounded-xl p-2.5 text-sm outline-none border-none" />
+                  <input type="number" name="adults" value={reservationForm.adults} onChange={handleFormChange} className="w-full bg-slate-50 dark:bg-slate-800 rounded-xl p-2.5 text-sm" />
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-black uppercase text-slate-400 px-1">Деца</label>
-                  <input type="number" name="children" value={reservationForm.children} onChange={handleFormChange} className="w-full bg-slate-50 dark:bg-slate-800 rounded-xl p-2.5 text-sm outline-none border-none" />
+                  <input type="number" name="children" value={reservationForm.children} onChange={handleFormChange} className="w-full bg-slate-50 dark:bg-slate-800 rounded-xl p-2.5 text-sm" />
                 </div>
               </div>
             </div>
           </div>
 
+          {/* Туристи */}
           <div className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm">
             <div className="flex justify-between items-center mb-6">
               <div className="flex items-center gap-2">
@@ -247,17 +257,21 @@ const AddReservation = ({
                     </div>
                   </div>
                   {tourist.mode === 'existing' ? (
-                    <select value={tourist.id || ''} onChange={(e) => handleExistingTouristSelect(index, e.target.value)} className="w-full bg-white dark:bg-slate-900 border-none rounded-xl py-3 px-4 text-sm font-bold">
-                      <option value="">-- Търси клиент --</option>
-                      {customers.map(c => <option key={c.id} value={c.id}>{c.firstName} {c.familyName} ({c.realId})</option>)}
+                    <select value={tourist.id || ''} onChange={(e) => handleExistingTouristSelect(index, e.target.value)} className="w-full bg-white dark:bg-slate-900 border-none rounded-xl py-3 px-4 text-sm font-bold outline-none">
+                      <option value="">-- Избери клиент --</option>
+                      {customers && customers.length > 0 ? (
+                        customers.map(c => <option key={c.id} value={c.id}>{c.firstName} {c.fatherName} {c.familyName} ({c.realId})</option>)
+                      ) : (
+                        <option disabled>Няма намерени клиенти</option>
+                      )}
                     </select>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <input type="text" name="firstName" placeholder="Име" value={tourist.firstName} onChange={(e) => handleTouristChange(index, e)} className="bg-white dark:bg-slate-900 border-none rounded-xl py-2 px-4 text-sm font-bold shadow-sm" />
-                      <input type="text" name="fatherName" placeholder="Презиме" value={tourist.fatherName} onChange={(e) => handleTouristChange(index, e)} className="bg-white dark:bg-slate-900 border-none rounded-xl py-2 px-4 text-sm font-bold shadow-sm" />
-                      <input type="text" name="familyName" placeholder="Фамилия" value={tourist.familyName} onChange={(e) => handleTouristChange(index, e)} className="bg-white dark:bg-slate-900 border-none rounded-xl py-2 px-4 text-sm font-bold shadow-sm" />
-                      <input type="text" name="realId" placeholder="ЕГН" value={tourist.realId} onChange={(e) => handleTouristChange(index, e)} className="bg-white dark:bg-slate-900 border-none rounded-xl py-2 px-4 text-sm shadow-sm" />
-                      <input type="email" name="email" placeholder="Email" value={tourist.email} onChange={(e) => handleTouristChange(index, e)} className="bg-white dark:bg-slate-900 border-none rounded-xl py-2 px-4 text-sm shadow-sm" />
+                      <input type="text" name="firstName" placeholder="Име" value={tourist.firstName} onChange={(e) => handleTouristChange(index, e)} className="bg-white dark:bg-slate-900 border-none rounded-xl py-2 px-4 text-sm font-bold" />
+                      <input type="text" name="fatherName" placeholder="Презиме" value={tourist.fatherName} onChange={(e) => handleTouristChange(index, e)} className="bg-white dark:bg-slate-900 border-none rounded-xl py-2 px-4 text-sm font-bold" />
+                      <input type="text" name="familyName" placeholder="Фамилия" value={tourist.familyName} onChange={(e) => handleTouristChange(index, e)} className="bg-white dark:bg-slate-900 border-none rounded-xl py-2 px-4 text-sm font-bold" />
+                      <input type="text" name="realId" placeholder="ЕГН" value={tourist.realId} onChange={(e) => handleTouristChange(index, e)} className="bg-white dark:bg-slate-900 border-none rounded-xl py-2 px-4 text-sm" />
+                      <input type="email" name="email" placeholder="Email" value={tourist.email} onChange={(e) => handleTouristChange(index, e)} className="bg-white dark:bg-slate-900 border-none rounded-xl py-2 px-4 text-sm" />
                     </div>
                   )}
                 </div>
@@ -266,6 +280,7 @@ const AddReservation = ({
           </div>
         </div>
 
+        {/* Финанси и Статус */}
         <div className="space-y-6">
           <div className="bg-slate-900 text-white p-8 rounded-[2.5rem] shadow-xl border border-slate-800">
             <div className="flex items-center gap-2 mb-6"><CreditCard size={18} className="text-emerald-400" /><p className="text-emerald-400 font-black uppercase text-[10px]">Финансов Баланс</p></div>
@@ -286,11 +301,13 @@ const AddReservation = ({
                </div>
                <div className="space-y-1">
                   <label className="text-[10px] font-black uppercase text-slate-400 px-1">Връзка с Тур (ID)</label>
-                  <select name="linkedTourId" value={reservationForm.linkedTourId} onChange={handleFormChange} className="w-full bg-slate-50 dark:bg-slate-800 rounded-xl p-2.5 text-sm font-bold text-blue-600">
+                  <select name="linkedTourId" value={reservationForm.linkedTourId} onChange={handleFormChange} className="w-full bg-slate-50 dark:bg-slate-800 rounded-xl p-2.5 text-sm font-bold text-blue-600 outline-none">
                     <option value="">-- Самостоятелна резервация --</option>
-                    {tours && tours.map(tour => (
-                      <option key={tour.id} value={tour.tourId}>{tour.tourId} - {tour.hotel || 'No Hotel'}</option>
-                    ))}
+                    {tours && tours.length > 0 ? (
+                      tours.map(tour => <option key={tour.id} value={tour.tourId}>{tour.tourId} - {tour.hotel || 'Без хотел'}</option>)
+                    ) : (
+                      <option disabled>Зареждане на турове...</option>
+                    )}
                   </select>
                </div>
                <div className="space-y-1">
