@@ -4,8 +4,12 @@ import { collection, onSnapshot } from 'firebase/firestore';
 import { 
   Search, Plus, Eye, Edit3, FileText, Loader2, User, ChevronDown, ChevronUp, ArrowDownLeft, ArrowUpRight, Calendar, Building2
 } from 'lucide-react';
+import AddReservation from './AddReservation'; // Увери се, че файлът съществува в същата папка
 
 const Reservations = ({ lang = 'bg' }) => {
+  // Контрол на изгледа: 'list' за таблицата, 'add' за формата
+  const [view, setView] = useState('list');
+
   // Речник с преводи
   const translations = {
     bg: {
@@ -20,7 +24,7 @@ const Reservations = ({ lang = 'bg' }) => {
       newRes: "Нова резервация",
       thNumber: "Номер",
       thHotel: "Хотел",
-      thGuest: "Турсит",
+      thGuest: "Турист",
       thDates: "Дати",
       thStatus: "Статус",
       thPayment: "Плащане",
@@ -146,6 +150,11 @@ const Reservations = ({ lang = 'bg' }) => {
     });
   }, [reservations, searchTerm, hotelSearch, dateFilter, statusFilter]);
 
+  // Ако е избрано "Добави резервация", показваме другия модул
+  if (view === 'add') {
+    return <AddReservation lang={lang} onBack={() => setView('list')} />;
+  }
+
   if (loading) return (
     <div className="flex h-64 flex-col items-center justify-center space-y-4 font-sans text-center">
       <Loader2 className="animate-spin text-blue-500" size={32} />
@@ -181,7 +190,10 @@ const Reservations = ({ lang = 'bg' }) => {
               <option value="Cancelled">{t.cancelled}</option>
             </select>
             
-            <button className="bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-2xl shadow-lg transition-all flex items-center gap-2 font-black uppercase text-[10px] whitespace-nowrap">
+            <button 
+              onClick={() => setView('add')}
+              className="bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-2xl shadow-lg transition-all flex items-center gap-2 font-black uppercase text-[10px] whitespace-nowrap"
+            >
               <Plus size={16} /> {t.newRes}
             </button>
           </div>
