@@ -6,12 +6,68 @@ import {
 } from 'lucide-react';
 
 const Reservations = ({ lang = 'bg' }) => {
+  // Речник с преводи
+  const translations = {
+    bg: {
+      loading: "Подреждане на резервации...",
+      searchPlaceholder: "Търси гост или #dyt...",
+      hotelPlaceholder: "Филтрирай по хотел...",
+      checkInAfter: "Настаняване след:",
+      allStatus: "Всички статуси",
+      pending: "Изчакваща",
+      confirmed: "Потвърдена",
+      cancelled: "Анулирана",
+      newRes: "Нова резервация",
+      thNumber: "Номер",
+      thHotel: "Хотел",
+      thGuest: "Турсит",
+      thDates: "Дати",
+      thStatus: "Статус",
+      thPayment: "Плащане",
+      thProfit: "Печалба",
+      thActions: "Действия",
+      financialRecords: "Финансови записи:",
+      noPayments: "Няма открити плащания.",
+      unpaid: "Неплатена",
+      paid: "Платена",
+      partiallyPaid: "Частично платена",
+      due: "Дължими:"
+    },
+    en: {
+      loading: "Sorting reservations...",
+      searchPlaceholder: "Search guest or #dyt...",
+      hotelPlaceholder: "Filter by hotel...",
+      checkInAfter: "Check-in after:",
+      allStatus: "All Status",
+      pending: "Pending",
+      confirmed: "Confirmed",
+      cancelled: "Cancelled",
+      newRes: "New Reservation",
+      thNumber: "Res. Number",
+      thHotel: "Hotel",
+      thGuest: "Lead Guest",
+      thDates: "Dates",
+      thStatus: "Status",
+      thPayment: "Payment",
+      thProfit: "Profit",
+      thActions: "Actions",
+      financialRecords: "Financial Records:",
+      noPayments: "No linked payments found.",
+      unpaid: "Unpaid",
+      paid: "Paid",
+      partiallyPaid: "Partially Paid",
+      due: "Due:"
+    }
+  };
+
+  const t = translations[lang] || translations.bg;
+
   const [loading, setLoading] = useState(true);
   const [reservations, setReservations] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [hotelSearch, setHotelSearch] = useState(''); // Нов стейт за хотел
-  const [dateFilter, setDateFilter] = useState(''); // Нов стейт за дата
+  const [hotelSearch, setHotelSearch] = useState('');
+  const [dateFilter, setDateFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [expandedId, setExpandedId] = useState(null);
 
@@ -39,17 +95,17 @@ const Reservations = ({ lang = 'bg' }) => {
           const finalAmt = res.finalAmount || 0;
           const remainingAmount = finalAmt - totalPaid;
 
-          let paymentStatus = 'Unpaid';
+          let paymentStatus = t.unpaid;
           let paymentStatusColor = 'bg-rose-100 text-rose-800';
           
           if (finalAmt <= 0) {
-            paymentStatus = 'Paid';
+            paymentStatus = t.paid;
             paymentStatusColor = 'bg-emerald-100 text-emerald-800';
           } else if (totalPaid >= finalAmt) {
-            paymentStatus = 'Paid';
+            paymentStatus = t.paid;
             paymentStatusColor = 'bg-emerald-100 text-emerald-800';
           } else if (totalPaid > 0) {
-            paymentStatus = 'Partially Paid';
+            paymentStatus = t.partiallyPaid;
             paymentStatusColor = 'bg-amber-100 text-amber-800';
           }
 
@@ -70,12 +126,10 @@ const Reservations = ({ lang = 'bg' }) => {
         setReservations(sortedData);
         setLoading(false);
       });
-
       return () => unsubRes();
     });
-
     return () => unsubTrans();
-  }, [userId]);
+  }, [userId, t]);
 
   const filteredReservations = useMemo(() => {
     return reservations.filter(res => {
@@ -83,18 +137,9 @@ const Reservations = ({ lang = 'bg' }) => {
       const resNum = (res.reservationNumber || "").toString().toLowerCase();
       const hotelName = (res.hotel || "").toLowerCase();
       
-      // 1. Търсене по име/номер
-      const matchesSearch = 
-        leadGuest.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        resNum.includes(searchTerm.toLowerCase());
-      
-      // 2. Търсене по хотел
+      const matchesSearch = leadGuest.toLowerCase().includes(searchTerm.toLowerCase()) || resNum.includes(searchTerm.toLowerCase());
       const matchesHotel = hotelName.includes(hotelSearch.toLowerCase());
-
-      // 3. Филтър по статус
       const matchesStatus = statusFilter === 'All' || res.status === statusFilter;
-
-      // 4. Филтър по дата (Настаняване след)
       const matchesDate = !dateFilter || (res.checkIn >= dateFilter);
 
       return matchesSearch && matchesHotel && matchesStatus && matchesDate;
@@ -104,7 +149,7 @@ const Reservations = ({ lang = 'bg' }) => {
   if (loading) return (
     <div className="flex h-64 flex-col items-center justify-center space-y-4 font-sans text-center">
       <Loader2 className="animate-spin text-blue-500" size={32} />
-      <p className="text-slate-400 font-black italic uppercase tracking-widest text-[10px]">Подреждане на резервации...</p>
+      <p className="text-slate-400 font-black italic uppercase tracking-widest text-[10px]">{t.loading}</p>
     </div>
   );
 
@@ -113,12 +158,11 @@ const Reservations = ({ lang = 'bg' }) => {
       {/* FILTERS SECTION */}
       <div className="flex flex-col gap-4 bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm">
         <div className="flex flex-col md:flex-row gap-4 justify-between items-center">
-          {/* Основно търсене */}
           <div className="relative w-full md:w-96">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
             <input 
               type="text"
-              placeholder="Search guest or #dyt..."
+              placeholder={t.searchPlaceholder}
               className="w-full pl-12 pr-4 py-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border-none outline-none focus:ring-2 focus:ring-blue-500 shadow-sm dark:text-white font-bold text-sm"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -131,25 +175,24 @@ const Reservations = ({ lang = 'bg' }) => {
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
             >
-              <option value="All">All Status</option>
-              <option value="Pending">Pending</option>
-              <option value="Confirmed">Confirmed</option>
-              <option value="Cancelled">Cancelled</option>
+              <option value="All">{t.allStatus}</option>
+              <option value="Pending">{t.pending}</option>
+              <option value="Confirmed">{t.confirmed}</option>
+              <option value="Cancelled">{t.cancelled}</option>
             </select>
             
             <button className="bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-2xl shadow-lg transition-all flex items-center gap-2 font-black uppercase text-[10px] whitespace-nowrap">
-              <Plus size={16} /> New Reservation
+              <Plus size={16} /> {t.newRes}
             </button>
           </div>
         </div>
 
-        {/* ВТОРИ РЕД ФИЛТРИ */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="relative">
             <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
             <input 
               type="text"
-              placeholder="Filter by Hotel name..."
+              placeholder={t.hotelPlaceholder}
               className="w-full pl-12 pr-4 py-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border-none outline-none focus:ring-2 focus:ring-blue-500 shadow-sm dark:text-white font-bold text-sm"
               value={hotelSearch}
               onChange={(e) => setHotelSearch(e.target.value)}
@@ -158,7 +201,7 @@ const Reservations = ({ lang = 'bg' }) => {
 
           <div className="relative">
             <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-            <div className="absolute left-12 top-2 text-[9px] font-black uppercase text-slate-400">Check-in after:</div>
+            <div className="absolute left-12 top-2 text-[9px] font-black uppercase text-slate-400">{t.checkInAfter}</div>
             <input 
               type="date"
               className="w-full pl-12 pr-4 pt-5 pb-1 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border-none outline-none focus:ring-2 focus:ring-blue-500 shadow-sm dark:text-white font-bold text-sm"
@@ -175,14 +218,14 @@ const Reservations = ({ lang = 'bg' }) => {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-slate-50 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/20">
-                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Res. Number</th>
-                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Hotel</th>
-                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Lead Guest</th>
-                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Dates</th>
-                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Status</th>
-                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Payment</th>
-                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Profit</th>
-                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Actions</th>
+                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">{t.thNumber}</th>
+                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">{t.thHotel}</th>
+                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">{t.thGuest}</th>
+                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">{t.thDates}</th>
+                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">{t.thStatus}</th>
+                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">{t.thPayment}</th>
+                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">{t.thProfit}</th>
+                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">{t.thActions}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50 dark:divide-slate-800 text-slate-800 dark:text-slate-200">
@@ -215,7 +258,7 @@ const Reservations = ({ lang = 'bg' }) => {
                           res.status === 'Pending' ? 'bg-amber-100 text-amber-700' : 
                           'bg-rose-100 text-rose-700'
                         }`}>
-                          {res.status}
+                          {lang === 'bg' ? t[res.status?.toLowerCase()] || res.status : res.status}
                         </span>
                       </td>
                       <td className="px-6 py-5">
@@ -225,7 +268,7 @@ const Reservations = ({ lang = 'bg' }) => {
                           </span>
                           {res.remainingAmount > 0 && (
                             <span className="text-[10px] font-bold text-rose-500 mt-1">
-                              Due: {res.remainingAmount.toFixed(2)}
+                              {t.due} {res.remainingAmount.toFixed(2)}
                             </span>
                           )}
                         </div>
@@ -246,7 +289,7 @@ const Reservations = ({ lang = 'bg' }) => {
                       <tr className="bg-slate-50/30 dark:bg-slate-800/20 border-l-4 border-blue-500">
                         <td colSpan="8" className="px-12 py-4 animate-in slide-in-from-top-1 duration-200">
                           <div className="space-y-2">
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Financial Records:</p>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{t.financialRecords}</p>
                             {linkedPayments.length > 0 ? (
                               linkedPayments.map(p => (
                                 <div key={p.id} className="flex justify-between items-center bg-white dark:bg-slate-900 p-2 rounded-xl border border-slate-100 dark:border-slate-800 text-[11px] shadow-sm">
@@ -261,7 +304,7 @@ const Reservations = ({ lang = 'bg' }) => {
                                 </div>
                               ))
                             ) : (
-                              <p className="text-[10px] italic text-slate-400 uppercase font-bold px-2">No linked payments found.</p>
+                              <p className="text-[10px] italic text-slate-400 uppercase font-bold px-2">{t.noPayments}</p>
                             )}
                           </div>
                         </td>
