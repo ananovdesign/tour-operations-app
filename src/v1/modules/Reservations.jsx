@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { db, appId, auth } from '../../firebase';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { 
-  Search, Plus, Eye, Edit3, FileText, Loader2, User, ChevronDown, ChevronUp, ArrowDownLeft, ArrowUpRight
+  Search, Plus, Eye, Edit3, FileText, Loader2, User, ChevronDown, ChevronUp, ArrowDownLeft, ArrowUpRight, Calendar, Building2
 } from 'lucide-react';
 
 const Reservations = ({ lang = 'bg' }) => {
@@ -10,6 +10,8 @@ const Reservations = ({ lang = 'bg' }) => {
   const [reservations, setReservations] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [hotelSearch, setHotelSearch] = useState(''); // Нов стейт за хотел
+  const [dateFilter, setDateFilter] = useState(''); // Нов стейт за дата
   const [statusFilter, setStatusFilter] = useState('All');
   const [expandedId, setExpandedId] = useState(null);
 
@@ -40,7 +42,6 @@ const Reservations = ({ lang = 'bg' }) => {
           let paymentStatus = 'Unpaid';
           let paymentStatusColor = 'bg-rose-100 text-rose-800';
           
-          // ПРАВИЛО: АКО СУМАТА Е 0 ИЛИ ПО-МАЛКО, СЕ СЧИТА ЗА ПЛАТЕНА
           if (finalAmt <= 0) {
             paymentStatus = 'Paid';
             paymentStatusColor = 'bg-emerald-100 text-emerald-800';
@@ -80,15 +81,25 @@ const Reservations = ({ lang = 'bg' }) => {
     return reservations.filter(res => {
       const leadGuest = res.tourists?.[0] ? `${res.tourists[0].firstName} ${res.tourists[0].familyName}` : "";
       const resNum = (res.reservationNumber || "").toString().toLowerCase();
+      const hotelName = (res.hotel || "").toLowerCase();
       
+      // 1. Търсене по име/номер
       const matchesSearch = 
         leadGuest.toLowerCase().includes(searchTerm.toLowerCase()) ||
         resNum.includes(searchTerm.toLowerCase());
       
+      // 2. Търсене по хотел
+      const matchesHotel = hotelName.includes(hotelSearch.toLowerCase());
+
+      // 3. Филтър по статус
       const matchesStatus = statusFilter === 'All' || res.status === statusFilter;
-      return matchesSearch && matchesStatus;
+
+      // 4. Филтър по дата (Настаняване след)
+      const matchesDate = !dateFilter || (res.checkIn >= dateFilter);
+
+      return matchesSearch && matchesHotel && matchesStatus && matchesDate;
     });
-  }, [reservations, searchTerm, statusFilter]);
+  }, [reservations, searchTerm, hotelSearch, dateFilter, statusFilter]);
 
   if (loading) return (
     <div className="flex h-64 flex-col items-center justify-center space-y-4 font-sans text-center">
@@ -99,36 +110,66 @@ const Reservations = ({ lang = 'bg' }) => {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 font-sans">
-      <div className="flex flex-col md:flex-row gap-4 justify-between items-center">
-        <div className="relative w-full md:w-96">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-          <input 
-            type="text"
-            placeholder="Search guest or #dyt..."
-            className="w-full pl-12 pr-4 py-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 outline-none focus:ring-2 focus:ring-blue-500 shadow-sm dark:text-white font-bold"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+      {/* FILTERS SECTION */}
+      <div className="flex flex-col gap-4 bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm">
+        <div className="flex flex-col md:flex-row gap-4 justify-between items-center">
+          {/* Основно търсене */}
+          <div className="relative w-full md:w-96">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+            <input 
+              type="text"
+              placeholder="Search guest or #dyt..."
+              className="w-full pl-12 pr-4 py-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border-none outline-none focus:ring-2 focus:ring-blue-500 shadow-sm dark:text-white font-bold text-sm"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+
+          <div className="flex items-center gap-3 w-full md:w-auto">
+            <select 
+              className="flex-1 md:w-40 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 font-bold text-sm outline-none dark:text-white cursor-pointer"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+            >
+              <option value="All">All Status</option>
+              <option value="Pending">Pending</option>
+              <option value="Confirmed">Confirmed</option>
+              <option value="Cancelled">Cancelled</option>
+            </select>
+            
+            <button className="bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-2xl shadow-lg transition-all flex items-center gap-2 font-black uppercase text-[10px] whitespace-nowrap">
+              <Plus size={16} /> New Reservation
+            </button>
+          </div>
         </div>
 
-        <div className="flex items-center gap-3 w-full md:w-auto">
-          <select 
-            className="flex-1 md:w-40 p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 font-bold text-sm outline-none dark:text-white cursor-pointer"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-          >
-            <option value="All">All Status</option>
-            <option value="Pending">Pending</option>
-            <option value="Confirmed">Confirmed</option>
-            <option value="Cancelled">Cancelled</option>
-          </select>
-          
-          <button className="bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-2xl shadow-lg transition-all flex items-center gap-2 font-black uppercase text-[10px]">
-            <Plus size={16} /> New Reservation
-          </button>
+        {/* ВТОРИ РЕД ФИЛТРИ */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="relative">
+            <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+            <input 
+              type="text"
+              placeholder="Filter by Hotel name..."
+              className="w-full pl-12 pr-4 py-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border-none outline-none focus:ring-2 focus:ring-blue-500 shadow-sm dark:text-white font-bold text-sm"
+              value={hotelSearch}
+              onChange={(e) => setHotelSearch(e.target.value)}
+            />
+          </div>
+
+          <div className="relative">
+            <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+            <div className="absolute left-12 top-2 text-[9px] font-black uppercase text-slate-400">Check-in after:</div>
+            <input 
+              type="date"
+              className="w-full pl-12 pr-4 pt-5 pb-1 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border-none outline-none focus:ring-2 focus:ring-blue-500 shadow-sm dark:text-white font-bold text-sm"
+              value={dateFilter}
+              onChange={(e) => setDateFilter(e.target.value)}
+            />
+          </div>
         </div>
       </div>
 
+      {/* TABLE */}
       <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
