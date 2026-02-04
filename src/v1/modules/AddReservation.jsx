@@ -11,15 +11,17 @@ const AddReservation = ({
   handleSubmitReservation 
 }) => {
 
-  // 1. Динамично изчисляване на номера (Запазвам твоята логика)
+  // 1. СТАБИЛНА НОМЕРАЦИЯ: Намира най-високия номер 'dytXXXXXX' и добавя 1
   const nextResNumber = useMemo(() => {
     if (!reservations || reservations.length === 0) return 'dyt100001';
     
     const numericParts = reservations
-      .map(r => r.reservationNumber)
-      .filter(n => n && typeof n === 'string' && n.startsWith('dyt'))
-      .map(n => parseInt(n.replace('dyt', '')))
-      .filter(n => !isNaN(n));
+      .map(r => {
+        const num = String(r.reservationNumber || '');
+        const match = num.match(/dyt(\d+)/);
+        return match ? parseInt(match[1], 10) : null;
+      })
+      .filter(n => n !== null && !isNaN(n));
 
     if (numericParts.length === 0) return 'dyt100001';
     
@@ -38,7 +40,7 @@ const AddReservation = ({
     checkIn: '',
     checkOut: '',
     nights: 0,
-    totalNights: 0, // Добавено за съвместимост с Firebase
+    totalNights: 0,
     adults: 1,
     children: 0,
     tourists: [{
@@ -50,7 +52,6 @@ const AddReservation = ({
       realId: '', 
       address: '',
       city: '',
-      postCode: '',
       email: '',
       phone: ''
     }],
@@ -60,24 +61,33 @@ const AddReservation = ({
     owedToHotel: 0,
     approxTransportCost: 0,
     profit: 0,
-    tourOperator: '',
     status: 'Pending',
     linkedTourId: '',
   });
 
-  // ЕФЕКТ: Синхронизация на номера
+  // Синхронизиране на изчисления номер с формата
   useEffect(() => {
-    if (reservations.length > 0 || nextResNumber !== 'dyt100001') {
-      setReservationForm(prev => ({
-        ...prev,
-        reservationNumber: nextResNumber
-      }));
-    } else if (reservations.length === 0) {
-        setReservationForm(prev => ({ ...prev, reservationNumber: 'dyt100001' }));
+    if (nextResNumber) {
+      setReservationForm(prev => ({ ...prev, reservationNumber: nextResNumber }));
     }
-  }, [nextResNumber, reservations]);
+  }, [nextResNumber]);
 
-  // ЕФЕКТ: Автоматични изчисления (Запазвам твоята преработка)
+  // АВТОМАТИЗАЦИЯ: Когато избереш Тур от списъка, попълни автоматично Хотел и Град
+  useEffect(() => {
+    if (reservationForm.linkedTourId) {
+      const selectedTour = tours.find(t => t.tourId === reservationForm.linkedTourId);
+      if (selectedTour) {
+        setReservationForm(prev => ({
+          ...prev,
+          hotel: selectedTour.hotel || '',
+          place: selectedTour.destination || '',
+          tourType: 'BUS TOUR'
+        }));
+      }
+    }
+  }, [reservationForm.linkedTourId, tours]);
+
+  // ИЗЧИСЛЕНИЯ: Нощувки и Печалба
   useEffect(() => {
     let calculatedNights = 0;
     if (reservationForm.checkIn && reservationForm.checkOut) {
@@ -96,7 +106,7 @@ const AddReservation = ({
       ...prev, 
       profit: calculatedProfit,
       nights: calculatedNights,
-      totalNights: calculatedNights // Синхронизирам и двете полета
+      totalNights: calculatedNights 
     }));
   }, [reservationForm.finalAmount, reservationForm.owedToHotel, reservationForm.approxTransportCost, reservationForm.checkIn, reservationForm.checkOut]);
 
@@ -129,7 +139,7 @@ const AddReservation = ({
     const customer = customers.find(c => c.id === customerId);
     if (customer) {
       const newTourists = [...reservationForm.tourists];
-      newTourists[index] = { ...customer, mode: 'existing' };
+      newTourists[index] = { ...customer, mode: 'existing', id: customerId };
       setReservationForm(prev => ({ ...prev, tourists: newTourists }));
     }
   };
@@ -137,7 +147,7 @@ const AddReservation = ({
   const addTourist = () => {
     setReservationForm(prev => ({
       ...prev,
-      tourists: [...prev.tourists, { mode: 'new', firstName: '', fatherName: '', familyName: '', id: '', realId: '', email: '', phone: '' }]
+      tourists: [...prev.tourists, { mode: 'new', firstName: '', fatherName: '', familyName: '', realId: '', email: '', phone: '' }]
     }));
   };
 
@@ -148,19 +158,15 @@ const AddReservation = ({
     }
   };
 
-  // ФИКС: Подготовка на данните за Firebase спрямо стария handleSubmit
   const onSave = () => {
     const dataToSave = {
       ...reservationForm,
-      // Превръщаме в числа, за да не се записват като String в DB
       finalAmount: parseFloat(reservationForm.finalAmount) || 0,
       owedToHotel: parseFloat(reservationForm.owedToHotel) || 0,
       approxTransportCost: parseFloat(reservationForm.approxTransportCost) || 0,
-      depositAmount: parseFloat(reservationForm.depositAmount) || 0,
       profit: parseFloat(reservationForm.profit) || 0,
       adults: parseInt(reservationForm.adults) || 0,
       children: parseInt(reservationForm.children) || 0,
-      totalNights: reservationForm.nights, // Важно за стария код!
       tourists: reservationForm.tourists.map(t => ({ ...t }))
     };
     
@@ -182,7 +188,7 @@ const AddReservation = ({
         <button 
           onClick={onSave}
           disabled={loading || reservationForm.reservationNumber === 'Зареждане...'}
-          className="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-2 rounded-xl shadow-lg flex items-center gap-2 font-black uppercase text-[10px]"
+          className="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-2 rounded-xl shadow-lg flex items-center gap-2 font-black uppercase text-[10px] transition-transform active:scale-95"
         >
           <Save size={16} /> {loading ? '...' : (lang === 'bg' ? 'Запази' : 'Save')}
         </button>
@@ -199,41 +205,23 @@ const AddReservation = ({
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <div className="space-y-1 col-span-1 md:col-span-2">
                 <label className="text-[10px] font-black uppercase text-slate-400 px-1">Хотел</label>
-                <input type="text" name="hotel" placeholder="Име на хотел" value={reservationForm.hotel} onChange={handleFormChange} className="w-full bg-slate-50 dark:bg-slate-800 rounded-xl p-2.5 text-sm outline-none border-none font-bold" />
+                <input type="text" name="hotel" placeholder="Име на хотел" value={reservationForm.hotel} onChange={handleFormChange} className="w-full bg-slate-50 dark:bg-slate-800 rounded-xl p-2.5 text-sm outline-none border-none font-bold dark:text-white" />
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] font-black uppercase text-slate-400 px-1">Град / Дестинация</label>
-                <input type="text" name="place" placeholder="Град/Курорт" value={reservationForm.place} onChange={handleFormChange} className="w-full bg-slate-50 dark:bg-slate-800 rounded-xl p-2.5 text-sm outline-none border-none" />
+                <input type="text" name="place" placeholder="Град/Курорт" value={reservationForm.place} onChange={handleFormChange} className="w-full bg-slate-50 dark:bg-slate-800 rounded-xl p-2.5 text-sm outline-none border-none dark:text-white" />
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] font-black uppercase text-slate-400 px-1">Настаняване</label>
-                <input type="date" name="checkIn" value={reservationForm.checkIn} onChange={handleFormChange} className="w-full bg-slate-50 dark:bg-slate-800 rounded-xl p-2.5 text-sm outline-none border-none font-bold" />
+                <input type="date" name="checkIn" value={reservationForm.checkIn} onChange={handleFormChange} className="w-full bg-slate-50 dark:bg-slate-800 rounded-xl p-2.5 text-sm outline-none border-none font-bold dark:text-white" />
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] font-black uppercase text-slate-400 px-1">Напускане</label>
-                <input type="date" name="checkOut" value={reservationForm.checkOut} onChange={handleFormChange} className="w-full bg-slate-50 dark:bg-slate-800 rounded-xl p-2.5 text-sm outline-none border-none font-bold" />
+                <input type="date" name="checkOut" value={reservationForm.checkOut} onChange={handleFormChange} className="w-full bg-slate-50 dark:bg-slate-800 rounded-xl p-2.5 text-sm outline-none border-none font-bold dark:text-white" />
               </div>
               <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-2 flex flex-col justify-center items-center border border-blue-100 dark:border-blue-800">
                 <span className="text-[9px] font-black uppercase text-blue-500">Престой</span>
                 <span className="text-sm font-black text-blue-600">{reservationForm.nights} нощувки</span>
-              </div>
-              <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-slate-400 px-1">Храна</label>
-                <input type="text" name="food" value={reservationForm.food} onChange={handleFormChange} className="w-full bg-slate-50 dark:bg-slate-800 rounded-xl p-2.5 text-sm" />
-              </div>
-              <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-slate-400 px-1">Тип стая</label>
-                <input type="text" name="roomType" value={reservationForm.roomType} onChange={handleFormChange} className="w-full bg-slate-50 dark:bg-slate-800 rounded-xl p-2.5 text-sm" />
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-slate-400 px-1">Възрастни</label>
-                  <input type="number" name="adults" value={reservationForm.adults} onChange={handleFormChange} className="w-full bg-slate-50 dark:bg-slate-800 rounded-xl p-2.5 text-sm" />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-slate-400 px-1">Деца</label>
-                  <input type="number" name="children" value={reservationForm.children} onChange={handleFormChange} className="w-full bg-slate-50 dark:bg-slate-800 rounded-xl p-2.5 text-sm" />
-                </div>
               </div>
             </div>
           </div>
@@ -250,26 +238,26 @@ const AddReservation = ({
                   <div className="flex justify-between items-center mb-4">
                     <span className="text-[10px] font-black uppercase text-blue-500 bg-blue-50 dark:bg-blue-500/10 px-3 py-1 rounded-full">Турист {index + 1}</span>
                     <div className="flex gap-2">
-                       <div className="flex p-1 bg-slate-200 dark:bg-slate-700 rounded-xl">
-                          <button type="button" onClick={() => handleTouristModeChange(index, 'new')} className={`px-3 py-1 text-[10px] font-bold rounded-lg ${tourist.mode === 'new' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500'}`}>НОВ</button>
-                          <button type="button" onClick={() => handleTouristModeChange(index, 'existing')} className={`px-3 py-1 text-[10px] font-bold rounded-lg ${tourist.mode === 'existing' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500'}`}>КЛИЕНТ</button>
-                       </div>
-                       {reservationForm.tourists.length > 1 && <button type="button" onClick={() => removeTourist(index)} className="text-red-400 hover:text-red-600"><Trash2 size={16}/></button>}
+                        <div className="flex p-1 bg-slate-200 dark:bg-slate-700 rounded-xl">
+                           <button type="button" onClick={() => handleTouristModeChange(index, 'new')} className={`px-3 py-1 text-[10px] font-bold rounded-lg ${tourist.mode === 'new' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500'}`}>НОВ</button>
+                           <button type="button" onClick={() => handleTouristModeChange(index, 'existing')} className={`px-3 py-1 text-[10px] font-bold rounded-lg ${tourist.mode === 'existing' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500'}`}>КЛИЕНТ</button>
+                        </div>
+                        {reservationForm.tourists.length > 1 && <button type="button" onClick={() => removeTourist(index)} className="text-red-400 hover:text-red-600"><Trash2 size={16}/></button>}
                     </div>
                   </div>
                   {tourist.mode === 'existing' ? (
-                    <select value={tourist.id || ''} onChange={(e) => handleExistingTouristSelect(index, e.target.value)} className="w-full bg-white dark:bg-slate-900 border-none rounded-xl py-3 px-4 text-sm font-bold outline-none ring-1 ring-slate-100 dark:ring-slate-800">
-                      <option value="">-- Избери клиент от базата --</option>
+                    <select value={tourist.id || ''} onChange={(e) => handleExistingTouristSelect(index, e.target.value)} className="w-full bg-white dark:bg-slate-900 border-none rounded-xl py-3 px-4 text-sm font-bold outline-none ring-1 ring-slate-100 dark:ring-slate-800 dark:text-white">
+                      <option value="">-- Избери клиент от базата ({customers.length}) --</option>
                       {customers.map(c => <option key={c.id} value={c.id}>{c.firstName} {c.familyName} ({c.realId})</option>)}
                     </select>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <input type="text" name="firstName" placeholder="Име" value={tourist.firstName} onChange={(e) => handleTouristChange(index, e)} className="bg-white dark:bg-slate-900 border-none rounded-xl py-2 px-4 text-sm font-bold" />
-                      <input type="text" name="fatherName" placeholder="Презиме" value={tourist.fatherName} onChange={(e) => handleTouristChange(index, e)} className="bg-white dark:bg-slate-900 border-none rounded-xl py-2 px-4 text-sm font-bold" />
-                      <input type="text" name="familyName" placeholder="Фамилия" value={tourist.familyName} onChange={(e) => handleTouristChange(index, e)} className="bg-white dark:bg-slate-900 border-none rounded-xl py-2 px-4 text-sm font-bold" />
-                      <input type="text" name="realId" placeholder="ЕГН" value={tourist.realId} onChange={(e) => handleTouristChange(index, e)} className="bg-white dark:bg-slate-900 border-none rounded-xl py-2 px-4 text-sm text-blue-600" />
-                      <input type="email" name="email" placeholder="Email" value={tourist.email} onChange={(e) => handleTouristChange(index, e)} className="bg-white dark:bg-slate-900 border-none rounded-xl py-2 px-4 text-sm" />
-                      <input type="text" name="phone" placeholder="Телефон" value={tourist.phone} onChange={(e) => handleTouristChange(index, e)} className="bg-white dark:bg-slate-900 border-none rounded-xl py-2 px-4 text-sm" />
+                      <input type="text" name="firstName" placeholder="Име" value={tourist.firstName} onChange={(e) => handleTouristChange(index, e)} className="bg-white dark:bg-slate-900 border-none rounded-xl py-2 px-4 text-sm font-bold dark:text-white" />
+                      <input type="text" name="fatherName" placeholder="Презиме" value={tourist.fatherName} onChange={(e) => handleTouristChange(index, e)} className="bg-white dark:bg-slate-900 border-none rounded-xl py-2 px-4 text-sm font-bold dark:text-white" />
+                      <input type="text" name="familyName" placeholder="Фамилия" value={tourist.familyName} onChange={(e) => handleTouristChange(index, e)} className="bg-white dark:bg-slate-900 border-none rounded-xl py-2 px-4 text-sm font-bold dark:text-white" />
+                      <input type="text" name="realId" placeholder="ЕГН" value={tourist.realId} onChange={(e) => handleTouristChange(index, e)} className="bg-white dark:bg-slate-900 border-none rounded-xl py-2 px-4 text-sm text-blue-600 font-bold" />
+                      <input type="email" name="email" placeholder="Email" value={tourist.email} onChange={(e) => handleTouristChange(index, e)} className="bg-white dark:bg-slate-900 border-none rounded-xl py-2 px-4 text-sm dark:text-white" />
+                      <input type="text" name="phone" placeholder="Телефон" value={tourist.phone} onChange={(e) => handleTouristChange(index, e)} className="bg-white dark:bg-slate-900 border-none rounded-xl py-2 px-4 text-sm dark:text-white" />
                     </div>
                   )}
                 </div>
@@ -310,9 +298,9 @@ const AddReservation = ({
             </div>
             <div className="space-y-4">
                <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-slate-400 px-1">Връзка с Тур</label>
+                  <label className="text-[10px] font-black uppercase text-slate-400 px-1">Връзка с Тур ({tours.length})</label>
                   <select name="linkedTourId" value={reservationForm.linkedTourId} onChange={handleFormChange} className="w-full bg-slate-50 dark:bg-slate-800 rounded-xl p-2.5 text-sm font-bold text-blue-600 outline-none">
-                    <option value="">-- Самостоятелна --</option>
+                    <option value="">-- Самостоятелна резервация --</option>
                     {tours.map(tour => <option key={tour.id} value={tour.tourId}>{tour.tourId} - {tour.hotel}</option>)}
                   </select>
                </div>
