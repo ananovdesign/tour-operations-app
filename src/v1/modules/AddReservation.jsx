@@ -11,22 +11,30 @@ const AddReservation = ({
   handleSubmitReservation 
 }) => {
 
-  // 1. СТАБИЛНА НОМЕРАЦИЯ: Намира най-високия номер 'dytXXXXXX' и добавя 1
+ // 1. СТАБИЛНА НОМЕРАЦИЯ: Намира най-високия номер и започва точно от dyt100101
   const nextResNumber = useMemo(() => {
-    if (!reservations || reservations.length === 0) return 'dyt100001';
+    // Ако няма резервации, започни директно от 100101
+    if (!reservations || reservations.length === 0) return 'dyt100101';
     
     const numericParts = reservations
       .map(r => {
         const num = String(r.reservationNumber || '');
-        const match = num.match(/dyt(\d+)/);
+        // Използваме /i за да не ни пука дали е DYT или dyt
+        const match = num.match(/dyt(\d+)/i); 
         return match ? parseInt(match[1], 10) : null;
       })
       .filter(n => n !== null && !isNaN(n));
 
-    if (numericParts.length === 0) return 'dyt100001';
+    // Ако в базата има резервации, но нито една не е във формат dytXXXXXX
+    if (numericParts.length === 0) return 'dyt100101';
     
     const maxNum = Math.max(...numericParts);
-    return `dyt${maxNum + 1}`;
+
+    // Гарантираме, че ако най-високият в базата е под 100101 (напр. 100001), 
+    // следващият пак ще бъде 100101
+    const nextNum = maxNum < 100101 ? 100101 : maxNum + 1;
+    
+    return `dyt${nextNum}`;
   }, [reservations]);
 
   const [reservationForm, setReservationForm] = useState({
