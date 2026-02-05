@@ -96,20 +96,28 @@ const AddReservation = ({
 
   const t = translations[lang] || translations.bg;
 
-  // Автоматично генериране на следващ номер на резервация
+  // ПРОМЕНЕНА ЛОГИКА ЗА DYT (ГЛАВНИ БУКВИ)
   const nextResNumber = useMemo(() => {
-    if (!reservations || reservations.length === 0) return 'dyt100101';
+    // Ако няма резервации, започваме с DYT100101
+    if (!reservations || reservations.length === 0) return 'DYT100101';
+    
     const numericParts = reservations
       .map(r => {
         const num = String(r.reservationNumber || '');
+        // Търсим dyt или DYT (без значение малки/големи за съвместимост със стари записи)
         const match = num.match(/dyt(\d+)/i); 
         return match ? parseInt(match[1], 10) : null;
       })
       .filter(n => n !== null && !isNaN(n));
 
-    if (numericParts.length === 0) return 'dyt100101';
+    // Ако не намерим номера, връщаме началния
+    if (numericParts.length === 0) return 'DYT100101';
+    
     const maxNum = Math.max(...numericParts);
-    return `dyt${maxNum < 100101 ? 100101 : maxNum + 1}`;
+    const nextNum = maxNum < 100101 ? 100101 : maxNum + 1;
+    
+    // ВРЪЩАМЕ С ГЛАВНИ БУКВИ
+    return `DYT${nextNum}`;
   }, [reservations]);
 
   const [reservationForm, setReservationForm] = useState({
@@ -192,7 +200,7 @@ const AddReservation = ({
     }
   };
 
-  // НОВО: Функция за валидация преди запис
+  // Функция за валидация преди запис
   const onSaveClick = () => {
     // Проверка дали е въведен хотел
     if (!reservationForm.hotel || reservationForm.hotel.trim() === '') {
@@ -218,7 +226,7 @@ const AddReservation = ({
         </button>
         <h1 className="text-xl font-black uppercase tracking-tighter">{t.resHeader} #{reservationForm.reservationNumber}</h1>
         
-        {/* БУТОН ЗА ЗАПИС - СВЪРЗАН С НОВАТА ФУНКЦИЯ */}
+        {/* БУТОН ЗА ЗАПИС */}
         <button 
             onClick={onSaveClick} 
             disabled={loading} 
