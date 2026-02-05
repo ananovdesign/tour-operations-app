@@ -8,9 +8,9 @@ import {
 } from 'lucide-react';
 
 import AddReservation from './AddReservation';
-// Импортираме компонентите за печат
-import VoucherPrint from '../VoucherPrint';
-import CustomerContractPrint from '../CustomerContractPrint';
+// ПОПРАВКА: Добавихме още едно "../", за да излезем в главната src папка
+import VoucherPrint from '../../VoucherPrint';
+import CustomerContractPrint from '../../CustomerContractPrint';
 
 const Reservations = ({ lang = 'bg' }) => {
   // view може да бъде: 'list', 'add', 'edit', 'voucher', 'contract'
