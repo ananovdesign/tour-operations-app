@@ -3,10 +3,13 @@ import { db, appId, auth } from '../../firebase';
 import { collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { 
   Bus, MapPin, Calendar, Users, Plus, Search, 
-  Edit3, Trash2, X, User, Eye, FileText, CheckCircle
+  Edit3, Trash2, X, User, Eye, FileText, CheckCircle, ArrowLeft 
 } from 'lucide-react';
 
-// --- КОМПОНЕНТ ЗА ДЕТАЙЛЕН ПРЕГЛЕД НА ТУР ---
+// Импорт на новия компонент за печат (увери се, че пътят е верен)
+import BusTourContractPrint from '../../BusTourContractPrint'; 
+
+// --- КОМПОНЕНТ ЗА ДЕТАЙЛЕН ПРЕГЛЕД (PREVIEW) ---
 const TourPreviewModal = ({ tour, linkedReservations, onClose, t }) => {
   if (!tour) return null;
 
@@ -148,6 +151,7 @@ const BusTours = ({ lang = 'bg' }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentTour, setCurrentTour] = useState(null);
   const [previewTour, setPreviewTour] = useState(null); 
+  const [contractTour, setContractTour] = useState(null); // НОВО: State за активен договор
 
   const userId = auth.currentUser?.uid;
 
@@ -184,7 +188,8 @@ const BusTours = ({ lang = 'bg' }) => {
       cancel: "Отказ",
       loading: "Зареждане...",
       seats: "места",
-      contract: "Договор"
+      contract: "Договор",
+      backToList: "Обратно към списъка"
     },
     en: {
       title: "Bus Tours",
@@ -218,7 +223,8 @@ const BusTours = ({ lang = 'bg' }) => {
       cancel: "Cancel",
       loading: "Loading...",
       seats: "seats",
-      contract: "Contract"
+      contract: "Contract",
+      backToList: "Back to List"
     }
   };
 
@@ -260,10 +266,10 @@ const BusTours = ({ lang = 'bg' }) => {
     );
   });
 
-  // --- III. HELPERS (FIXED!) ---
+  // --- III. HELPERS ---
   const getLinkedReservations = (tourId) => {
       if (!tourId) return [];
-      // ВАЖНО: Търсим в полето 'linkedTourId', защото така се казва в базата
+      // ВАЖНО: Търсим в полето 'linkedTourId'
       return reservations.filter(r => r.linkedTourId && r.linkedTourId.toString().trim() === tourId.toString().trim());
   };
 
@@ -322,6 +328,28 @@ const BusTours = ({ lang = 'bg' }) => {
       }
     }
   };
+
+  // --- V. RENDER CONTRACT VIEW (АКО Е АКТИВЕН) ---
+  if (contractTour) {
+      return (
+          <div className="bg-white min-h-screen relative">
+              <div className="p-4 bg-slate-100 flex justify-between items-center no-print border-b">
+                  <button onClick={() => setContractTour(null)} className="flex items-center gap-2 font-bold text-slate-600 hover:text-blue-600">
+                      <ArrowLeft size={20} /> {t.backToList}
+                  </button>
+                  <h2 className="text-xl font-black uppercase text-slate-400">Генератор на Договор</h2>
+                  <div className="w-20"></div>
+              </div>
+              
+              {/* Подаваме данни към твоя компонент */}
+              <BusTourContractPrint 
+                  tourData={contractTour} 
+                  allReservations={reservations} 
+                  onPrintFinish={() => setContractTour(null)}
+              />
+          </div>
+      );
+  }
 
   if (loading) return (
     <div className="flex h-64 flex-col items-center justify-center space-y-4 font-sans text-center">
@@ -432,6 +460,10 @@ const BusTours = ({ lang = 'bg' }) => {
                   <button onClick={() => setPreviewTour(tour)} title="Преглед" className="p-2 bg-white shadow-md hover:bg-blue-50 text-slate-600 hover:text-blue-600 rounded-xl transition-colors">
                     <Eye size={16} />
                   </button>
+                  {/* НОВ БУТОН: ПЕЧАТ НА ДОГОВОР */}
+                  <button onClick={() => setContractTour(tour)} title="Договор" className="p-2 bg-white shadow-md hover:bg-purple-50 text-slate-600 hover:text-purple-600 rounded-xl transition-colors">
+                    <FileText size={16} />
+                  </button>
                   <button onClick={() => { setCurrentTour(tour); setIsModalOpen(true); }} title="Редакция" className="p-2 bg-white shadow-md hover:bg-emerald-50 text-slate-600 hover:text-emerald-600 rounded-xl transition-colors">
                     <Edit3 size={16} />
                   </button>
@@ -445,7 +477,7 @@ const BusTours = ({ lang = 'bg' }) => {
         </div>
       )}
 
-      {/* --- ADD/EDIT MODAL FORM --- */}
+      {/* --- ADD/EDIT MODAL FORM (Same as before) --- */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white dark:bg-slate-900 w-full max-w-4xl rounded-[2rem] shadow-2xl border border-slate-200 dark:border-slate-700 p-8 relative flex flex-col max-h-[90vh] overflow-y-auto">
