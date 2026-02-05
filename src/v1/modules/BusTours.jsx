@@ -141,13 +141,13 @@ const TourPreviewModal = ({ tour, linkedReservations, onClose, t }) => {
 
 const BusTours = ({ lang = 'bg' }) => {
   const [tours, setTours] = useState([]);
-  const [reservations, setReservations] = useState([]); // State for reservations
+  const [reservations, setReservations] = useState([]); 
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentTour, setCurrentTour] = useState(null);
-  const [previewTour, setPreviewTour] = useState(null); // State for preview modal
+  const [previewTour, setPreviewTour] = useState(null); 
 
   const userId = auth.currentUser?.uid;
 
@@ -236,12 +236,12 @@ const BusTours = ({ lang = 'bg' }) => {
       setTours(toursData);
     });
 
-    // 2. Fetch Reservations (Needed for occupancy calculation)
+    // 2. Fetch Reservations
     const resRef = collection(db, `artifacts/${appId}/users/${userId}/reservations`);
     const unsubRes = onSnapshot(resRef, (snapshot) => {
         const resData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         setReservations(resData);
-        setLoading(false); // Done loading when both are roughly ready
+        setLoading(false); 
     });
 
     return () => {
@@ -260,11 +260,11 @@ const BusTours = ({ lang = 'bg' }) => {
     );
   });
 
-  // --- III. HELPERS ---
+  // --- III. HELPERS (FIXED!) ---
   const getLinkedReservations = (tourId) => {
       if (!tourId) return [];
-      // Търсим съвпадение по tourId (case insensitive)
-      return reservations.filter(r => r.tourId && r.tourId.toString().toLowerCase() === tourId.toString().toLowerCase());
+      // ВАЖНО: Търсим в полето 'linkedTourId', защото така се казва в базата
+      return reservations.filter(r => r.linkedTourId && r.linkedTourId.toString().trim() === tourId.toString().trim());
   };
 
   const getBookedCount = (tourId) => {
@@ -326,7 +326,6 @@ const BusTours = ({ lang = 'bg' }) => {
   if (loading) return (
     <div className="flex h-64 flex-col items-center justify-center space-y-4 font-sans text-center">
       <div className="animate-spin text-blue-500 mb-2">
-         {/* Spinner SVG */}
          <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
       </div>
       <p className="text-slate-400 font-black italic uppercase tracking-widest text-[10px]">{t.loading}</p>
