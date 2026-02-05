@@ -9,7 +9,8 @@ import { AppProvider, useApp } from './AppContext';
 import Hotels from './modules/Hotels';
 import BusTours from './modules/BusTours';
 import Finance from './modules/Finance';
-import Tools from './modules/Tools'; // <--- НОВ ИМПОРТ
+import Tools from './modules/Tools';
+import Tasks from './modules/Tasks'; // <--- НОВ ИМПОРТ ЗА ЗАДАЧИ
 
 const AppContent = () => {
   const { t, language } = useApp();
@@ -90,7 +91,7 @@ const AppContent = () => {
           <header className="mb-10 flex justify-between items-end">
             <div className="animate-in slide-in-from-left duration-500">
               <h1 className="text-4xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">
-                {t[activeModule] || (activeModule === 'tools' ? 'Инструменти' : activeModule)}
+                {t[activeModule] || (activeModule === 'tools' ? 'Инструменти' : activeModule === 'tasks' ? 'Задачи' : activeModule)}
               </h1>
               <p className="text-slate-500 dark:text-slate-400 mt-1 font-medium italic">
                 {t.welcome} {t[activeModule] || activeModule}.
@@ -109,8 +110,10 @@ const AppContent = () => {
                 <BusTours lang={language} />
             ) : activeModule === 'finance' ? ( 
                 <Finance lang={language} />
-            ) : activeModule === 'tools' ? (  // <--- ТУК Е НОВИЯТ МОДУЛ
+            ) : activeModule === 'tools' ? (
                 <Tools lang={language} />
+            ) : activeModule === 'tasks' ? (  // <--- ТУК СЕ ЗАРЕЖДАТ ЗАДАЧИТЕ
+                <Tasks />
             ) : (
                 <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-20 shadow-sm border border-slate-100 dark:border-slate-800 text-center animate-in fade-in zoom-in duration-300">
                    <span className="text-slate-300 dark:text-slate-700 font-black uppercase tracking-widest text-lg italic">
