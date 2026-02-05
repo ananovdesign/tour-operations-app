@@ -157,7 +157,7 @@ const BusTours = ({ lang = 'bg' }) => {
 
   const translations = {
     bg: {
-      title: "Автобусни Турове",
+      title: "Турове",
       search: "Търси по Тур ID, хотел или фирма...",
       addBtn: "Нов Тур",
       noTours: "Няма намерени турове.",
@@ -192,7 +192,7 @@ const BusTours = ({ lang = 'bg' }) => {
       backToList: "Обратно към списъка"
     },
     en: {
-      title: "Bus Tours",
+      title: "Tours",
       search: "Search by Tour ID, Hotel or Company...",
       addBtn: "New Tour",
       noTours: "No tours found.",
