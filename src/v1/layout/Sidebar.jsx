@@ -1,7 +1,11 @@
 import React from 'react';
-import { LayoutDashboard, Users, Hotel, Bus, FileText, Megaphone, CheckSquare, LogOut, Sun, Moon, Languages } from 'lucide-react';
+import { 
+  LayoutDashboard, Users, Hotel, Bus, 
+  Wallet, // <--- Сменено: Wallet вместо FileText
+  Megaphone, CheckSquare, LogOut, Sun, Moon, Languages 
+} from 'lucide-react';
 import { useApp } from '../AppContext';
-import Logo from '../../Logo.png'; // Провери дали е Logo.png или logo.png
+import Logo from '../../Logo.png'; 
 
 const Sidebar = ({ activeModule, setActiveModule, onLogout }) => {
   const { theme, toggleTheme, language, toggleLanguage, t } = useApp();
@@ -11,7 +15,7 @@ const Sidebar = ({ activeModule, setActiveModule, onLogout }) => {
     { id: 'reservations', label: t.reservations, icon: Users },
     { id: 'hotels', label: t.hotels, icon: Hotel },
     { id: 'bus', label: t.bus, icon: Bus },
-    { id: 'invoices', label: t.invoices, icon: FileText },
+    { id: 'finance', label: t.finance || 'Финанси', icon: Wallet }, // <--- Нов модул: Финанси
     { id: 'marketing', label: t.marketing, icon: Megaphone },
     { id: 'tasks', label: t.tasks, icon: CheckSquare },
   ];
