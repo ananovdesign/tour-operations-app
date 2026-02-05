@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { db, appId, auth } from '../../firebase';
 import { collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { 
-  Bus, MapPin, Calendar, Users, Clock, Plus, Search, 
-  Edit3, Trash2, X, AlertCircle, CheckCircle2, User 
+  Bus, MapPin, Calendar, Users, Plus, Search, 
+  Edit3, Trash2, X, User, CheckCircle 
 } from 'lucide-react';
 
 const BusTours = ({ lang = 'bg' }) => {
@@ -16,7 +16,8 @@ const BusTours = ({ lang = 'bg' }) => {
 
   const userId = auth.currentUser?.uid;
 
-  const t = {
+  // ПОПРАВКА: По-безопасна дефиниция на преводите
+  const translations = {
     bg: {
       title: "Автобусни Турове",
       search: "Търси по име или дестинация...",
@@ -83,7 +84,9 @@ const BusTours = ({ lang = 'bg' }) => {
         cancelled: "Cancelled"
       }
     }
-  }[lang] || lang.bg;
+  };
+
+  const t = translations[lang] || translations.bg;
 
   // --- I. DATABASE ---
   useEffect(() => {
@@ -95,7 +98,7 @@ const BusTours = ({ lang = 'bg' }) => {
         id: doc.id,
         ...doc.data()
       }));
-      // Сортиране по начална дата (най-новите първи)
+      // Сортиране по начална дата
       toursData.sort((a, b) => new Date(b.startDate) - new Date(a.startDate));
       setTours(toursData);
       setLoading(false);
@@ -132,7 +135,6 @@ const BusTours = ({ lang = 'bg' }) => {
         await updateDoc(doc(db, `artifacts/${appId}/users/${userId}/tours`, currentTour.id), tourData);
       } else {
         tourData.createdAt = new Date().toISOString();
-        // В бъдеще тук ще добавим occupiedSeats, които ще се смятат автоматично
         tourData.occupiedSeats = 0; 
         await addDoc(collection(db, `artifacts/${appId}/users/${userId}/tours`), tourData);
       }
@@ -165,7 +167,12 @@ const BusTours = ({ lang = 'bg' }) => {
 
   if (loading) return (
     <div className="flex h-64 flex-col items-center justify-center space-y-4 font-sans text-center">
-      <Loader2 className="animate-spin text-blue-500" size={32} />
+      <div className="animate-spin text-blue-500 mb-2">
+         <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+         </svg>
+      </div>
       <p className="text-slate-400 font-black italic uppercase tracking-widest text-[10px]">{t.loading}</p>
     </div>
   );
