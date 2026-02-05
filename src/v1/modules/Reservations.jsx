@@ -1,25 +1,29 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { db, appId, auth } from '../../firebase';
-// ПРОМЯНА 1: Добавихме addDoc тук, за да можем да записваме
-import { collection, onSnapshot, addDoc } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, doc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { 
-  Search, Plus, Eye, Edit3, FileText, Loader2, User, ChevronDown, ChevronUp, ArrowDownLeft, ArrowUpRight, Calendar, Building2
+  Search, Plus, Eye, Edit3, Trash2, FileText, Loader2, 
+  ChevronDown, ChevronUp, ArrowDownLeft, ArrowUpRight, 
+  Calendar, Building2, Printer, Ticket, ArrowLeft 
 } from 'lucide-react';
-import AddReservation from './AddReservation'; 
+
+import AddReservation from './AddReservation';
+// Импортираме компонентите за печат
+import VoucherPrint from '../VoucherPrint';
+import CustomerContractPrint from '../CustomerContractPrint';
 
 const Reservations = ({ lang = 'bg' }) => {
+  // view може да бъде: 'list', 'add', 'edit', 'voucher', 'contract'
   const [view, setView] = useState('list');
+  const [selectedRes, setSelectedRes] = useState(null); // Данни за избраната резервация (за редакция или печат)
 
   const translations = {
     bg: {
-      loading: "Подреждане на резервации...",
+      loading: "Зареждане на резервации...",
       searchPlaceholder: "Търси гост или #dyt...",
       hotelPlaceholder: "Филтрирай по хотел...",
       checkInAfter: "Настаняване след:",
       allStatus: "Всички статуси",
-      pending: "Изчакваща",
-      confirmed: "Потвърдена",
-      cancelled: "Анулирана",
       newRes: "Нова резервация",
       thNumber: "Номер",
       thHotel: "Хотел",
@@ -31,20 +35,16 @@ const Reservations = ({ lang = 'bg' }) => {
       thActions: "Действия",
       financialRecords: "Финансови записи:",
       noPayments: "Няма открити плащания.",
-      unpaid: "Неплатена",
-      paid: "Платена",
-      partiallyPaid: "Частично платена",
-      due: "Дължими:"
+      due: "Дължими:",
+      confirmDelete: "Сигурни ли сте, че искате да изтриете тази резервация? Това действие е необратимо.",
+      backToList: "Обратно към списъка"
     },
     en: {
-      loading: "Sorting reservations...",
+      loading: "Loading reservations...",
       searchPlaceholder: "Search guest or #dyt...",
       hotelPlaceholder: "Filter by hotel...",
       checkInAfter: "Check-in after:",
       allStatus: "All Status",
-      pending: "Pending",
-      confirmed: "Confirmed",
-      cancelled: "Cancelled",
       newRes: "New Reservation",
       thNumber: "Res. Number",
       thHotel: "Hotel",
@@ -56,10 +56,9 @@ const Reservations = ({ lang = 'bg' }) => {
       thActions: "Actions",
       financialRecords: "Financial Records:",
       noPayments: "No linked payments found.",
-      unpaid: "Unpaid",
-      paid: "Paid",
-      partiallyPaid: "Partially Paid",
-      due: "Due:"
+      due: "Due:",
+      confirmDelete: "Are you sure you want to delete this reservation? This action cannot be undone.",
+      backToList: "Back to List"
     }
   };
 
@@ -68,8 +67,6 @@ const Reservations = ({ lang = 'bg' }) => {
   const [loading, setLoading] = useState(true);
   const [reservations, setReservations] = useState([]);
   const [transactions, setTransactions] = useState([]);
-   
-  // НОВИ СТЕЙТОВЕ ЗА ДАННИТЕ
   const [tours, setTours] = useState([]);
   const [customers, setCustomers] = useState([]);
 
@@ -81,25 +78,17 @@ const Reservations = ({ lang = 'bg' }) => {
 
   const userId = auth.currentUser?.uid;
 
+  // --- I. ИЗВЛИЧАНЕ НА ДАННИ ОТ FIREBASE ---
   useEffect(() => {
     if (!userId) return;
 
     const resRef = collection(db, `artifacts/${appId}/users/${userId}/reservations`);
     const transRef = collection(db, `artifacts/${appId}/users/${userId}/financialTransactions`);
-    
-    // ПЪТИЩА ЗА ТУРОВЕ И КЛИЕНТИ
     const toursRef = collection(db, `artifacts/${appId}/users/${userId}/tours`);
     const custRef = collection(db, `artifacts/${appId}/users/${userId}/customers`);
 
-    // СЛУШАЛКА ЗА ТУРОВЕ
-    const unsubTours = onSnapshot(toursRef, (snap) => {
-      setTours(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    });
-
-    // СЛУШАЛКА ЗА КЛИЕНТИ
-    const unsubCust = onSnapshot(custRef, (snap) => {
-      setCustomers(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    });
+    const unsubTours = onSnapshot(toursRef, (snap) => setTours(snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))));
+    const unsubCust = onSnapshot(custRef, (snap) => setCustomers(snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))));
 
     const unsubTrans = onSnapshot(transRef, (transSnapshot) => {
       const allTrans = transSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -117,17 +106,16 @@ const Reservations = ({ lang = 'bg' }) => {
           const finalAmt = res.finalAmount || 0;
           const remainingAmount = finalAmt - totalPaid;
 
-          let paymentStatus = t.unpaid;
+          let paymentStatus = "Unpaid";
           let paymentStatusColor = 'bg-rose-100 text-rose-800';
           
-          if (finalAmt <= 0) {
-            paymentStatus = t.paid;
-            paymentStatusColor = 'bg-emerald-100 text-emerald-800';
-          } else if (totalPaid >= finalAmt) {
-            paymentStatus = t.paid;
+          if (finalAmt <= 0 && totalPaid === 0) {
+             // Handle 0 price logic if needed
+          } else if (remainingAmount <= 0.01) { // tolerance for float errors
+            paymentStatus = "Paid";
             paymentStatusColor = 'bg-emerald-100 text-emerald-800';
           } else if (totalPaid > 0) {
-            paymentStatus = t.partiallyPaid;
+            paymentStatus = "Partial";
             paymentStatusColor = 'bg-amber-100 text-amber-800';
           }
 
@@ -141,6 +129,7 @@ const Reservations = ({ lang = 'bg' }) => {
         });
 
         const sortedData = dataWithPayments.sort((b, a) => {
+          // Sort by reservation number logic
           const getNum = (str) => parseInt(str?.toString().replace(/\D/g, '')) || 0;
           return getNum(a.reservationNumber) - getNum(b.reservationNumber);
         });
@@ -156,8 +145,9 @@ const Reservations = ({ lang = 'bg' }) => {
       unsubTours();
       unsubCust();
     };
-  }, [userId, t]);
+  }, [userId]);
 
+  // --- II. ФИЛТРИРАНЕ ---
   const filteredReservations = useMemo(() => {
     return reservations.filter(res => {
       const leadGuest = res.tourists?.[0] ? `${res.tourists[0].firstName} ${res.tourists[0].familyName}` : "";
@@ -173,48 +163,118 @@ const Reservations = ({ lang = 'bg' }) => {
     });
   }, [reservations, searchTerm, hotelSearch, dateFilter, statusFilter]);
 
-  // ПРОМЯНА 2: Създаваме функцията, която ще запише резервацията в базата
+  // --- III. ACTIONS (Действия) ---
+
+  // 1. ЗАПИСВАНЕ (НОВА или РЕДАКЦИЯ)
   const handleSubmitReservation = async (reservationData) => {
     try {
-        // Подготовка на данните преди запис
         const finalData = {
             ...reservationData,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
             userId: userId,
-            // Подсигуряваме, че имаме номер на резервация, ако формата не е генерирала такъв
-            reservationNumber: reservationData.reservationNumber || `R-${Math.floor(Date.now() / 1000)}`
+            updatedAt: new Date().toISOString()
         };
 
-        // Запис в колекцията 'reservations'
-        await addDoc(collection(db, `artifacts/${appId}/users/${userId}/reservations`), finalData);
-
-        // Показване на съобщение за успех
-        alert(lang === 'bg' ? "Резервацията е записана успешно!" : "Reservation saved successfully!");
+        if (view === 'edit' && selectedRes?.id) {
+            // UPDATE съществуваща
+            const docRef = doc(db, `artifacts/${appId}/users/${userId}/reservations`, selectedRes.id);
+            await updateDoc(docRef, finalData);
+            alert("Резервацията е обновена успешно!");
+        } else {
+            // CREATE нова
+            // Генерираме номер само ако е нова
+            finalData.createdAt = new Date().toISOString();
+            finalData.reservationNumber = reservationData.reservationNumber || `DYT${Math.floor(Date.now() / 1000)}`;
+            
+            await addDoc(collection(db, `artifacts/${appId}/users/${userId}/reservations`), finalData);
+            alert("Резервацията е създадена успешно!");
+        }
         
-        // Връщане към списъка
         setView('list');
+        setSelectedRes(null);
 
     } catch (error) {
         console.error("Error saving reservation:", error);
-        alert(lang === 'bg' ? "Възникна грешка при запис: " + error.message : "Error saving: " + error.message);
+        alert("Грешка при запис: " + error.message);
     }
   };
 
-  // ПОДАВАМЕ НОВИТЕ ДАННИ КЪМ AddReservation
-  if (view === 'add') {
+  // 2. ИЗТРИВАНЕ
+  const handleDelete = async (e, resId) => {
+    e.stopPropagation(); // Спираме отварянето на реда
+    if (window.confirm(t.confirmDelete)) {
+        try {
+            await deleteDoc(doc(db, `artifacts/${appId}/users/${userId}/reservations`, resId));
+        } catch (error) {
+            console.error("Error deleting:", error);
+            alert("Неуспешно изтриване.");
+        }
+    }
+  };
+
+  // 3. РЕДАКЦИЯ
+  const handleEdit = (e, res) => {
+    e.stopPropagation();
+    setSelectedRes(res);
+    setView('edit');
+  };
+
+  // 4. ПЕЧАТ (Ваучер или Договор)
+  const handlePrint = (e, res, type) => {
+    e.stopPropagation();
+    setSelectedRes(res);
+    setView(type); // 'voucher' or 'contract'
+  };
+
+  // --- IV. RENDER VIEWS ---
+
+  // VIEW: ВАУЧЕР
+  if (view === 'voucher' && selectedRes) {
+      return (
+          <div className="bg-white min-h-screen relative">
+              <div className="p-4 bg-slate-100 flex justify-between items-center no-print border-b">
+                  <button onClick={() => setView('list')} className="flex items-center gap-2 font-bold text-slate-600 hover:text-blue-600">
+                      <ArrowLeft size={20} /> {t.backToList}
+                  </button>
+                  <h2 className="text-xl font-black uppercase text-slate-400">Преглед на Ваучер</h2>
+                  <div className="w-20"></div> {/* Spacer for center alignment */}
+              </div>
+              <VoucherPrint reservation={selectedRes} />
+          </div>
+      );
+  }
+
+  // VIEW: ДОГОВОР
+  if (view === 'contract' && selectedRes) {
+      return (
+          <div className="bg-white min-h-screen relative">
+              <div className="p-4 bg-slate-100 flex justify-between items-center no-print border-b">
+                  <button onClick={() => setView('list')} className="flex items-center gap-2 font-bold text-slate-600 hover:text-blue-600">
+                      <ArrowLeft size={20} /> {t.backToList}
+                  </button>
+                  <h2 className="text-xl font-black uppercase text-slate-400">Преглед на Договор</h2>
+                  <div className="w-20"></div>
+              </div>
+              <CustomerContractPrint reservationData={selectedRes} />
+          </div>
+      );
+  }
+
+  // VIEW: ДОБАВЯНЕ / РЕДАКЦИЯ
+  if (view === 'add' || view === 'edit') {
     return (
       <AddReservation 
         lang={lang} 
-        onBack={() => setView('list')} 
+        onBack={() => { setView('list'); setSelectedRes(null); }} 
         tours={tours} 
         customers={customers} 
         reservations={reservations} 
-        handleSubmitReservation={handleSubmitReservation} // ПРОМЯНА 3: Подаваме функцията тук
+        handleSubmitReservation={handleSubmitReservation}
+        initialData={view === 'edit' ? selectedRes : null} // ПОДАВАМЕ ДАННИТЕ ЗА РЕДАКЦИЯ
       />
     );
   }
 
+  // LOADING STATE
   if (loading) return (
     <div className="flex h-64 flex-col items-center justify-center space-y-4 font-sans text-center">
       <Loader2 className="animate-spin text-blue-500" size={32} />
@@ -222,6 +282,7 @@ const Reservations = ({ lang = 'bg' }) => {
     </div>
   );
 
+  // VIEW: СПИСЪК (DEFAULT)
   return (
     <div className="space-y-6 animate-in fade-in duration-500 font-sans">
       {/* FILTERS SECTION */}
@@ -245,13 +306,13 @@ const Reservations = ({ lang = 'bg' }) => {
               onChange={(e) => setStatusFilter(e.target.value)}
             >
               <option value="All">{t.allStatus}</option>
-              <option value="Pending">{t.pending}</option>
-              <option value="Confirmed">{t.confirmed}</option>
-              <option value="Cancelled">{t.cancelled}</option>
+              <option value="Pending">Pending</option>
+              <option value="Confirmed">Confirmed</option>
+              <option value="Cancelled">Cancelled</option>
             </select>
             
             <button 
-              onClick={() => setView('add')}
+              onClick={() => { setSelectedRes(null); setView('add'); }}
               className="bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-2xl shadow-lg transition-all flex items-center gap-2 font-black uppercase text-[10px] whitespace-nowrap"
             >
               <Plus size={16} /> {t.newRes}
@@ -330,7 +391,7 @@ const Reservations = ({ lang = 'bg' }) => {
                           res.status === 'Pending' ? 'bg-amber-100 text-amber-700' : 
                           'bg-rose-100 text-rose-700'
                         }`}>
-                          {lang === 'bg' ? t[res.status?.toLowerCase()] || res.status : res.status}
+                          {res.status}
                         </span>
                       </td>
                       <td className="px-6 py-5">
@@ -348,11 +409,45 @@ const Reservations = ({ lang = 'bg' }) => {
                       <td className="px-6 py-5 font-black text-sm text-right">
                         {res.profit?.toFixed(2)} <span className="text-[9px] text-slate-400">BGN</span>
                       </td>
+                      
+                      {/* ACTIONS BUTTONS */}
                       <td className="px-6 py-5">
                         <div className="flex justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button className="p-2 hover:bg-blue-50 text-blue-500 rounded-xl"><Eye size={14} /></button>
-                          <button className="p-2 hover:bg-emerald-50 text-emerald-500 rounded-xl"><Edit3 size={14} /></button>
-                          <button className="p-2 hover:bg-purple-50 text-purple-500 rounded-xl"><FileText size={14} /></button>
+                            {/* PRINT VOUCHER */}
+                            <button 
+                                onClick={(e) => handlePrint(e, res, 'voucher')}
+                                title="Ваучер"
+                                className="p-2 hover:bg-purple-50 text-purple-500 rounded-xl"
+                            >
+                                <Ticket size={16} />
+                            </button>
+
+                            {/* PRINT CONTRACT */}
+                            <button 
+                                onClick={(e) => handlePrint(e, res, 'contract')}
+                                title="Договор"
+                                className="p-2 hover:bg-indigo-50 text-indigo-500 rounded-xl"
+                            >
+                                <FileText size={16} />
+                            </button>
+
+                            {/* EDIT */}
+                            <button 
+                                onClick={(e) => handleEdit(e, res)} 
+                                title="Редакция"
+                                className="p-2 hover:bg-emerald-50 text-emerald-500 rounded-xl"
+                            >
+                                <Edit3 size={16} />
+                            </button>
+
+                            {/* DELETE */}
+                            <button 
+                                onClick={(e) => handleDelete(e, res.id)} 
+                                title="Изтриване"
+                                className="p-2 hover:bg-rose-50 text-rose-500 rounded-xl"
+                            >
+                                <Trash2 size={16} />
+                            </button>
                         </div>
                       </td>
                     </tr>
