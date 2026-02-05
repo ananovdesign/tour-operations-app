@@ -3,7 +3,7 @@ import { db, appId, auth } from '../../firebase';
 import { collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { 
   Bus, MapPin, Calendar, Users, Plus, Search, 
-  Edit3, Trash2, X, User, CheckCircle 
+  Edit3, Trash2, X, User, FileText 
 } from 'lucide-react';
 
 const BusTours = ({ lang = 'bg' }) => {
@@ -16,73 +16,76 @@ const BusTours = ({ lang = 'bg' }) => {
 
   const userId = auth.currentUser?.uid;
 
-  // ПОПРАВКА: По-безопасна дефиниция на преводите
   const translations = {
     bg: {
       title: "Автобусни Турове",
-      search: "Търси по име или дестинация...",
+      search: "Търси по Тур ID, хотел или фирма...",
       addBtn: "Нов Тур",
-      noTours: "Няма планирани турове.",
+      noTours: "Няма намерени турове.",
       edit: "Редакция",
       delete: "Изтрий",
       confirmDelete: "Сигурни ли сте, че искате да изтриете този тур?",
       formTitleNew: "Създаване на Тур",
       formTitleEdit: "Редакция на Тур",
-      tourName: "Име на тура",
-      route: "Маршрут (От - До)",
-      dates: "Дати",
-      startDate: "Начало",
-      endDate: "Край",
-      busInfo: "Транспорт инфо",
-      busNumber: "Рег. номер автобус",
-      driver: "Шофьор / Фирма",
-      capacity: "Капацитет (Места)",
-      price: "Цена на човек",
-      status: "Статус",
+      
+      // Fields matching your old code
+      tourId: "Номер на Тур (Tour ID)",
+      hotel: "Хотел (Основен)",
+      transportCompany: "Транспортна Фирма",
+      departureDate: "Дата на тръгване",
+      arrivalDate: "Дата на връщане",
+      nights: "Нощувки",
+      daysInclTravel: "Дни (с пътя)",
+      maxPassengers: "Макс. пътници",
+      price: "Цена (лв)",
+      
+      // Detailed text fields
+      departureDateTimePlace: "Час и място на тръгване",
+      transportDescription: "Описание на транспорта",
+      insuranceDetails: "Застраховка (инфо)",
+      tourHotels: "Хотели по тура (описание)",
+      tourRoomSummary: "Обобщение стаи",
+      mealsIncluded: "Включени хранения",
+
       save: "Запази",
       cancel: "Отказ",
       loading: "Зареждане...",
       seats: "места",
-      perPerson: "на човек",
-      statuses: {
-        planned: "Планиран",
-        confirmed: "Потвърден",
-        completed: "Приключил",
-        cancelled: "Анулиран"
-      }
+      contract: "Договор"
     },
     en: {
       title: "Bus Tours",
-      search: "Search by name or destination...",
+      search: "Search by Tour ID, Hotel or Company...",
       addBtn: "New Tour",
-      noTours: "No tours planned.",
+      noTours: "No tours found.",
       edit: "Edit",
       delete: "Delete",
-      confirmDelete: "Are you sure you want to delete this tour?",
+      confirmDelete: "Delete this tour?",
       formTitleNew: "Create Tour",
       formTitleEdit: "Edit Tour",
-      tourName: "Tour Name",
-      route: "Route (From - To)",
-      dates: "Dates",
-      startDate: "Start Date",
-      endDate: "End Date",
-      busInfo: "Transport Info",
-      busNumber: "Bus Plate #",
-      driver: "Driver / Company",
-      capacity: "Capacity (Seats)",
-      price: "Price per person",
-      status: "Status",
+      
+      tourId: "Tour ID",
+      hotel: "Hotel (Main)",
+      transportCompany: "Transport Company",
+      departureDate: "Departure Date",
+      arrivalDate: "Arrival Date",
+      nights: "Nights",
+      daysInclTravel: "Days (incl. Travel)",
+      maxPassengers: "Max Passengers",
+      price: "Price",
+
+      departureDateTimePlace: "Departure Time & Place",
+      transportDescription: "Transport Description",
+      insuranceDetails: "Insurance Details",
+      tourHotels: "Tour Hotels",
+      tourRoomSummary: "Room Summary",
+      mealsIncluded: "Meals Included",
+
       save: "Save",
       cancel: "Cancel",
       loading: "Loading...",
       seats: "seats",
-      perPerson: "pp",
-      statuses: {
-        planned: "Planned",
-        confirmed: "Confirmed",
-        completed: "Completed",
-        cancelled: "Cancelled"
-      }
+      contract: "Contract"
     }
   };
 
@@ -91,6 +94,8 @@ const BusTours = ({ lang = 'bg' }) => {
   // --- I. DATABASE ---
   useEffect(() => {
     if (!userId) return;
+    // ВНИМАНИЕ: Използваме новата структура 'artifacts/...'. 
+    // Ако искаш да виждаш старите данни, трябва да ги мигрираш или да сменим пътя тук.
     const toursRef = collection(db, `artifacts/${appId}/users/${userId}/tours`);
     
     const unsubscribe = onSnapshot(toursRef, (snapshot) => {
@@ -98,8 +103,8 @@ const BusTours = ({ lang = 'bg' }) => {
         id: doc.id,
         ...doc.data()
       }));
-      // Сортиране по начална дата
-      toursData.sort((a, b) => new Date(b.startDate) - new Date(a.startDate));
+      // Сортиране по дата на тръгване
+      toursData.sort((a, b) => new Date(b.departureDate) - new Date(a.departureDate));
       setTours(toursData);
       setLoading(false);
     });
@@ -108,25 +113,40 @@ const BusTours = ({ lang = 'bg' }) => {
   }, [userId]);
 
   // --- II. FILTER ---
-  const filteredTours = tours.filter(tour => 
-    (tour.name?.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    (tour.route?.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  const filteredTours = tours.filter(tour => {
+    const s = searchTerm.toLowerCase();
+    return (
+      (tour.tourId?.toLowerCase().includes(s)) ||
+      (tour.hotel?.toLowerCase().includes(s)) ||
+      (tour.transportCompany?.toLowerCase().includes(s))
+    );
+  });
 
   // --- III. ACTIONS ---
   const handleSaveTour = async (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
+    
+    // Mapping fields exactly to your old code structure
     const tourData = {
-      name: formData.get('name'),
-      route: formData.get('route'),
-      startDate: formData.get('startDate'),
-      endDate: formData.get('endDate'),
-      busNumber: formData.get('busNumber'),
-      driver: formData.get('driver'),
-      capacity: Number(formData.get('capacity')) || 45,
+      tourId: formData.get('tourId'),
+      hotel: formData.get('hotel'),
+      transportCompany: formData.get('transportCompany'),
+      departureDate: formData.get('departureDate'),
+      arrivalDate: formData.get('arrivalDate'),
+      nights: Number(formData.get('nights')) || 0,
+      daysInclTravel: Number(formData.get('daysInclTravel')) || 0,
+      maxPassengers: Number(formData.get('maxPassengers')) || 45,
       price: Number(formData.get('price')) || 0,
-      status: formData.get('status'),
+      
+      // The detailed text fields
+      departureDateTimePlace: formData.get('departureDateTimePlace'),
+      transportDescription: formData.get('transportDescription'),
+      insuranceDetails: formData.get('insuranceDetails'),
+      tourHotels: formData.get('tourHotels'),
+      tourRoomSummary: formData.get('tourRoomSummary'),
+      mealsIncluded: formData.get('mealsIncluded'),
+      
       updatedAt: new Date().toISOString()
     };
 
@@ -135,7 +155,6 @@ const BusTours = ({ lang = 'bg' }) => {
         await updateDoc(doc(db, `artifacts/${appId}/users/${userId}/tours`, currentTour.id), tourData);
       } else {
         tourData.createdAt = new Date().toISOString();
-        tourData.occupiedSeats = 0; 
         await addDoc(collection(db, `artifacts/${appId}/users/${userId}/tours`), tourData);
       }
       setIsModalOpen(false);
@@ -156,13 +175,10 @@ const BusTours = ({ lang = 'bg' }) => {
     }
   };
 
-  const getStatusColor = (status) => {
-    switch(status) {
-      case 'confirmed': return 'bg-emerald-100 text-emerald-700 border-emerald-200';
-      case 'completed': return 'bg-slate-100 text-slate-500 border-slate-200';
-      case 'cancelled': return 'bg-rose-100 text-rose-700 border-rose-200';
-      default: return 'bg-amber-100 text-amber-700 border-amber-200';
-    }
+  // Helper to calculate booked seats (Mock functionality for now)
+  const getBookedCount = (tourId) => {
+    // Тук по-късно ще свържем с резервациите
+    return 0; 
   };
 
   if (loading) return (
@@ -205,84 +221,71 @@ const BusTours = ({ lang = 'bg' }) => {
         <div className="text-center py-20 text-slate-400 font-bold italic">{t.noTours}</div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredTours.map(tour => (
-            <div key={tour.id} className="bg-white dark:bg-slate-900 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-lg transition-all group relative overflow-hidden flex flex-col">
-              
-              {/* STATUS BAR */}
-              <div className={`h-2 w-full ${
-                tour.status === 'confirmed' ? 'bg-emerald-500' : 
-                tour.status === 'cancelled' ? 'bg-rose-500' : 'bg-amber-400'
-              }`}></div>
+          {filteredTours.map(tour => {
+             const booked = getBookedCount(tour.tourId);
+             const progress = (booked / (tour.maxPassengers || 1)) * 100;
+             
+             return (
+              <div key={tour.id} className="bg-white dark:bg-slate-900 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-lg transition-all group relative overflow-hidden flex flex-col">
+                
+                {/* Decoration Top */}
+                <div className="h-2 w-full bg-blue-500"></div>
 
-              <div className="p-6 flex-1">
-                {/* Header: Date & Status */}
-                <div className="flex justify-between items-start mb-4">
-                  <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800 px-3 py-1.5 rounded-xl">
-                    <Calendar size={14} className="text-blue-500" />
-                    <span className="text-[11px] font-black text-slate-600 dark:text-slate-300">
-                      {tour.startDate} <span className="text-slate-300">/</span> {tour.endDate}
-                    </span>
-                  </div>
-                  <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase border ${getStatusColor(tour.status)}`}>
-                    {t.statuses[tour.status] || tour.status}
-                  </span>
-                </div>
-
-                {/* Title & Route */}
-                <h3 className="text-xl font-black text-slate-800 dark:text-white leading-tight mb-2">{tour.name}</h3>
-                <div className="flex items-center gap-2 text-slate-500 text-xs font-bold mb-6">
-                  <MapPin size={14} /> {tour.route || "No route info"}
-                </div>
-
-                {/* Bus Details Grid */}
-                <div className="grid grid-cols-2 gap-3 mb-6">
-                  <div className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-2xl">
-                    <div className="flex items-center gap-2 text-[10px] text-slate-400 font-black uppercase mb-1">
-                      <Bus size={12} /> {t.busNumber}
-                    </div>
-                    <p className="font-bold text-slate-700 dark:text-slate-200 text-sm">{tour.busNumber || "-"}</p>
-                  </div>
-                  <div className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-2xl">
-                    <div className="flex items-center gap-2 text-[10px] text-slate-400 font-black uppercase mb-1">
-                      <User size={12} /> {t.driver}
-                    </div>
-                    <p className="font-bold text-slate-700 dark:text-slate-200 text-sm truncate">{tour.driver || "-"}</p>
-                  </div>
-                </div>
-
-                {/* Capacity & Price */}
-                <div className="flex justify-between items-center pt-4 border-t border-slate-100 dark:border-slate-800">
-                   <div className="flex items-center gap-2">
-                      <Users size={16} className="text-slate-400" />
-                      <span className="text-sm font-bold text-slate-600 dark:text-slate-300">
-                        {tour.occupiedSeats || 0} <span className="text-slate-400 font-normal">/ {tour.capacity} {t.seats}</span>
+                <div className="p-6 flex-1">
+                  {/* Header: Dates */}
+                  <div className="flex justify-between items-start mb-2">
+                    <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800 px-3 py-1.5 rounded-xl">
+                      <Calendar size={14} className="text-blue-500" />
+                      <span className="text-[11px] font-black text-slate-600 dark:text-slate-300">
+                        {tour.departureDate} <span className="text-slate-300">➜</span> {tour.arrivalDate}
                       </span>
-                   </div>
-                   <div className="text-right">
-                      <span className="block text-[10px] text-slate-400 uppercase font-black">{t.price}</span>
-                      <span className="text-lg font-black text-blue-600 dark:text-blue-400">{Number(tour.price).toFixed(2)} лв.</span>
-                   </div>
+                    </div>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase">{tour.nights} нощ.</span>
+                  </div>
+
+                  {/* Title & Tour ID */}
+                  <div className="mb-4">
+                    <span className="text-[10px] font-black text-blue-500 uppercase tracking-widest">{tour.tourId}</span>
+                    <h3 className="text-lg font-black text-slate-800 dark:text-white leading-tight mt-1">{tour.hotel}</h3>
+                    <p className="text-xs text-slate-500 font-bold mt-1 flex items-center gap-1"><Bus size={12}/> {tour.transportCompany || 'No Company'}</p>
+                  </div>
+
+                  {/* Capacity Bar */}
+                  <div className="mb-4">
+                     <div className="flex justify-between text-[10px] font-bold text-slate-500 mb-1">
+                        <span>{booked} {t.seats}</span>
+                        <span>{tour.maxPassengers} {t.seats}</span>
+                     </div>
+                     <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-emerald-400" style={{width: `${progress}%`}}></div>
+                     </div>
+                  </div>
+
+                  {/* Price */}
+                  <div className="pt-4 border-t border-slate-100 dark:border-slate-800 text-right">
+                     <span className="text-xl font-black text-slate-800 dark:text-white">{Number(tour.price).toFixed(2)} <span className="text-xs">лв.</span></span>
+                  </div>
+                </div>
+
+                {/* Actions Overlay */}
+                <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button onClick={() => { setCurrentTour(tour); setIsModalOpen(true); }} className="p-2 bg-white shadow-md hover:bg-emerald-50 text-slate-600 hover:text-emerald-600 rounded-xl transition-colors">
+                    <Edit3 size={16} />
+                  </button>
+                  <button onClick={() => handleDelete(tour.id)} className="p-2 bg-white shadow-md hover:bg-rose-50 text-slate-600 hover:text-rose-600 rounded-xl transition-colors">
+                    <Trash2 size={16} />
+                  </button>
                 </div>
               </div>
-
-              {/* Actions Overlay */}
-              <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button onClick={() => { setCurrentTour(tour); setIsModalOpen(true); }} className="p-2 bg-white shadow-md hover:bg-emerald-50 text-slate-600 hover:text-emerald-600 rounded-xl transition-colors">
-                  <Edit3 size={16} />
-                </button>
-                <button onClick={() => handleDelete(tour.id)} className="p-2 bg-white shadow-md hover:bg-rose-50 text-slate-600 hover:text-rose-600 rounded-xl transition-colors">
-                  <Trash2 size={16} />
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
       {/* MODAL FORM */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-[2rem] shadow-2xl border border-slate-200 dark:border-slate-700 p-8 relative flex flex-col max-h-[90vh] overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-4xl rounded-[2rem] shadow-2xl border border-slate-200 dark:border-slate-700 p-8 relative flex flex-col max-h-[90vh] overflow-y-auto">
             
             <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-black text-slate-800 dark:text-white">
@@ -298,60 +301,89 @@ const BusTours = ({ lang = 'bg' }) => {
 
             <form onSubmit={handleSaveTour} className="space-y-6">
               
-              {/* Basic Info */}
-              <div className="space-y-4">
+              {/* Top Row: ID, Hotel, Transport */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                    <label className="block text-xs font-black uppercase text-slate-400 mb-1 ml-1">{t.tourName} *</label>
-                    <input required name="name" defaultValue={currentTour?.name} type="text" className="w-full bg-slate-50 dark:bg-slate-800 rounded-xl p-3 font-bold text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-blue-500" placeholder="Ex: Shopping in Edirne" />
+                    <label className="block text-xs font-black uppercase text-slate-400 mb-1 ml-1">{t.tourId} *</label>
+                    <input required name="tourId" defaultValue={currentTour?.tourId} type="text" className="w-full bg-slate-50 dark:bg-slate-800 rounded-xl p-3 font-bold text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-blue-500" placeholder="e.g. TR-2025-01" />
                 </div>
                 <div>
-                    <label className="block text-xs font-black uppercase text-slate-400 mb-1 ml-1">{t.route}</label>
-                    <input required name="route" defaultValue={currentTour?.route} type="text" className="w-full bg-slate-50 dark:bg-slate-800 rounded-xl p-3 font-bold text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-blue-500" placeholder="Sofia - Plovdiv - Edirne" />
-                </div>
-              </div>
-
-              {/* Dates */}
-              <div className="grid grid-cols-2 gap-4 bg-blue-50 dark:bg-blue-900/10 p-4 rounded-2xl border border-blue-100 dark:border-blue-900/30">
-                <div>
-                  <label className="block text-xs font-black uppercase text-blue-400 mb-1 ml-1">{t.startDate} *</label>
-                  <input required name="startDate" defaultValue={currentTour?.startDate} type="date" className="w-full bg-white dark:bg-slate-800 rounded-xl p-3 font-bold text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-blue-500" />
+                    <label className="block text-xs font-black uppercase text-slate-400 mb-1 ml-1">{t.hotel}</label>
+                    <input name="hotel" defaultValue={currentTour?.hotel} type="text" className="w-full bg-slate-50 dark:bg-slate-800 rounded-xl p-3 font-bold text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-blue-500" />
                 </div>
                 <div>
-                  <label className="block text-xs font-black uppercase text-blue-400 mb-1 ml-1">{t.endDate} *</label>
-                  <input required name="endDate" defaultValue={currentTour?.endDate} type="date" className="w-full bg-white dark:bg-slate-800 rounded-xl p-3 font-bold text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-blue-500" />
+                    <label className="block text-xs font-black uppercase text-slate-400 mb-1 ml-1">{t.transportCompany}</label>
+                    <input name="transportCompany" defaultValue={currentTour?.transportCompany} type="text" className="w-full bg-slate-50 dark:bg-slate-800 rounded-xl p-3 font-bold text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-blue-500" />
                 </div>
               </div>
 
-              {/* Bus & Driver */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                 <div>
-                    <label className="block text-xs font-black uppercase text-slate-400 mb-1 ml-1">{t.busNumber}</label>
-                    <input name="busNumber" defaultValue={currentTour?.busNumber} type="text" className="w-full bg-slate-50 dark:bg-slate-800 rounded-xl p-3 font-bold text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-blue-500" placeholder="CB 1234 AB" />
-                 </div>
-                 <div>
-                    <label className="block text-xs font-black uppercase text-slate-400 mb-1 ml-1">{t.driver}</label>
-                    <input name="driver" defaultValue={currentTour?.driver} type="text" className="w-full bg-slate-50 dark:bg-slate-800 rounded-xl p-3 font-bold text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-blue-500" placeholder="Transport Firm Ltd." />
-                 </div>
+              {/* Dates Row */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-blue-50 dark:bg-blue-900/10 p-4 rounded-2xl border border-blue-100 dark:border-blue-900/30">
+                <div>
+                  <label className="block text-xs font-black uppercase text-blue-400 mb-1 ml-1">{t.departureDate} *</label>
+                  <input required name="departureDate" defaultValue={currentTour?.departureDate} type="date" className="w-full bg-white dark:bg-slate-800 rounded-xl p-3 font-bold text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-xs font-black uppercase text-blue-400 mb-1 ml-1">{t.arrivalDate} *</label>
+                  <input required name="arrivalDate" defaultValue={currentTour?.arrivalDate} type="date" className="w-full bg-white dark:bg-slate-800 rounded-xl p-3 font-bold text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-xs font-black uppercase text-blue-400 mb-1 ml-1">{t.nights}</label>
+                  <input name="nights" defaultValue={currentTour?.nights} type="number" className="w-full bg-white dark:bg-slate-800 rounded-xl p-3 font-bold text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-xs font-black uppercase text-blue-400 mb-1 ml-1">{t.daysInclTravel}</label>
+                  <input name="daysInclTravel" defaultValue={currentTour?.daysInclTravel} type="number" className="w-full bg-white dark:bg-slate-800 rounded-xl p-3 font-bold text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
               </div>
 
-              {/* Capacity, Price, Status */}
-              <div className="grid grid-cols-3 gap-4">
+              {/* Capacity & Price */}
+              <div className="grid grid-cols-2 gap-4">
                  <div>
-                    <label className="block text-xs font-black uppercase text-slate-400 mb-1 ml-1">{t.capacity}</label>
-                    <input name="capacity" defaultValue={currentTour?.capacity || 50} type="number" className="w-full bg-slate-50 dark:bg-slate-800 rounded-xl p-3 font-bold text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-blue-500" />
+                    <label className="block text-xs font-black uppercase text-slate-400 mb-1 ml-1">{t.maxPassengers}</label>
+                    <input name="maxPassengers" defaultValue={currentTour?.maxPassengers || 50} type="number" className="w-full bg-slate-50 dark:bg-slate-800 rounded-xl p-3 font-bold text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-blue-500" />
                  </div>
                  <div>
                     <label className="block text-xs font-black uppercase text-slate-400 mb-1 ml-1">{t.price}</label>
                     <input name="price" defaultValue={currentTour?.price || 0} type="number" step="0.01" className="w-full bg-slate-50 dark:bg-slate-800 rounded-xl p-3 font-bold text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-blue-500" />
                  </div>
-                 <div>
-                    <label className="block text-xs font-black uppercase text-slate-400 mb-1 ml-1">{t.status}</label>
-                    <select name="status" defaultValue={currentTour?.status || 'planned'} className="w-full bg-slate-50 dark:bg-slate-800 rounded-xl p-3 font-bold text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer">
-                        <option value="planned">{t.statuses.planned}</option>
-                        <option value="confirmed">{t.statuses.confirmed}</option>
-                        <option value="completed">{t.statuses.completed}</option>
-                        <option value="cancelled">{t.statuses.cancelled}</option>
-                    </select>
+              </div>
+
+              {/* --- DETAILED TEXT AREAS (From old code) --- */}
+              <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+                 <h3 className="text-sm font-black uppercase text-slate-400">Детайли за Договор и Ваучер</h3>
+                 
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-xs font-black uppercase text-slate-400 mb-1 ml-1">{t.departureDateTimePlace}</label>
+                        <input name="departureDateTimePlace" defaultValue={currentTour?.departureDateTimePlace} type="text" className="w-full bg-slate-50 dark:bg-slate-800 rounded-xl p-3 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500" placeholder="06:00, София..." />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-black uppercase text-slate-400 mb-1 ml-1">{t.transportDescription}</label>
+                        <input name="transportDescription" defaultValue={currentTour?.transportDescription} type="text" className="w-full bg-slate-50 dark:bg-slate-800 rounded-xl p-3 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500" placeholder="Лицензиран автобус..." />
+                    </div>
+                 </div>
+
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-xs font-black uppercase text-slate-400 mb-1 ml-1">{t.insuranceDetails}</label>
+                        <textarea name="insuranceDetails" defaultValue={currentTour?.insuranceDetails} rows="2" className="w-full bg-slate-50 dark:bg-slate-800 rounded-xl p-3 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500" />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-black uppercase text-slate-400 mb-1 ml-1">{t.tourHotels}</label>
+                        <textarea name="tourHotels" defaultValue={currentTour?.tourHotels} rows="2" className="w-full bg-slate-50 dark:bg-slate-800 rounded-xl p-3 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500" />
+                    </div>
+                 </div>
+
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-xs font-black uppercase text-slate-400 mb-1 ml-1">{t.tourRoomSummary}</label>
+                        <textarea name="tourRoomSummary" defaultValue={currentTour?.tourRoomSummary} rows="2" className="w-full bg-slate-50 dark:bg-slate-800 rounded-xl p-3 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500" />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-black uppercase text-slate-400 mb-1 ml-1">{t.mealsIncluded}</label>
+                        <textarea name="mealsIncluded" defaultValue={currentTour?.mealsIncluded} rows="2" className="w-full bg-slate-50 dark:bg-slate-800 rounded-xl p-3 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500" />
+                    </div>
                  </div>
               </div>
 
