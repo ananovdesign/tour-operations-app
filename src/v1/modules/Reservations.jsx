@@ -4,16 +4,155 @@ import { collection, onSnapshot, addDoc, doc, deleteDoc, updateDoc } from 'fireb
 import { 
   Search, Plus, Eye, Edit3, Trash2, FileText, Loader2, 
   ChevronDown, ChevronUp, ArrowDownLeft, ArrowUpRight, 
-  Calendar, Building2, Ticket, ArrowLeft 
+  Calendar, Building2, Ticket, ArrowLeft, X, User, MapPin, CreditCard
 } from 'lucide-react';
 
 import AddReservation from './AddReservation';
-// Връщаме се две папки назад, за да вземем принтиращите компоненти
 import VoucherPrint from '../../VoucherPrint';
 import CustomerContractPrint from '../../CustomerContractPrint';
 
+// --- КОМПОНЕНТ ЗА POP-UP ПРЕГЛЕД ---
+const ReservationPreviewModal = ({ reservation, onClose, t }) => {
+  if (!reservation) return null;
+
+  const leadGuest = reservation.tourists?.[0] || {};
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-[2rem] shadow-2xl border border-slate-200 dark:border-slate-700 flex flex-col max-h-[90vh]">
+        
+        {/* HEADER */}
+        <div className="flex justify-between items-center p-6 border-b border-slate-100 dark:border-slate-800">
+          <div>
+            <h2 className="text-2xl font-black text-slate-800 dark:text-white uppercase tracking-tighter">
+              {reservation.reservationNumber}
+            </h2>
+            <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
+                reservation.status === 'Confirmed' ? 'bg-emerald-100 text-emerald-700' : 
+                reservation.status === 'Pending' ? 'bg-amber-100 text-amber-700' : 
+                'bg-rose-100 text-rose-700'
+            }`}>
+              {reservation.status}
+            </span>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors">
+            <X size={24} className="text-slate-500" />
+          </button>
+        </div>
+
+        {/* BODY - Scrollable */}
+        <div className="p-8 overflow-y-auto space-y-8">
+          
+          {/* Section 1: Main Info */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-slate-400 text-xs font-black uppercase tracking-widest mb-1">
+                <Building2 size={14} /> Хотел / Hotel
+              </div>
+              <p className="font-bold text-slate-800 dark:text-slate-200 text-lg leading-tight">{reservation.hotel}</p>
+              <p className="text-sm text-slate-500">{reservation.place}</p>
+            </div>
+            
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-slate-400 text-xs font-black uppercase tracking-widest mb-1">
+                <Calendar size={14} /> Дати / Dates
+              </div>
+              <div className="flex items-center gap-4">
+                <div>
+                  <p className="text-[10px] text-slate-400 uppercase">Настаняване</p>
+                  <p className="font-bold text-slate-800 dark:text-slate-200">{reservation.checkIn}</p>
+                </div>
+                <div className="h-8 w-px bg-slate-200 dark:bg-slate-700"></div>
+                <div>
+                  <p className="text-[10px] text-slate-400 uppercase">Напускане</p>
+                  <p className="font-bold text-slate-800 dark:text-slate-200">{reservation.checkOut}</p>
+                </div>
+              </div>
+              <p className="text-xs font-bold text-blue-500 mt-1">{reservation.nights} нощувки</p>
+            </div>
+          </div>
+
+          {/* Section 2: Details */}
+          <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-6 grid grid-cols-2 md:grid-cols-4 gap-4 border border-slate-100 dark:border-slate-800">
+             <div>
+               <p className="text-[10px] text-slate-400 font-black uppercase">Туроператор</p>
+               <p className="font-bold text-sm dark:text-white">{reservation.tourOperator || '-'}</p>
+             </div>
+             <div>
+               <p className="text-[10px] text-slate-400 font-black uppercase">Стая</p>
+               <p className="font-bold text-sm dark:text-white">{reservation.roomType || 'Std'}</p>
+             </div>
+             <div>
+               <p className="text-[10px] text-slate-400 font-black uppercase">Храна</p>
+               <p className="font-bold text-sm dark:text-white">{reservation.food || 'BB'}</p>
+             </div>
+             <div>
+               <p className="text-[10px] text-slate-400 font-black uppercase">Гости</p>
+               <p className="font-bold text-sm dark:text-white">{reservation.adults} Adl / {reservation.children} Chd</p>
+             </div>
+          </div>
+
+          {/* Section 3: Lead Guest */}
+          <div>
+             <div className="flex items-center gap-2 text-slate-400 text-xs font-black uppercase tracking-widest mb-3">
+                <User size={14} /> Водещ Турист / Lead Guest
+             </div>
+             <div className="flex flex-col md:flex-row gap-4">
+                <div className="flex-1 p-3 border border-slate-200 dark:border-slate-700 rounded-xl">
+                   <p className="text-xs text-slate-400">Име</p>
+                   <p className="font-bold dark:text-white">{leadGuest.firstName} {leadGuest.familyName}</p>
+                </div>
+                <div className="flex-1 p-3 border border-slate-200 dark:border-slate-700 rounded-xl">
+                   <p className="text-xs text-slate-400">Телефон</p>
+                   <p className="font-bold dark:text-white">{leadGuest.phone || '-'}</p>
+                </div>
+                <div className="flex-1 p-3 border border-slate-200 dark:border-slate-700 rounded-xl">
+                   <p className="text-xs text-slate-400">Имейл</p>
+                   <p className="font-bold dark:text-white break-all">{leadGuest.email || '-'}</p>
+                </div>
+             </div>
+          </div>
+
+          {/* Section 4: Finances */}
+          <div>
+             <div className="flex items-center gap-2 text-slate-400 text-xs font-black uppercase tracking-widest mb-3">
+                <CreditCard size={14} /> Финанси / Finances
+             </div>
+             <div className="grid grid-cols-3 gap-4">
+                <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl text-center">
+                   <p className="text-[10px] font-black uppercase text-blue-400">Продажна Цена</p>
+                   <p className="text-xl font-black text-blue-600 dark:text-blue-400">{Number(reservation.finalAmount).toFixed(2)} <span className="text-xs">лв.</span></p>
+                </div>
+                <div className="bg-emerald-50 dark:bg-emerald-900/20 p-4 rounded-2xl text-center">
+                   <p className="text-[10px] font-black uppercase text-emerald-400">Платено</p>
+                   <p className="text-xl font-black text-emerald-600 dark:text-emerald-400">{Number(reservation.totalPaid).toFixed(2)} <span className="text-xs">лв.</span></p>
+                </div>
+                <div className="bg-rose-50 dark:bg-rose-900/20 p-4 rounded-2xl text-center">
+                   <p className="text-[10px] font-black uppercase text-rose-400">Остатък</p>
+                   <p className="text-xl font-black text-rose-600 dark:text-rose-400">{Number(reservation.remainingAmount).toFixed(2)} <span className="text-xs">лв.</span></p>
+                </div>
+             </div>
+          </div>
+
+        </div>
+
+        {/* FOOTER */}
+        <div className="p-6 border-t border-slate-100 dark:border-slate-800 flex justify-end">
+          <button 
+            onClick={onClose}
+            className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-white px-6 py-3 rounded-xl font-bold transition-colors uppercase text-xs tracking-wider"
+          >
+            Затвори
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
 const Reservations = ({ lang = 'bg' }) => {
-  // view може да бъде: 'list', 'add', 'edit', 'voucher', 'contract'
+  // view може да бъде: 'list', 'add', 'edit', 'voucher', 'contract', 'preview'
   const [view, setView] = useState('list');
   const [selectedRes, setSelectedRes] = useState(null); 
 
@@ -218,9 +357,14 @@ const Reservations = ({ lang = 'bg' }) => {
     setView(type); 
   };
 
+  const handlePreview = (e, res) => {
+    e.stopPropagation();
+    setSelectedRes(res);
+    setView('preview');
+  };
+
   // --- IV. RENDER VIEWS ---
 
-  // ПРАВИЛНО ИЗВИКВАНЕ НА ВАУЧЕРА
   if (view === 'voucher' && selectedRes) {
       return (
           <div className="bg-white min-h-screen relative">
@@ -231,7 +375,6 @@ const Reservations = ({ lang = 'bg' }) => {
                   <h2 className="text-xl font-black uppercase text-slate-400">Преглед на Ваучер</h2>
                   <div className="w-20"></div>
               </div>
-              {/* ПРОМЯНА: Използваме 'reservationData', както е в твоя стар файл, и добавяме 'onPrintFinish' */}
               <VoucherPrint 
                   reservationData={selectedRes} 
                   onPrintFinish={() => setView('list')} 
@@ -240,7 +383,6 @@ const Reservations = ({ lang = 'bg' }) => {
       );
   }
 
-  // ПРАВИЛНО ИЗВИКВАНЕ НА ДОГОВОРА
   if (view === 'contract' && selectedRes) {
       return (
           <div className="bg-white min-h-screen relative">
@@ -251,7 +393,6 @@ const Reservations = ({ lang = 'bg' }) => {
                   <h2 className="text-xl font-black uppercase text-slate-400">Преглед на Договор</h2>
                   <div className="w-20"></div>
               </div>
-              {/* ПРОМЯНА: И тук използваме 'reservationData' за всеки случай */}
               <CustomerContractPrint 
                   reservationData={selectedRes} 
                   onPrintFinish={() => setView('list')}
@@ -282,7 +423,18 @@ const Reservations = ({ lang = 'bg' }) => {
   );
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500 font-sans">
+    <div className="space-y-6 animate-in fade-in duration-500 font-sans relative">
+      
+      {/* POP-UP MODAL ЗА ПРЕГЛЕД */}
+      {view === 'preview' && selectedRes && (
+        <ReservationPreviewModal 
+          reservation={selectedRes} 
+          onClose={() => { setView('list'); setSelectedRes(null); }} 
+          t={t}
+        />
+      )}
+
+      {/* FILTERS */}
       <div className="flex flex-col gap-4 bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm">
         <div className="flex flex-col md:flex-row gap-4 justify-between items-center">
           <div className="relative w-full md:w-96">
@@ -342,6 +494,7 @@ const Reservations = ({ lang = 'bg' }) => {
         </div>
       </div>
 
+      {/* TABLE */}
       <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
@@ -408,6 +561,10 @@ const Reservations = ({ lang = 'bg' }) => {
                       
                       <td className="px-6 py-5">
                         <div className="flex justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            {/* PREVIEW BUTTON */}
+                            <button onClick={(e) => handlePreview(e, res)} title="Преглед" className="p-2 hover:bg-blue-50 text-blue-500 rounded-xl">
+                                <Eye size={16} />
+                            </button>
                             <button onClick={(e) => handlePrint(e, res, 'voucher')} title="Ваучер" className="p-2 hover:bg-purple-50 text-purple-500 rounded-xl">
                                 <Ticket size={16} />
                             </button>
