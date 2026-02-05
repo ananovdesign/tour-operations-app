@@ -3,16 +3,151 @@ import { db, appId, auth } from '../../firebase';
 import { collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { 
   Bus, MapPin, Calendar, Users, Plus, Search, 
-  Edit3, Trash2, X, User, FileText 
+  Edit3, Trash2, X, User, Eye, FileText, CheckCircle
 } from 'lucide-react';
+
+// --- КОМПОНЕНТ ЗА ДЕТАЙЛЕН ПРЕГЛЕД НА ТУР ---
+const TourPreviewModal = ({ tour, linkedReservations, onClose, t }) => {
+  if (!tour) return null;
+
+  const totalPax = linkedReservations.reduce((sum, res) => sum + (Number(res.adults)||0) + (Number(res.children)||0), 0);
+  const occupancy = tour.maxPassengers > 0 ? (totalPax / tour.maxPassengers) * 100 : 0;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-white dark:bg-slate-900 w-full max-w-4xl rounded-[2rem] shadow-2xl border border-slate-200 dark:border-slate-700 flex flex-col max-h-[90vh]">
+        
+        {/* HEADER */}
+        <div className="flex justify-between items-center p-6 border-b border-slate-100 dark:border-slate-800">
+          <div>
+            <div className="flex items-center gap-3">
+                <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-lg text-xs font-black uppercase tracking-widest">
+                    {tour.tourId}
+                </span>
+                <h2 className="text-xl font-black text-slate-800 dark:text-white leading-tight">
+                {tour.hotel}
+                </h2>
+            </div>
+            <p className="text-sm text-slate-500 mt-1 flex items-center gap-2">
+                <MapPin size={14}/> {tour.transportCompany}
+            </p>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors">
+            <X size={24} className="text-slate-500" />
+          </button>
+        </div>
+
+        {/* BODY */}
+        <div className="p-8 overflow-y-auto space-y-8">
+          
+          {/* Stats Bar */}
+          <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl flex justify-between items-center">
+             <div className="text-center px-4 border-r border-slate-200 dark:border-slate-700">
+                <p className="text-[10px] font-black uppercase text-slate-400">Дати</p>
+                <p className="font-bold text-slate-700 dark:text-white text-sm">{tour.departureDate} ➜ {tour.arrivalDate}</p>
+             </div>
+             <div className="text-center px-4 border-r border-slate-200 dark:border-slate-700">
+                <p className="text-[10px] font-black uppercase text-slate-400">Заети Места</p>
+                <p className={`font-black text-lg ${occupancy >= 100 ? 'text-rose-500' : 'text-emerald-500'}`}>
+                    {totalPax} <span className="text-slate-400 text-xs font-medium">/ {tour.maxPassengers}</span>
+                </p>
+             </div>
+             <div className="text-center px-4">
+                <p className="text-[10px] font-black uppercase text-slate-400">Цена</p>
+                <p className="font-bold text-blue-600 dark:text-blue-400 text-lg">{Number(tour.price).toFixed(2)} лв.</p>
+             </div>
+          </div>
+
+          {/* Details Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+             <div className="space-y-4">
+                <h3 className="font-black text-sm uppercase text-slate-400 border-b pb-2">Логистика</h3>
+                <div>
+                    <p className="text-xs text-slate-400">Тръгване</p>
+                    <p className="font-medium text-sm dark:text-white">{tour.departureDateTimePlace || '-'}</p>
+                </div>
+                <div>
+                    <p className="text-xs text-slate-400">Транспорт</p>
+                    <p className="font-medium text-sm dark:text-white">{tour.transportDescription || '-'}</p>
+                </div>
+             </div>
+             <div className="space-y-4">
+                <h3 className="font-black text-sm uppercase text-slate-400 border-b pb-2">Настаняване</h3>
+                <div>
+                    <p className="text-xs text-slate-400">Хотели</p>
+                    <p className="font-medium text-sm dark:text-white">{tour.tourHotels || '-'}</p>
+                </div>
+                <div>
+                    <p className="text-xs text-slate-400">Стаи</p>
+                    <p className="font-medium text-sm dark:text-white">{tour.tourRoomSummary || '-'}</p>
+                </div>
+             </div>
+          </div>
+
+          {/* Linked Reservations Table */}
+          <div>
+            <h3 className="font-black text-sm uppercase text-slate-400 mb-4 flex items-center gap-2">
+                <Users size={16}/> Списък Пътници ({linkedReservations.length} резервации)
+            </h3>
+            {linkedReservations.length > 0 ? (
+                <div className="overflow-hidden rounded-xl border border-slate-100 dark:border-slate-800">
+                    <table className="w-full text-left text-sm">
+                        <thead className="bg-slate-50 dark:bg-slate-800">
+                            <tr>
+                                <th className="p-3 text-xs font-black text-slate-400 uppercase">Резервация</th>
+                                <th className="p-3 text-xs font-black text-slate-400 uppercase">Водещ Турист</th>
+                                <th className="p-3 text-xs font-black text-slate-400 uppercase text-center">Възрастни</th>
+                                <th className="p-3 text-xs font-black text-slate-400 uppercase text-center">Деца</th>
+                                <th className="p-3 text-xs font-black text-slate-400 uppercase">Статус</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                            {linkedReservations.map(res => (
+                                <tr key={res.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50">
+                                    <td className="p-3 font-mono font-bold text-blue-600">{res.reservationNumber}</td>
+                                    <td className="p-3 font-medium dark:text-white">
+                                        {res.tourists?.[0]?.firstName} {res.tourists?.[0]?.familyName}
+                                    </td>
+                                    <td className="p-3 text-center">{res.adults}</td>
+                                    <td className="p-3 text-center">{res.children}</td>
+                                    <td className="p-3">
+                                        <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
+                                            res.status === 'Confirmed' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                                        }`}>{res.status}</span>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            ) : (
+                <div className="text-center py-8 bg-slate-50 dark:bg-slate-800/30 rounded-xl text-slate-400 italic text-xs">
+                    Няма свързани резервации с този тур.
+                </div>
+            )}
+          </div>
+
+        </div>
+
+        {/* FOOTER */}
+        <div className="p-6 border-t border-slate-100 dark:border-slate-800 flex justify-end">
+          <button onClick={onClose} className="bg-slate-100 hover:bg-slate-200 text-slate-600 px-6 py-3 rounded-xl font-bold uppercase text-xs transition-colors">Затвори</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 
 const BusTours = ({ lang = 'bg' }) => {
   const [tours, setTours] = useState([]);
+  const [reservations, setReservations] = useState([]); // State for reservations
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentTour, setCurrentTour] = useState(null);
+  const [previewTour, setPreviewTour] = useState(null); // State for preview modal
 
   const userId = auth.currentUser?.uid;
 
@@ -28,7 +163,6 @@ const BusTours = ({ lang = 'bg' }) => {
       formTitleNew: "Създаване на Тур",
       formTitleEdit: "Редакция на Тур",
       
-      // Fields matching your old code
       tourId: "Номер на Тур (Tour ID)",
       hotel: "Хотел (Основен)",
       transportCompany: "Транспортна Фирма",
@@ -39,7 +173,6 @@ const BusTours = ({ lang = 'bg' }) => {
       maxPassengers: "Макс. пътници",
       price: "Цена (лв)",
       
-      // Detailed text fields
       departureDateTimePlace: "Час и място на тръгване",
       transportDescription: "Описание на транспорта",
       insuranceDetails: "Застраховка (инфо)",
@@ -94,22 +227,27 @@ const BusTours = ({ lang = 'bg' }) => {
   // --- I. DATABASE ---
   useEffect(() => {
     if (!userId) return;
-    // ВНИМАНИЕ: Използваме новата структура 'artifacts/...'. 
-    // Ако искаш да виждаш старите данни, трябва да ги мигрираш или да сменим пътя тук.
-    const toursRef = collection(db, `artifacts/${appId}/users/${userId}/tours`);
     
-    const unsubscribe = onSnapshot(toursRef, (snapshot) => {
-      const toursData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      // Сортиране по дата на тръгване
+    // 1. Fetch Tours
+    const toursRef = collection(db, `artifacts/${appId}/users/${userId}/tours`);
+    const unsubTours = onSnapshot(toursRef, (snapshot) => {
+      const toursData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       toursData.sort((a, b) => new Date(b.departureDate) - new Date(a.departureDate));
       setTours(toursData);
-      setLoading(false);
     });
 
-    return () => unsubscribe();
+    // 2. Fetch Reservations (Needed for occupancy calculation)
+    const resRef = collection(db, `artifacts/${appId}/users/${userId}/reservations`);
+    const unsubRes = onSnapshot(resRef, (snapshot) => {
+        const resData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setReservations(resData);
+        setLoading(false); // Done loading when both are roughly ready
+    });
+
+    return () => {
+        unsubTours();
+        unsubRes();
+    };
   }, [userId]);
 
   // --- II. FILTER ---
@@ -122,12 +260,23 @@ const BusTours = ({ lang = 'bg' }) => {
     );
   });
 
-  // --- III. ACTIONS ---
+  // --- III. HELPERS ---
+  const getLinkedReservations = (tourId) => {
+      if (!tourId) return [];
+      // Търсим съвпадение по tourId (case insensitive)
+      return reservations.filter(r => r.tourId && r.tourId.toString().toLowerCase() === tourId.toString().toLowerCase());
+  };
+
+  const getBookedCount = (tourId) => {
+      const linked = getLinkedReservations(tourId);
+      return linked.reduce((sum, r) => sum + (Number(r.adults) || 0) + (Number(r.children) || 0), 0);
+  };
+
+  // --- IV. ACTIONS ---
   const handleSaveTour = async (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
     
-    // Mapping fields exactly to your old code structure
     const tourData = {
       tourId: formData.get('tourId'),
       hotel: formData.get('hotel'),
@@ -139,7 +288,6 @@ const BusTours = ({ lang = 'bg' }) => {
       maxPassengers: Number(formData.get('maxPassengers')) || 45,
       price: Number(formData.get('price')) || 0,
       
-      // The detailed text fields
       departureDateTimePlace: formData.get('departureDateTimePlace'),
       transportDescription: formData.get('transportDescription'),
       insuranceDetails: formData.get('insuranceDetails'),
@@ -175,19 +323,11 @@ const BusTours = ({ lang = 'bg' }) => {
     }
   };
 
-  // Helper to calculate booked seats (Mock functionality for now)
-  const getBookedCount = (tourId) => {
-    // Тук по-късно ще свържем с резервациите
-    return 0; 
-  };
-
   if (loading) return (
     <div className="flex h-64 flex-col items-center justify-center space-y-4 font-sans text-center">
       <div className="animate-spin text-blue-500 mb-2">
-         <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-         </svg>
+         {/* Spinner SVG */}
+         <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
       </div>
       <p className="text-slate-400 font-black italic uppercase tracking-widest text-[10px]">{t.loading}</p>
     </div>
@@ -196,6 +336,16 @@ const BusTours = ({ lang = 'bg' }) => {
   return (
     <div className="space-y-6 animate-in fade-in duration-500 font-sans relative pb-20">
       
+      {/* --- PREVIEW MODAL --- */}
+      {previewTour && (
+        <TourPreviewModal 
+            tour={previewTour} 
+            linkedReservations={getLinkedReservations(previewTour.tourId)}
+            onClose={() => setPreviewTour(null)}
+            t={t}
+        />
+      )}
+
       {/* HEADER */}
       <div className="flex flex-col md:flex-row gap-4 justify-between items-center bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm">
         <div className="relative w-full md:w-96">
@@ -222,57 +372,71 @@ const BusTours = ({ lang = 'bg' }) => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredTours.map(tour => {
+             // Calculate real occupancy
              const booked = getBookedCount(tour.tourId);
              const progress = (booked / (tour.maxPassengers || 1)) * 100;
+             const isFull = booked >= tour.maxPassengers;
              
              return (
               <div key={tour.id} className="bg-white dark:bg-slate-900 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-lg transition-all group relative overflow-hidden flex flex-col">
                 
                 {/* Decoration Top */}
-                <div className="h-2 w-full bg-blue-500"></div>
+                <div className={`h-2 w-full ${isFull ? 'bg-rose-500' : 'bg-blue-500'}`}></div>
 
                 <div className="p-6 flex-1">
-                  {/* Header: Dates */}
-                  <div className="flex justify-between items-start mb-2">
-                    <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800 px-3 py-1.5 rounded-xl">
-                      <Calendar size={14} className="text-blue-500" />
-                      <span className="text-[11px] font-black text-slate-600 dark:text-slate-300">
-                        {tour.departureDate} <span className="text-slate-300">➜</span> {tour.arrivalDate}
-                      </span>
-                    </div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase">{tour.nights} нощ.</span>
+                  {/* Header: Dates & ID */}
+                  <div className="flex justify-between items-start mb-3">
+                    <span className="bg-blue-50 text-blue-600 dark:bg-blue-900/30 px-2 py-1 rounded text-[10px] font-black uppercase tracking-widest">
+                        {tour.tourId || 'NO ID'}
+                    </span>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded">
+                        {tour.nights} нощ.
+                    </span>
                   </div>
 
-                  {/* Title & Tour ID */}
+                  {/* Title */}
                   <div className="mb-4">
-                    <span className="text-[10px] font-black text-blue-500 uppercase tracking-widest">{tour.tourId}</span>
-                    <h3 className="text-lg font-black text-slate-800 dark:text-white leading-tight mt-1">{tour.hotel}</h3>
-                    <p className="text-xs text-slate-500 font-bold mt-1 flex items-center gap-1"><Bus size={12}/> {tour.transportCompany || 'No Company'}</p>
+                    <div className="flex items-center gap-1 text-[10px] font-bold text-slate-400 uppercase mb-1">
+                        <Calendar size={10} /> 
+                        {tour.departureDate} ➜ {tour.arrivalDate}
+                    </div>
+                    <h3 className="text-lg font-black text-slate-800 dark:text-white leading-tight mb-1 truncate" title={tour.hotel}>
+                        {tour.hotel || 'No Hotel Name'}
+                    </h3>
+                    <p className="text-xs text-slate-500 font-bold flex items-center gap-1">
+                        <Bus size={12}/> {tour.transportCompany || '-'}
+                    </p>
                   </div>
 
                   {/* Capacity Bar */}
-                  <div className="mb-4">
+                  <div className="mb-4 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl">
                      <div className="flex justify-between text-[10px] font-bold text-slate-500 mb-1">
-                        <span>{booked} {t.seats}</span>
-                        <span>{tour.maxPassengers} {t.seats}</span>
+                        <span>Заети: <span className={isFull ? 'text-rose-500' : 'text-emerald-500'}>{booked}</span></span>
+                        <span>Капацитет: {tour.maxPassengers}</span>
                      </div>
-                     <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
-                        <div className="h-full bg-emerald-400" style={{width: `${progress}%`}}></div>
+                     <div className="h-2 w-full bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                        <div 
+                            className={`h-full transition-all duration-500 ${isFull ? 'bg-rose-500' : 'bg-emerald-400'}`} 
+                            style={{width: `${Math.min(progress, 100)}%`}}
+                        ></div>
                      </div>
                   </div>
 
                   {/* Price */}
-                  <div className="pt-4 border-t border-slate-100 dark:border-slate-800 text-right">
+                  <div className="pt-2 text-right">
                      <span className="text-xl font-black text-slate-800 dark:text-white">{Number(tour.price).toFixed(2)} <span className="text-xs">лв.</span></span>
                   </div>
                 </div>
 
                 {/* Actions Overlay */}
-                <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button onClick={() => { setCurrentTour(tour); setIsModalOpen(true); }} className="p-2 bg-white shadow-md hover:bg-emerald-50 text-slate-600 hover:text-emerald-600 rounded-xl transition-colors">
+                <div className="absolute top-4 right-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button onClick={() => setPreviewTour(tour)} title="Преглед" className="p-2 bg-white shadow-md hover:bg-blue-50 text-slate-600 hover:text-blue-600 rounded-xl transition-colors">
+                    <Eye size={16} />
+                  </button>
+                  <button onClick={() => { setCurrentTour(tour); setIsModalOpen(true); }} title="Редакция" className="p-2 bg-white shadow-md hover:bg-emerald-50 text-slate-600 hover:text-emerald-600 rounded-xl transition-colors">
                     <Edit3 size={16} />
                   </button>
-                  <button onClick={() => handleDelete(tour.id)} className="p-2 bg-white shadow-md hover:bg-rose-50 text-slate-600 hover:text-rose-600 rounded-xl transition-colors">
+                  <button onClick={() => handleDelete(tour.id)} title="Изтриване" className="p-2 bg-white shadow-md hover:bg-rose-50 text-slate-600 hover:text-rose-600 rounded-xl transition-colors">
                     <Trash2 size={16} />
                   </button>
                 </div>
@@ -282,7 +446,7 @@ const BusTours = ({ lang = 'bg' }) => {
         </div>
       )}
 
-      {/* MODAL FORM */}
+      {/* --- ADD/EDIT MODAL FORM --- */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white dark:bg-slate-900 w-full max-w-4xl rounded-[2rem] shadow-2xl border border-slate-200 dark:border-slate-700 p-8 relative flex flex-col max-h-[90vh] overflow-y-auto">
