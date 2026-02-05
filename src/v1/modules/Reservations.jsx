@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { db, appId, auth } from '../../firebase';
-import { collection, onSnapshot } from 'firebase/firestore';
+// ПРОМЯНА 1: Добавихме addDoc тук, за да можем да записваме
+import { collection, onSnapshot, addDoc } from 'firebase/firestore';
 import { 
   Search, Plus, Eye, Edit3, FileText, Loader2, User, ChevronDown, ChevronUp, ArrowDownLeft, ArrowUpRight, Calendar, Building2
 } from 'lucide-react';
@@ -67,7 +68,7 @@ const Reservations = ({ lang = 'bg' }) => {
   const [loading, setLoading] = useState(true);
   const [reservations, setReservations] = useState([]);
   const [transactions, setTransactions] = useState([]);
-  
+   
   // НОВИ СТЕЙТОВЕ ЗА ДАННИТЕ
   const [tours, setTours] = useState([]);
   const [customers, setCustomers] = useState([]);
@@ -172,6 +173,34 @@ const Reservations = ({ lang = 'bg' }) => {
     });
   }, [reservations, searchTerm, hotelSearch, dateFilter, statusFilter]);
 
+  // ПРОМЯНА 2: Създаваме функцията, която ще запише резервацията в базата
+  const handleSubmitReservation = async (reservationData) => {
+    try {
+        // Подготовка на данните преди запис
+        const finalData = {
+            ...reservationData,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            userId: userId,
+            // Подсигуряваме, че имаме номер на резервация, ако формата не е генерирала такъв
+            reservationNumber: reservationData.reservationNumber || `R-${Math.floor(Date.now() / 1000)}`
+        };
+
+        // Запис в колекцията 'reservations'
+        await addDoc(collection(db, `artifacts/${appId}/users/${userId}/reservations`), finalData);
+
+        // Показване на съобщение за успех
+        alert(lang === 'bg' ? "Резервацията е записана успешно!" : "Reservation saved successfully!");
+        
+        // Връщане към списъка
+        setView('list');
+
+    } catch (error) {
+        console.error("Error saving reservation:", error);
+        alert(lang === 'bg' ? "Възникна грешка при запис: " + error.message : "Error saving: " + error.message);
+    }
+  };
+
   // ПОДАВАМЕ НОВИТЕ ДАННИ КЪМ AddReservation
   if (view === 'add') {
     return (
@@ -181,6 +210,7 @@ const Reservations = ({ lang = 'bg' }) => {
         tours={tours} 
         customers={customers} 
         reservations={reservations} 
+        handleSubmitReservation={handleSubmitReservation} // ПРОМЯНА 3: Подаваме функцията тук
       />
     );
   }
