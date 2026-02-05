@@ -3,11 +3,14 @@ import { db, appId, auth } from '../../firebase';
 import { collection, onSnapshot, addDoc, doc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { 
   Wallet, TrendingUp, TrendingDown, Plus, Search, 
-  ArrowUpRight, ArrowDownLeft, Trash2, Calendar, Filter, X
+  Trash2, Calendar, Bus, Users, X, Link as LinkIcon 
 } from 'lucide-react';
 
 const Finance = ({ lang = 'bg' }) => {
   const [transactions, setTransactions] = useState([]);
+  const [reservations, setReservations] = useState([]); // За падащото меню
+  const [tours, setTours] = useState([]); // За падащото меню
+  
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -17,68 +20,94 @@ const Finance = ({ lang = 'bg' }) => {
 
   const t = {
     bg: {
-      title: "Финанси и Плащания",
+      title: "Финанси",
       balance: "Текущ Баланс",
       income: "Приходи",
       expenses: "Разходи",
       addTransaction: "Нова Транзакция",
-      search: "Търси плащане...",
-      type: "Тип",
-      category: "Категория",
-      amount: "Сума",
+      search: "Търси...",
       date: "Дата",
+      category: "Категория",
       desc: "Описание",
       method: "Метод",
+      amount: "Сума",
+      linkedTo: "Свързано с",
       save: "Запази",
       cancel: "Отказ",
       loading: "Зареждане...",
-      confirmDelete: "Изтриване на този запис?",
-      types: { income: "Приход", expense: "Разход" },
-      methods: { cash: "В брой", bank: "Банков път", card: "Карта" }
+      noData: "Няма намерени транзакции.",
+      selectRes: "-- Избери Резервация --",
+      selectTour: "-- Избери Тур --",
+      methods: { Cash: "В брой", Bank: "Банков път", Card: "Карта", Other: "Друго" }
     },
     en: {
-      title: "Finance & Payments",
-      balance: "Current Balance",
-      income: "Total Income",
-      expenses: "Total Expenses",
+      title: "Finance",
+      balance: "Balance",
+      income: "Income",
+      expenses: "Expenses",
       addTransaction: "New Transaction",
-      search: "Search payment...",
-      type: "Type",
-      category: "Category",
-      amount: "Amount",
+      search: "Search...",
       date: "Date",
+      category: "Category",
       desc: "Description",
       method: "Method",
+      amount: "Amount",
+      linkedTo: "Linked To",
       save: "Save",
       cancel: "Cancel",
       loading: "Loading...",
-      confirmDelete: "Delete this record?",
-      types: { income: "Income", expense: "Expense" },
-      methods: { cash: "Cash", bank: "Bank Transfer", card: "Card" }
+      noData: "No transactions found.",
+      selectRes: "-- Select Reservation --",
+      selectTour: "-- Select Tour --",
+      methods: { Cash: "Cash", Bank: "Bank Transfer", Card: "Card", Other: "Other" }
     }
   }[lang] || lang.bg;
 
-  // --- I. FETCH DATA ---
+  // --- I. ИЗВЛИЧАНЕ НА ДАННИ (Транзакции, Резервации, Турове) ---
   useEffect(() => {
     if (!userId) return;
+
+    // 1. Transactions
     const financeRef = collection(db, `artifacts/${appId}/users/${userId}/financialTransactions`);
-    
-    const unsubscribe = onSnapshot(financeRef, (snapshot) => {
+    const unsubFinance = onSnapshot(financeRef, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      // Sort by date descending (newest first)
       data.sort((a, b) => new Date(b.date) - new Date(a.date));
       setTransactions(data);
-      setLoading(false);
     });
 
-    return () => unsubscribe();
+    // 2. Reservations (за dropdown)
+    const resRef = collection(db, `artifacts/${appId}/users/${userId}/reservations`);
+    const unsubRes = onSnapshot(resRef, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      // Сортиране по номер
+      data.sort((a, b) => (b.reservationNumber || '').localeCompare(a.reservationNumber || ''));
+      setReservations(data);
+    });
+
+    // 3. Tours (за dropdown)
+    const toursRef = collection(db, `artifacts/${appId}/users/${userId}/tours`);
+    const unsubTours = onSnapshot(toursRef, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setTours(data);
+      setLoading(false); // Готови сме когато всичко се зареди (приблизително)
+    });
+
+    return () => {
+      unsubFinance();
+      unsubRes();
+      unsubTours();
+    };
   }, [userId]);
 
-  // --- II. CALCULATIONS & FILTER ---
+  // --- II. КАЛКУЛАЦИИ И ФИЛТРИ ---
   const filteredTransactions = useMemo(() => {
     return transactions.filter(tr => {
-      const matchesSearch = tr.description?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                            tr.category?.toLowerCase().includes(searchTerm.toLowerCase());
+      // Поддръжка и на новото поле 'description', и на старото 'reasonDescription'
+      const desc = tr.description || tr.reasonDescription || '';
+      const cat = tr.category || '';
+      
+      const matchesSearch = desc.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                            cat.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesType = filterType === 'all' || tr.type === filterType;
       return matchesSearch && matchesType;
     });
@@ -90,7 +119,7 @@ const Finance = ({ lang = 'bg' }) => {
     return { income, expense, balance: income - expense };
   }, [transactions]);
 
-  // --- III. ACTIONS ---
+  // --- III. ДЕЙСТВИЯ ---
   const handleSaveTransaction = async (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
@@ -101,8 +130,15 @@ const Finance = ({ lang = 'bg' }) => {
       date: formData.get('date'),
       category: formData.get('category'),
       method: formData.get('method'),
+      
+      // Запазваме и двете имена за съвместимост, или ползваме само едното
       description: formData.get('description'),
-      associatedReservationId: formData.get('resId') || '', // Optional link
+      reasonDescription: formData.get('description'), // За съвместимост със стария код
+      
+      // ВРЪЗКИТЕ
+      associatedReservationId: formData.get('associatedReservationId') || null,
+      associatedTourId: formData.get('associatedTourId') || null,
+      
       createdAt: new Date().toISOString(),
       userId
     };
@@ -112,12 +148,12 @@ const Finance = ({ lang = 'bg' }) => {
       setIsModalOpen(false);
     } catch (error) {
       console.error("Error adding transaction:", error);
-      alert("Error saving transaction");
+      alert("Грешка при запис.");
     }
   };
 
   const handleDelete = async (id) => {
-    if(window.confirm(t.confirmDelete)) {
+    if(window.confirm("Сигурни ли сте, че искате да изтриете този запис?")) {
         await deleteDoc(doc(db, `artifacts/${appId}/users/${userId}/financialTransactions`, id));
     }
   };
@@ -134,33 +170,26 @@ const Finance = ({ lang = 'bg' }) => {
       
       {/* 1. STATS CARDS */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Balance */}
         <div className="bg-gradient-to-br from-blue-600 to-blue-800 text-white p-6 rounded-[2.5rem] shadow-xl shadow-blue-500/20 relative overflow-hidden">
             <div className="absolute top-0 right-0 p-6 opacity-20"><Wallet size={64} /></div>
             <p className="text-blue-100 font-bold text-xs uppercase tracking-widest mb-1">{t.balance}</p>
             <h2 className="text-4xl font-black">{stats.balance.toFixed(2)} <span className="text-lg">лв.</span></h2>
         </div>
 
-        {/* Income */}
         <div className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm flex items-center justify-between">
             <div>
                 <p className="text-slate-400 font-black text-[10px] uppercase tracking-widest mb-1">{t.income}</p>
                 <h2 className="text-2xl font-black text-emerald-500">+{stats.income.toFixed(2)} лв.</h2>
             </div>
-            <div className="p-3 bg-emerald-50 text-emerald-500 rounded-2xl">
-                <TrendingUp size={24} />
-            </div>
+            <div className="p-3 bg-emerald-50 text-emerald-500 rounded-2xl"><TrendingUp size={24} /></div>
         </div>
 
-        {/* Expense */}
         <div className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm flex items-center justify-between">
             <div>
                 <p className="text-slate-400 font-black text-[10px] uppercase tracking-widest mb-1">{t.expenses}</p>
                 <h2 className="text-2xl font-black text-rose-500">-{stats.expense.toFixed(2)} лв.</h2>
             </div>
-            <div className="p-3 bg-rose-50 text-rose-500 rounded-2xl">
-                <TrendingDown size={24} />
-            </div>
+            <div className="p-3 bg-rose-50 text-rose-500 rounded-2xl"><TrendingDown size={24} /></div>
         </div>
       </div>
 
@@ -191,7 +220,7 @@ const Finance = ({ lang = 'bg' }) => {
       {/* 3. TRANSACTIONS LIST */}
       <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
          {filteredTransactions.length === 0 ? (
-            <div className="text-center py-12 text-slate-400 text-sm font-bold italic">Няма намерени транзакции.</div>
+            <div className="text-center py-12 text-slate-400 text-sm font-bold italic">{t.noData}</div>
          ) : (
             <div className="overflow-x-auto">
                <table className="w-full text-left">
@@ -200,6 +229,7 @@ const Finance = ({ lang = 'bg' }) => {
                         <th className="p-5">{t.date}</th>
                         <th className="p-5">{t.category}</th>
                         <th className="p-5">{t.desc}</th>
+                        <th className="p-5">{t.linkedTo}</th>
                         <th className="p-5">{t.method}</th>
                         <th className="p-5 text-right">{t.amount}</th>
                         <th className="p-5 text-center"></th>
@@ -221,8 +251,26 @@ const Finance = ({ lang = 'bg' }) => {
                               </span>
                            </td>
                            <td className="p-5">
-                              <p className="font-bold text-sm text-slate-700 dark:text-white">{tr.description}</p>
-                              {tr.associatedReservationId && <span className="text-[10px] text-blue-500 font-bold">Ref: {tr.associatedReservationId}</span>}
+                              {/* Показваме 'description' или старото 'reasonDescription' */}
+                              <p className="font-bold text-sm text-slate-700 dark:text-white truncate max-w-[200px]">
+                                {tr.description || tr.reasonDescription}
+                              </p>
+                           </td>
+                           <td className="p-5">
+                              {/* Визуализация на връзките */}
+                              {tr.associatedReservationId && (
+                                <div className="flex items-center gap-1 text-[10px] font-bold text-blue-500 bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded w-fit mb-1">
+                                    <Users size={12} /> {tr.associatedReservationId}
+                                </div>
+                              )}
+                              {tr.associatedTourId && (
+                                <div className="flex items-center gap-1 text-[10px] font-bold text-purple-500 bg-purple-50 dark:bg-purple-900/20 px-2 py-1 rounded w-fit">
+                                    <Bus size={12} /> {tr.associatedTourId}
+                                </div>
+                              )}
+                              {!tr.associatedReservationId && !tr.associatedTourId && (
+                                <span className="text-slate-300 text-[10px]">-</span>
+                              )}
                            </td>
                            <td className="p-5 text-xs font-bold text-slate-500 uppercase">{t.methods[tr.method] || tr.method}</td>
                            <td className="p-5 text-right">
@@ -246,7 +294,7 @@ const Finance = ({ lang = 'bg' }) => {
       {/* 4. MODAL ADD TRANSACTION */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-           <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-[2rem] shadow-2xl p-8">
+           <div className="bg-white dark:bg-slate-900 w-full max-w-xl rounded-[2rem] shadow-2xl p-8 flex flex-col max-h-[90vh] overflow-y-auto">
               <div className="flex justify-between items-center mb-6">
                  <h2 className="text-xl font-black text-slate-800 dark:text-white uppercase">{t.addTransaction}</h2>
                  <button onClick={() => setIsModalOpen(false)}><X className="text-slate-400 hover:text-slate-600" /></button>
@@ -257,13 +305,13 @@ const Finance = ({ lang = 'bg' }) => {
                     <label className="flex-1 cursor-pointer">
                         <input type="radio" name="type" value="income" className="peer hidden" defaultChecked />
                         <div className="text-center py-3 rounded-lg text-xs font-black uppercase text-slate-500 peer-checked:bg-white peer-checked:text-emerald-500 peer-checked:shadow-sm transition-all">
-                           {t.types.income}
+                           {t.income}
                         </div>
                     </label>
                     <label className="flex-1 cursor-pointer">
                         <input type="radio" name="type" value="expense" className="peer hidden" />
                         <div className="text-center py-3 rounded-lg text-xs font-black uppercase text-slate-500 peer-checked:bg-white peer-checked:text-rose-500 peer-checked:shadow-sm transition-all">
-                           {t.types.expense}
+                           {t.expenses}
                         </div>
                     </label>
                  </div>
@@ -282,7 +330,7 @@ const Finance = ({ lang = 'bg' }) => {
                  <div className="grid grid-cols-2 gap-4">
                     <div>
                         <label className="block text-[10px] font-black text-slate-400 uppercase mb-1">{t.category}</label>
-                        <select name="category" className="w-full bg-slate-50 dark:bg-slate-800 p-3 rounded-xl font-bold text-slate-700 dark:text-white outline-none">
+                        <select name="category" className="w-full bg-slate-50 dark:bg-slate-800 p-3 rounded-xl font-bold text-slate-700 dark:text-white outline-none cursor-pointer">
                            <option value="General">Общи</option>
                            <option value="Reservation">Резервация</option>
                            <option value="Hotel">Плащане Хотел</option>
@@ -293,22 +341,49 @@ const Finance = ({ lang = 'bg' }) => {
                     </div>
                     <div>
                         <label className="block text-[10px] font-black text-slate-400 uppercase mb-1">{t.method}</label>
-                        <select name="method" className="w-full bg-slate-50 dark:bg-slate-800 p-3 rounded-xl font-bold text-slate-700 dark:text-white outline-none">
-                           <option value="cash">В брой</option>
-                           <option value="bank">Банков път</option>
-                           <option value="card">Карта (POS)</option>
+                        <select name="method" className="w-full bg-slate-50 dark:bg-slate-800 p-3 rounded-xl font-bold text-slate-700 dark:text-white outline-none cursor-pointer">
+                           <option value="Cash">В брой</option>
+                           <option value="Bank">Банков път</option>
+                           <option value="Card">Карта (POS)</option>
                         </select>
                     </div>
                  </div>
 
                  <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase mb-1">{t.desc}</label>
-                    <input name="description" type="text" className="w-full bg-slate-50 dark:bg-slate-800 p-3 rounded-xl font-bold text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-blue-500" placeholder="Напр. Капаро от Иван Иванов" />
+                    <input name="description" type="text" className="w-full bg-slate-50 dark:bg-slate-800 p-3 rounded-xl font-bold text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-blue-500" placeholder="Напр. Капаро от Иван..." />
                  </div>
 
-                 <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase mb-1">Свързан номер (по избор)</label>
-                    <input name="resId" type="text" className="w-full bg-slate-50 dark:bg-slate-800 p-3 rounded-xl font-bold text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-blue-500" placeholder="DYT123..." />
+                 {/* --- НОВИ ПОЛЕТА ЗА СВЪРЗВАНЕ --- */}
+                 <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+                    <p className="text-xs font-black text-slate-400 uppercase mb-3 flex items-center gap-2">
+                        <LinkIcon size={14}/> Връзки (Опционално)
+                    </p>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-[10px] font-black text-slate-400 uppercase mb-1">Резервация</label>
+                            <select name="associatedReservationId" className="w-full bg-slate-50 dark:bg-slate-800 p-3 rounded-xl font-bold text-slate-700 dark:text-white outline-none cursor-pointer text-xs">
+                                <option value="">{t.selectRes}</option>
+                                {reservations.map(res => (
+                                    <option key={res.id} value={res.reservationNumber}>
+                                        {res.reservationNumber} - {res.hotel?.substring(0, 15)}...
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-[10px] font-black text-slate-400 uppercase mb-1">Тур</label>
+                            <select name="associatedTourId" className="w-full bg-slate-50 dark:bg-slate-800 p-3 rounded-xl font-bold text-slate-700 dark:text-white outline-none cursor-pointer text-xs">
+                                <option value="">{t.selectTour}</option>
+                                {tours.map(tour => (
+                                    <option key={tour.id} value={tour.tourId}>
+                                        {tour.tourId} - {tour.hotel?.substring(0, 15)}...
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
                  </div>
 
                  <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-xl font-black uppercase text-xs mt-4 shadow-lg shadow-blue-500/30 transition-all">{t.save}</button>
