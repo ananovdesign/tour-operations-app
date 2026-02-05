@@ -383,6 +383,7 @@ const Reservations = ({ lang = 'bg' }) => {
       );
   }
 
+// VIEW: ДОГОВОР
   if (view === 'contract' && selectedRes) {
       return (
           <div className="bg-white min-h-screen relative">
@@ -393,6 +394,8 @@ const Reservations = ({ lang = 'bg' }) => {
                   <h2 className="text-xl font-black uppercase text-slate-400">Преглед на Договор</h2>
                   <div className="w-20"></div>
               </div>
+              
+              {/* ПОПРАВКА: Подаваме 'reservationData' и 'onPrintFinish' */}
               <CustomerContractPrint 
                   reservationData={selectedRes} 
                   onPrintFinish={() => setView('list')}
