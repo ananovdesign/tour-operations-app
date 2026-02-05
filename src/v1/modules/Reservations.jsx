@@ -1,21 +1,21 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { db, appId, auth } from '../../firebase';
+import { db, appId, auth } from '../../firebase'; 
 import { collection, onSnapshot, addDoc, doc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { 
   Search, Plus, Eye, Edit3, Trash2, FileText, Loader2, 
   ChevronDown, ChevronUp, ArrowDownLeft, ArrowUpRight, 
-  Calendar, Building2, Printer, Ticket, ArrowLeft 
+  Calendar, Building2, Ticket, ArrowLeft 
 } from 'lucide-react';
 
 import AddReservation from './AddReservation';
-// ПОПРАВКА: Добавихме още едно "../", за да излезем в главната src папка
+// Връщаме се две папки назад, за да вземем принтиращите компоненти
 import VoucherPrint from '../../VoucherPrint';
 import CustomerContractPrint from '../../CustomerContractPrint';
 
 const Reservations = ({ lang = 'bg' }) => {
   // view може да бъде: 'list', 'add', 'edit', 'voucher', 'contract'
   const [view, setView] = useState('list');
-  const [selectedRes, setSelectedRes] = useState(null); // Данни за избраната резервация (за редакция или печат)
+  const [selectedRes, setSelectedRes] = useState(null); 
 
   const translations = {
     bg: {
@@ -78,7 +78,7 @@ const Reservations = ({ lang = 'bg' }) => {
 
   const userId = auth.currentUser?.uid;
 
-  // --- I. ИЗВЛИЧАНЕ НА ДАННИ ОТ FIREBASE ---
+  // --- I. ИЗВЛИЧАНЕ НА ДАННИ ---
   useEffect(() => {
     if (!userId) return;
 
@@ -110,8 +110,8 @@ const Reservations = ({ lang = 'bg' }) => {
           let paymentStatusColor = 'bg-rose-100 text-rose-800';
           
           if (finalAmt <= 0 && totalPaid === 0) {
-             // Handle 0 price logic if needed
-          } else if (remainingAmount <= 0.01) { // tolerance for float errors
+             // Handle 0 price logic
+          } else if (remainingAmount <= 0.01) { 
             paymentStatus = "Paid";
             paymentStatusColor = 'bg-emerald-100 text-emerald-800';
           } else if (totalPaid > 0) {
@@ -129,7 +129,6 @@ const Reservations = ({ lang = 'bg' }) => {
         });
 
         const sortedData = dataWithPayments.sort((b, a) => {
-          // Sort by reservation number logic
           const getNum = (str) => parseInt(str?.toString().replace(/\D/g, '')) || 0;
           return getNum(a.reservationNumber) - getNum(b.reservationNumber);
         });
@@ -163,9 +162,8 @@ const Reservations = ({ lang = 'bg' }) => {
     });
   }, [reservations, searchTerm, hotelSearch, dateFilter, statusFilter]);
 
-  // --- III. ACTIONS (Действия) ---
+  // --- III. ACTIONS ---
 
-  // 1. ЗАПИСВАНЕ (НОВА или РЕДАКЦИЯ)
   const handleSubmitReservation = async (reservationData) => {
     try {
         const finalData = {
@@ -175,16 +173,14 @@ const Reservations = ({ lang = 'bg' }) => {
         };
 
         if (view === 'edit' && selectedRes?.id) {
-            // UPDATE съществуваща
             const docRef = doc(db, `artifacts/${appId}/users/${userId}/reservations`, selectedRes.id);
             await updateDoc(docRef, finalData);
             alert("Резервацията е обновена успешно!");
         } else {
-            // CREATE нова
-            // Генерираме номер само ако е нова
             finalData.createdAt = new Date().toISOString();
-            finalData.reservationNumber = reservationData.reservationNumber || `DYT${Math.floor(Date.now() / 1000)}`;
-            
+            if (!finalData.reservationNumber || finalData.reservationNumber.includes('...')) {
+                finalData.reservationNumber = `DYT${Math.floor(Date.now() / 1000)}`;
+            }
             await addDoc(collection(db, `artifacts/${appId}/users/${userId}/reservations`), finalData);
             alert("Резервацията е създадена успешно!");
         }
@@ -198,9 +194,8 @@ const Reservations = ({ lang = 'bg' }) => {
     }
   };
 
-  // 2. ИЗТРИВАНЕ
   const handleDelete = async (e, resId) => {
-    e.stopPropagation(); // Спираме отварянето на реда
+    e.stopPropagation();
     if (window.confirm(t.confirmDelete)) {
         try {
             await deleteDoc(doc(db, `artifacts/${appId}/users/${userId}/reservations`, resId));
@@ -211,23 +206,21 @@ const Reservations = ({ lang = 'bg' }) => {
     }
   };
 
-  // 3. РЕДАКЦИЯ
   const handleEdit = (e, res) => {
     e.stopPropagation();
     setSelectedRes(res);
     setView('edit');
   };
 
-  // 4. ПЕЧАТ (Ваучер или Договор)
   const handlePrint = (e, res, type) => {
     e.stopPropagation();
     setSelectedRes(res);
-    setView(type); // 'voucher' or 'contract'
+    setView(type); 
   };
 
   // --- IV. RENDER VIEWS ---
 
-  // VIEW: ВАУЧЕР
+  // ПРАВИЛНО ИЗВИКВАНЕ НА ВАУЧЕРА
   if (view === 'voucher' && selectedRes) {
       return (
           <div className="bg-white min-h-screen relative">
@@ -236,14 +229,18 @@ const Reservations = ({ lang = 'bg' }) => {
                       <ArrowLeft size={20} /> {t.backToList}
                   </button>
                   <h2 className="text-xl font-black uppercase text-slate-400">Преглед на Ваучер</h2>
-                  <div className="w-20"></div> {/* Spacer for center alignment */}
+                  <div className="w-20"></div>
               </div>
-              <VoucherPrint reservation={selectedRes} />
+              {/* ПРОМЯНА: Използваме 'reservationData', както е в твоя стар файл, и добавяме 'onPrintFinish' */}
+              <VoucherPrint 
+                  reservationData={selectedRes} 
+                  onPrintFinish={() => setView('list')} 
+              />
           </div>
       );
   }
 
-  // VIEW: ДОГОВОР
+  // ПРАВИЛНО ИЗВИКВАНЕ НА ДОГОВОРА
   if (view === 'contract' && selectedRes) {
       return (
           <div className="bg-white min-h-screen relative">
@@ -254,12 +251,15 @@ const Reservations = ({ lang = 'bg' }) => {
                   <h2 className="text-xl font-black uppercase text-slate-400">Преглед на Договор</h2>
                   <div className="w-20"></div>
               </div>
-              <CustomerContractPrint reservationData={selectedRes} />
+              {/* ПРОМЯНА: И тук използваме 'reservationData' за всеки случай */}
+              <CustomerContractPrint 
+                  reservationData={selectedRes} 
+                  onPrintFinish={() => setView('list')}
+              />
           </div>
       );
   }
 
-  // VIEW: ДОБАВЯНЕ / РЕДАКЦИЯ
   if (view === 'add' || view === 'edit') {
     return (
       <AddReservation 
@@ -269,12 +269,11 @@ const Reservations = ({ lang = 'bg' }) => {
         customers={customers} 
         reservations={reservations} 
         handleSubmitReservation={handleSubmitReservation}
-        initialData={view === 'edit' ? selectedRes : null} // ПОДАВАМЕ ДАННИТЕ ЗА РЕДАКЦИЯ
+        initialData={view === 'edit' ? selectedRes : null} 
       />
     );
   }
 
-  // LOADING STATE
   if (loading) return (
     <div className="flex h-64 flex-col items-center justify-center space-y-4 font-sans text-center">
       <Loader2 className="animate-spin text-blue-500" size={32} />
@@ -282,10 +281,8 @@ const Reservations = ({ lang = 'bg' }) => {
     </div>
   );
 
-  // VIEW: СПИСЪК (DEFAULT)
   return (
     <div className="space-y-6 animate-in fade-in duration-500 font-sans">
-      {/* FILTERS SECTION */}
       <div className="flex flex-col gap-4 bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm">
         <div className="flex flex-col md:flex-row gap-4 justify-between items-center">
           <div className="relative w-full md:w-96">
@@ -345,7 +342,6 @@ const Reservations = ({ lang = 'bg' }) => {
         </div>
       </div>
 
-      {/* TABLE */}
       <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
@@ -410,42 +406,18 @@ const Reservations = ({ lang = 'bg' }) => {
                         {res.profit?.toFixed(2)} <span className="text-[9px] text-slate-400">BGN</span>
                       </td>
                       
-                      {/* ACTIONS BUTTONS */}
                       <td className="px-6 py-5">
                         <div className="flex justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            {/* PRINT VOUCHER */}
-                            <button 
-                                onClick={(e) => handlePrint(e, res, 'voucher')}
-                                title="Ваучер"
-                                className="p-2 hover:bg-purple-50 text-purple-500 rounded-xl"
-                            >
+                            <button onClick={(e) => handlePrint(e, res, 'voucher')} title="Ваучер" className="p-2 hover:bg-purple-50 text-purple-500 rounded-xl">
                                 <Ticket size={16} />
                             </button>
-
-                            {/* PRINT CONTRACT */}
-                            <button 
-                                onClick={(e) => handlePrint(e, res, 'contract')}
-                                title="Договор"
-                                className="p-2 hover:bg-indigo-50 text-indigo-500 rounded-xl"
-                            >
+                            <button onClick={(e) => handlePrint(e, res, 'contract')} title="Договор" className="p-2 hover:bg-indigo-50 text-indigo-500 rounded-xl">
                                 <FileText size={16} />
                             </button>
-
-                            {/* EDIT */}
-                            <button 
-                                onClick={(e) => handleEdit(e, res)} 
-                                title="Редакция"
-                                className="p-2 hover:bg-emerald-50 text-emerald-500 rounded-xl"
-                            >
+                            <button onClick={(e) => handleEdit(e, res)} title="Редакция" className="p-2 hover:bg-emerald-50 text-emerald-500 rounded-xl">
                                 <Edit3 size={16} />
                             </button>
-
-                            {/* DELETE */}
-                            <button 
-                                onClick={(e) => handleDelete(e, res.id)} 
-                                title="Изтриване"
-                                className="p-2 hover:bg-rose-50 text-rose-500 rounded-xl"
-                            >
+                            <button onClick={(e) => handleDelete(e, res.id)} title="Изтриване" className="p-2 hover:bg-rose-50 text-rose-500 rounded-xl">
                                 <Trash2 size={16} />
                             </button>
                         </div>
