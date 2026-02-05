@@ -3,7 +3,7 @@ import { db, appId, auth } from '../../firebase';
 import { collection, onSnapshot, addDoc, doc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { 
   Wallet, TrendingUp, TrendingDown, Plus, Search, 
-  Trash2, Calendar, Bus, Users, X, Link as LinkIcon, Filter, Edit3 
+  Trash2, Calendar, Bus, Users, X, Link as LinkIcon, Filter, Edit3, ArrowRight
 } from 'lucide-react';
 
 const Finance = ({ lang = 'bg' }) => {
@@ -13,12 +13,14 @@ const Finance = ({ lang = 'bg' }) => {
   
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [currentTransaction, setCurrentTransaction] = useState(null); // За редакция
+  const [currentTransaction, setCurrentTransaction] = useState(null); 
   const [searchTerm, setSearchTerm] = useState('');
   
-  // Филтри
+  // ФИЛТРИ
   const [filterType, setFilterType] = useState('all'); 
   const [filterMethod, setFilterMethod] = useState('all'); 
+  const [startDate, setStartDate] = useState(''); // НОВО: Начална дата
+  const [endDate, setEndDate] = useState('');     // НОВО: Крайна дата
 
   const userId = auth.currentUser?.uid;
 
@@ -109,7 +111,6 @@ const Finance = ({ lang = 'bg' }) => {
   }, [userId]);
 
   // --- II. ХЕЛПЪРИ ---
-  // Поправка за цветовете: проверяваме и 'income', и 'Income'
   const isIncome = (type) => type && type.toLowerCase() === 'income';
 
   // --- III. ФИЛТРИРАНЕ ---
@@ -120,15 +121,23 @@ const Finance = ({ lang = 'bg' }) => {
       const method = tr.method || '';
       const type = tr.type || '';
       
+      // 1. Search Text
       const matchesSearch = desc.toLowerCase().includes(searchTerm.toLowerCase()) || 
                             cat.toLowerCase().includes(searchTerm.toLowerCase());
       
+      // 2. Filter Type (Income/Expense)
       const matchesType = filterType === 'all' || type.toLowerCase() === filterType.toLowerCase();
+      
+      // 3. Filter Method (Cash/Bank)
       const matchesMethod = filterMethod === 'all' || method === filterMethod;
 
-      return matchesSearch && matchesType && matchesMethod;
+      // 4. НОВО: Date Range Filter
+      const matchesStartDate = !startDate || tr.date >= startDate;
+      const matchesEndDate = !endDate || tr.date <= endDate;
+
+      return matchesSearch && matchesType && matchesMethod && matchesStartDate && matchesEndDate;
     });
-  }, [transactions, searchTerm, filterType, filterMethod]);
+  }, [transactions, searchTerm, filterType, filterMethod, startDate, endDate]);
 
   const stats = useMemo(() => {
     const sourceData = filteredTransactions; 
@@ -139,13 +148,11 @@ const Finance = ({ lang = 'bg' }) => {
 
   // --- IV. CRUD ОПЕРАЦИИ ---
   
-  // Отваряне на модал за нова транзакция
   const openNewModal = () => {
     setCurrentTransaction(null);
     setIsModalOpen(true);
   };
 
-  // Отваряне на модал за редакция
   const openEditModal = (tr) => {
     setCurrentTransaction(tr);
     setIsModalOpen(true);
@@ -163,7 +170,7 @@ const Finance = ({ lang = 'bg' }) => {
       method: formData.get('method'),
       
       description: formData.get('description'),
-      reasonDescription: formData.get('description'), // Поддържаме и старото име за съвместимост
+      reasonDescription: formData.get('description'), 
       
       associatedReservationId: formData.get('associatedReservationId') || null,
       associatedTourId: formData.get('associatedTourId') || null,
@@ -241,9 +248,9 @@ const Finance = ({ lang = 'bg' }) => {
       </div>
 
       {/* 2. CONTROLS & FILTERS */}
-      <div className="flex flex-col xl:flex-row gap-4 justify-between items-center bg-white dark:bg-slate-900 p-4 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm">
+      <div className="flex flex-col xl:flex-row gap-4 justify-between items-start xl:items-center bg-white dark:bg-slate-900 p-4 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm">
          
-         <div className="flex flex-col md:flex-row gap-4 w-full xl:w-auto">
+         <div className="flex flex-col md:flex-row gap-4 w-full xl:w-auto flex-wrap">
              {/* Type Filter */}
              <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-800 p-1 rounded-xl">
                 <button onClick={() => setFilterType('all')} className={`px-4 py-2 rounded-lg text-xs font-black uppercase transition-all ${filterType === 'all' ? 'bg-white dark:bg-slate-700 shadow-sm text-blue-600' : 'text-slate-400'}`}>All</button>
@@ -264,6 +271,24 @@ const Finance = ({ lang = 'bg' }) => {
                     <option value="Cash 2">Cash 2 (Каса 2)</option>
                     <option value="Bank">Bank (Банка)</option>
                 </select>
+             </div>
+
+             {/* НОВО: Date Filter */}
+             <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800 px-3 py-1 rounded-xl">
+                <Calendar size={14} className="text-slate-400"/>
+                <input 
+                    type="date" 
+                    value={startDate} 
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="bg-transparent text-xs font-bold text-slate-600 dark:text-slate-300 outline-none w-24 cursor-pointer"
+                />
+                <ArrowRight size={12} className="text-slate-300"/>
+                <input 
+                    type="date" 
+                    value={endDate} 
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="bg-transparent text-xs font-bold text-slate-600 dark:text-slate-300 outline-none w-24 cursor-pointer"
+                />
              </div>
          </div>
 
@@ -295,8 +320,8 @@ const Finance = ({ lang = 'bg' }) => {
                   <thead className="bg-slate-50 dark:bg-slate-800/50 text-slate-400 text-[10px] font-black uppercase tracking-widest">
                      <tr>
                         <th className="p-5">{t.date}</th>
-                        <th className="p-5">{t.category}</th>
                         <th className="p-5">{t.method}</th>
+                        <th className="p-5">{t.category}</th>
                         <th className="p-5">{t.desc}</th>
                         <th className="p-5">{t.linkedTo}</th>
                         <th className="p-5 text-right">{t.amount}</th>
@@ -314,19 +339,19 @@ const Finance = ({ lang = 'bg' }) => {
                               </div>
                            </td>
                            <td className="p-5">
-                              <span className={`px-2 py-1 rounded text-[10px] font-black uppercase ${
-                                 isInc ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'
-                              }`}>
-                                 {tr.category}
-                              </span>
-                           </td>
-                           <td className="p-5">
                               <span className={`px-2 py-1 rounded text-[10px] font-black uppercase border ${
                                   tr.method === 'Bank' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 
                                   tr.method === 'Cash 2' ? 'bg-amber-50 text-amber-600 border-amber-100' :
                                   'bg-slate-100 text-slate-600 border-slate-200'
                               }`}>
                                   {tr.method}
+                              </span>
+                           </td>
+                           <td className="p-5">
+                              <span className={`px-2 py-1 rounded text-[10px] font-black uppercase ${
+                                 isInc ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'
+                              }`}>
+                                 {tr.category}
                               </span>
                            </td>
                            <td className="p-5">
