@@ -8,7 +8,8 @@ const AddReservation = ({
   customers = [],
   reservations = [], 
   loading = false,
-  handleSubmitReservation 
+  handleSubmitReservation,
+  initialData = null 
 }) => {
 
   const translations = {
@@ -96,33 +97,31 @@ const AddReservation = ({
 
   const t = translations[lang] || translations.bg;
 
-  // ПРОМЕНЕНА ЛОГИКА ЗА DYT (ГЛАВНИ БУКВИ)
+  // Изчисляване на следващ номер (само ако не редактираме)
   const nextResNumber = useMemo(() => {
-    // Ако няма резервации, започваме с DYT100101
+    if (initialData) return initialData.reservationNumber; // Ако редактираме, връщаме текущия номер
+
     if (!reservations || reservations.length === 0) return 'DYT100101';
     
     const numericParts = reservations
       .map(r => {
         const num = String(r.reservationNumber || '');
-        // Търсим dyt или DYT (без значение малки/големи за съвместимост със стари записи)
         const match = num.match(/dyt(\d+)/i); 
         return match ? parseInt(match[1], 10) : null;
       })
       .filter(n => n !== null && !isNaN(n));
 
-    // Ако не намерим номера, връщаме началния
     if (numericParts.length === 0) return 'DYT100101';
     
     const maxNum = Math.max(...numericParts);
     const nextNum = maxNum < 100101 ? 100101 : maxNum + 1;
     
-    // ВРЪЩАМЕ С ГЛАВНИ БУКВИ
     return `DYT${nextNum}`;
-  }, [reservations]);
+  }, [reservations, initialData]);
 
   const [reservationForm, setReservationForm] = useState({
     creationDate: new Date().toISOString().split('T')[0],
-    reservationNumber: t.loading,
+    reservationNumber: '', // Оставяме празно първоначално
     tourType: 'HOTEL ONLY',
     hotel: '',
     tourOperator: '',
@@ -145,12 +144,26 @@ const AddReservation = ({
     linkedTourId: '',
   });
 
+  // ВАЖНО: Този Effect управлява инициализацията (Редакция vs Нов)
   useEffect(() => {
-    if (nextResNumber) setReservationForm(prev => ({ ...prev, reservationNumber: nextResNumber }));
-  }, [nextResNumber]);
+    if (initialData) {
+        // РЕЖИМ РЕДАКЦИЯ: Директно зареждаме данните
+        setReservationForm(prev => ({
+            ...prev,
+            ...initialData
+        }));
+    } else {
+        // РЕЖИМ НОВА: Слагаме новия номер
+        setReservationForm(prev => ({
+            ...prev,
+            reservationNumber: nextResNumber
+        }));
+    }
+  }, [initialData, nextResNumber]);
 
+  // Останалата логика за изчисления
   useEffect(() => {
-    if (reservationForm.linkedTourId) {
+    if (reservationForm.linkedTourId && !initialData) {
       const selectedTour = tours.find(t => t.tourId === reservationForm.linkedTourId);
       if (selectedTour) {
         setReservationForm(prev => ({
@@ -161,7 +174,7 @@ const AddReservation = ({
         }));
       }
     }
-  }, [reservationForm.linkedTourId, tours]);
+  }, [reservationForm.linkedTourId, tours, initialData]);
 
   useEffect(() => {
     let nights = 0;
@@ -200,20 +213,13 @@ const AddReservation = ({
     }
   };
 
-  // Функция за валидация преди запис
   const onSaveClick = () => {
-    // Проверка дали е въведен хотел
     if (!reservationForm.hotel || reservationForm.hotel.trim() === '') {
         alert(t.errorHotel);
         return;
     }
-    
-    // Ако всичко е наред, извикваме функцията от родителя
     if (handleSubmitReservation) {
         handleSubmitReservation(reservationForm);
-    } else {
-        console.error("Грешка: Функцията handleSubmitReservation не е подадена!");
-        alert("Системна грешка: Връзката с базата данни не е установена.");
     }
   };
 
@@ -224,9 +230,10 @@ const AddReservation = ({
         <button onClick={onBack} className="flex items-center gap-2 text-slate-400 hover:text-blue-600 font-bold text-sm">
           <ArrowLeft size={18} /> {t.back}
         </button>
-        <h1 className="text-xl font-black uppercase tracking-tighter">{t.resHeader} #{reservationForm.reservationNumber}</h1>
+        <h1 className="text-xl font-black uppercase tracking-tighter">
+            {initialData ? `Редакция: ${reservationForm.reservationNumber}` : `${t.resHeader} #${reservationForm.reservationNumber}`}
+        </h1>
         
-        {/* БУТОН ЗА ЗАПИС */}
         <button 
             onClick={onSaveClick} 
             disabled={loading} 
@@ -238,7 +245,6 @@ const AddReservation = ({
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
-          {/* accommodation details */}
           <div className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm">
             <div className="flex items-center gap-2 mb-6 text-slate-400 font-black uppercase text-[10px] tracking-widest">
               <Hotel size={18} className="text-blue-500" /> {t.stayInfo}
@@ -294,7 +300,6 @@ const AddReservation = ({
             </div>
           </div>
 
-          {/* Tourists */}
           <div className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm">
             <div className="flex justify-between items-center mb-6 text-slate-400 font-black uppercase text-[10px] tracking-widest">
               <div className="flex items-center gap-2"><UserPlus size={18} className="text-blue-500" /> {t.tourists}</div>
@@ -340,7 +345,6 @@ const AddReservation = ({
           </div>
         </div>
 
-        {/* Sidebar */}
         <div className="space-y-6">
           <div className="bg-slate-900 text-white p-8 rounded-[2.5rem] shadow-xl border border-slate-800">
             <div className="flex items-center gap-2 mb-6 text-emerald-400 font-black uppercase text-[10px] tracking-widest">
