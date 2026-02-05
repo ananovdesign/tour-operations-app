@@ -3,18 +3,21 @@ import { db, appId, auth } from '../../firebase';
 import { collection, onSnapshot, addDoc, doc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { 
   Wallet, TrendingUp, TrendingDown, Plus, Search, 
-  Trash2, Calendar, Bus, Users, X, Link as LinkIcon 
+  Trash2, Calendar, Bus, Users, X, Link as LinkIcon, Filter
 } from 'lucide-react';
 
 const Finance = ({ lang = 'bg' }) => {
   const [transactions, setTransactions] = useState([]);
-  const [reservations, setReservations] = useState([]); // За падащото меню
-  const [tours, setTours] = useState([]); // За падащото меню
+  const [reservations, setReservations] = useState([]); 
+  const [tours, setTours] = useState([]); 
   
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // Филтри
   const [filterType, setFilterType] = useState('all'); // all, income, expense
+  const [filterMethod, setFilterMethod] = useState('all'); // all, Cash, Cash 2, Bank
 
   const userId = auth.currentUser?.uid;
 
@@ -29,7 +32,7 @@ const Finance = ({ lang = 'bg' }) => {
       date: "Дата",
       category: "Категория",
       desc: "Описание",
-      method: "Метод",
+      method: "Каса / Сметка", // Updated label
       amount: "Сума",
       linkedTo: "Свързано с",
       save: "Запази",
@@ -38,7 +41,8 @@ const Finance = ({ lang = 'bg' }) => {
       noData: "Няма намерени транзакции.",
       selectRes: "-- Избери Резервация --",
       selectTour: "-- Избери Тур --",
-      methods: { Cash: "В брой", Bank: "Банков път", Card: "Карта", Other: "Друго" }
+      // Mapping for display if needed, though we use direct values now
+      methods: { "Cash": "Kaca 1 (Cash)", "Cash 2": "Каса 2 (Cash 2)", "Bank": "Банка (Bank)" } 
     },
     en: {
       title: "Finance",
@@ -50,7 +54,7 @@ const Finance = ({ lang = 'bg' }) => {
       date: "Date",
       category: "Category",
       desc: "Description",
-      method: "Method",
+      method: "Account / Method",
       amount: "Amount",
       linkedTo: "Linked To",
       save: "Save",
@@ -59,11 +63,11 @@ const Finance = ({ lang = 'bg' }) => {
       noData: "No transactions found.",
       selectRes: "-- Select Reservation --",
       selectTour: "-- Select Tour --",
-      methods: { Cash: "Cash", Bank: "Bank Transfer", Card: "Card", Other: "Other" }
+      methods: { "Cash": "Cash", "Cash 2": "Cash 2", "Bank": "Bank" }
     }
   }[lang] || lang.bg;
 
-  // --- I. ИЗВЛИЧАНЕ НА ДАННИ (Транзакции, Резервации, Турове) ---
+  // --- I. ИЗВЛИЧАНЕ НА ДАННИ ---
   useEffect(() => {
     if (!userId) return;
 
@@ -75,21 +79,20 @@ const Finance = ({ lang = 'bg' }) => {
       setTransactions(data);
     });
 
-    // 2. Reservations (за dropdown)
+    // 2. Reservations
     const resRef = collection(db, `artifacts/${appId}/users/${userId}/reservations`);
     const unsubRes = onSnapshot(resRef, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      // Сортиране по номер
       data.sort((a, b) => (b.reservationNumber || '').localeCompare(a.reservationNumber || ''));
       setReservations(data);
     });
 
-    // 3. Tours (за dropdown)
+    // 3. Tours
     const toursRef = collection(db, `artifacts/${appId}/users/${userId}/tours`);
     const unsubTours = onSnapshot(toursRef, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setTours(data);
-      setLoading(false); // Готови сме когато всичко се зареди (приблизително)
+      setLoading(false);
     });
 
     return () => {
@@ -99,43 +102,50 @@ const Finance = ({ lang = 'bg' }) => {
     };
   }, [userId]);
 
-  // --- II. КАЛКУЛАЦИИ И ФИЛТРИ ---
+  // --- II. ФИЛТРИРАНЕ ---
   const filteredTransactions = useMemo(() => {
     return transactions.filter(tr => {
-      // Поддръжка и на новото поле 'description', и на старото 'reasonDescription'
       const desc = tr.description || tr.reasonDescription || '';
       const cat = tr.category || '';
+      const method = tr.method || '';
       
       const matchesSearch = desc.toLowerCase().includes(searchTerm.toLowerCase()) || 
                             cat.toLowerCase().includes(searchTerm.toLowerCase());
+      
       const matchesType = filterType === 'all' || tr.type === filterType;
-      return matchesSearch && matchesType;
+      
+      // Нов филтър за Cash/Bank
+      const matchesMethod = filterMethod === 'all' || method === filterMethod;
+
+      return matchesSearch && matchesType && matchesMethod;
     });
-  }, [transactions, searchTerm, filterType]);
+  }, [transactions, searchTerm, filterType, filterMethod]);
 
   const stats = useMemo(() => {
-    const income = transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + (Number(t.amount)||0), 0);
-    const expense = transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + (Number(t.amount)||0), 0);
-    return { income, expense, balance: income - expense };
-  }, [transactions]);
+    // Статистиката се базира на филтрираните данни или на всички? 
+    // Обикновено искаме да виждаме баланс само за избраната каса, ако е филтрирана.
+    const sourceData = filteredTransactions; 
 
-  // --- III. ДЕЙСТВИЯ ---
+    const income = sourceData.filter(t => t.type === 'income').reduce((sum, t) => sum + (Number(t.amount)||0), 0);
+    const expense = sourceData.filter(t => t.type === 'expense').reduce((sum, t) => sum + (Number(t.amount)||0), 0);
+    return { income, expense, balance: income - expense };
+  }, [filteredTransactions]);
+
+  // --- III. CRUD ---
   const handleSaveTransaction = async (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
     
     const transactionData = {
-      type: formData.get('type'), // income / expense
+      type: formData.get('type'),
       amount: Number(formData.get('amount')),
       date: formData.get('date'),
       category: formData.get('category'),
-      method: formData.get('method'),
+      method: formData.get('method'), // Тук ще запишем Cash, Cash 2 или Bank
       
-      // Запазваме и двете имена за съвместимост, или ползваме само едното
       description: formData.get('description'),
-      reasonDescription: formData.get('description'), // За съвместимост със стария код
+      reasonDescription: formData.get('description'), 
       
-      // ВРЪЗКИТЕ
       associatedReservationId: formData.get('associatedReservationId') || null,
       associatedTourId: formData.get('associatedTourId') || null,
       
@@ -153,7 +163,7 @@ const Finance = ({ lang = 'bg' }) => {
   };
 
   const handleDelete = async (id) => {
-    if(window.confirm("Сигурни ли сте, че искате да изтриете този запис?")) {
+    if(window.confirm("Сигурни ли сте?")) {
         await deleteDoc(doc(db, `artifacts/${appId}/users/${userId}/financialTransactions`, id));
     }
   };
@@ -170,12 +180,16 @@ const Finance = ({ lang = 'bg' }) => {
       
       {/* 1. STATS CARDS */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Balance Card */}
         <div className="bg-gradient-to-br from-blue-600 to-blue-800 text-white p-6 rounded-[2.5rem] shadow-xl shadow-blue-500/20 relative overflow-hidden">
             <div className="absolute top-0 right-0 p-6 opacity-20"><Wallet size={64} /></div>
-            <p className="text-blue-100 font-bold text-xs uppercase tracking-widest mb-1">{t.balance}</p>
+            <p className="text-blue-100 font-bold text-xs uppercase tracking-widest mb-1">
+                {filterMethod === 'all' ? t.balance : `${t.balance} (${filterMethod})`}
+            </p>
             <h2 className="text-4xl font-black">{stats.balance.toFixed(2)} <span className="text-lg">лв.</span></h2>
         </div>
 
+        {/* Income Card */}
         <div className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm flex items-center justify-between">
             <div>
                 <p className="text-slate-400 font-black text-[10px] uppercase tracking-widest mb-1">{t.income}</p>
@@ -184,6 +198,7 @@ const Finance = ({ lang = 'bg' }) => {
             <div className="p-3 bg-emerald-50 text-emerald-500 rounded-2xl"><TrendingUp size={24} /></div>
         </div>
 
+        {/* Expense Card */}
         <div className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm flex items-center justify-between">
             <div>
                 <p className="text-slate-400 font-black text-[10px] uppercase tracking-widest mb-1">{t.expenses}</p>
@@ -193,28 +208,49 @@ const Finance = ({ lang = 'bg' }) => {
         </div>
       </div>
 
-      {/* 2. CONTROLS */}
-      <div className="flex flex-col md:flex-row gap-4 justify-between items-center bg-white dark:bg-slate-900 p-4 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm">
-         <div className="flex items-center gap-2 w-full md:w-auto bg-slate-50 dark:bg-slate-800 p-1 rounded-xl">
-            <button onClick={() => setFilterType('all')} className={`px-4 py-2 rounded-lg text-xs font-black uppercase transition-all ${filterType === 'all' ? 'bg-white dark:bg-slate-700 shadow-sm text-blue-600' : 'text-slate-400'}`}>All</button>
-            <button onClick={() => setFilterType('income')} className={`px-4 py-2 rounded-lg text-xs font-black uppercase transition-all ${filterType === 'income' ? 'bg-white dark:bg-slate-700 shadow-sm text-emerald-500' : 'text-slate-400'}`}>In</button>
-            <button onClick={() => setFilterType('expense')} className={`px-4 py-2 rounded-lg text-xs font-black uppercase transition-all ${filterType === 'expense' ? 'bg-white dark:bg-slate-700 shadow-sm text-rose-500' : 'text-slate-400'}`}>Out</button>
+      {/* 2. CONTROLS & FILTERS */}
+      <div className="flex flex-col xl:flex-row gap-4 justify-between items-center bg-white dark:bg-slate-900 p-4 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm">
+         
+         <div className="flex flex-col md:flex-row gap-4 w-full xl:w-auto">
+             {/* Type Filter */}
+             <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-800 p-1 rounded-xl">
+                <button onClick={() => setFilterType('all')} className={`px-4 py-2 rounded-lg text-xs font-black uppercase transition-all ${filterType === 'all' ? 'bg-white dark:bg-slate-700 shadow-sm text-blue-600' : 'text-slate-400'}`}>All</button>
+                <button onClick={() => setFilterType('income')} className={`px-4 py-2 rounded-lg text-xs font-black uppercase transition-all ${filterType === 'income' ? 'bg-white dark:bg-slate-700 shadow-sm text-emerald-500' : 'text-slate-400'}`}>In</button>
+                <button onClick={() => setFilterType('expense')} className={`px-4 py-2 rounded-lg text-xs font-black uppercase transition-all ${filterType === 'expense' ? 'bg-white dark:bg-slate-700 shadow-sm text-rose-500' : 'text-slate-400'}`}>Out</button>
+             </div>
+
+             {/* Method Filter (Cash/Bank) */}
+             <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800 px-3 py-1 rounded-xl">
+                <Filter size={14} className="text-slate-400"/>
+                <select 
+                    value={filterMethod} 
+                    onChange={(e) => setFilterMethod(e.target.value)}
+                    className="bg-transparent text-xs font-bold text-slate-600 dark:text-slate-300 outline-none"
+                >
+                    <option value="all">Всички сметки</option>
+                    <option value="Cash">Cash (Каса 1)</option>
+                    <option value="Cash 2">Cash 2 (Каса 2)</option>
+                    <option value="Bank">Bank (Банка)</option>
+                </select>
+             </div>
          </div>
 
-         <div className="relative w-full md:w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-            <input 
-              type="text" 
-              placeholder={t.search} 
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-800 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
-            />
-         </div>
+         <div className="flex gap-4 w-full xl:w-auto">
+            <div className="relative flex-1 xl:w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                <input 
+                type="text" 
+                placeholder={t.search} 
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-800 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
+                />
+            </div>
 
-         <button onClick={() => setIsModalOpen(true)} className="bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-xl shadow-lg flex items-center gap-2 font-black uppercase text-[10px] whitespace-nowrap w-full md:w-auto justify-center">
-            <Plus size={16} /> {t.addTransaction}
-         </button>
+            <button onClick={() => setIsModalOpen(true)} className="bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-xl shadow-lg flex items-center gap-2 font-black uppercase text-[10px] whitespace-nowrap">
+                <Plus size={16} /> {t.addTransaction}
+            </button>
+         </div>
       </div>
 
       {/* 3. TRANSACTIONS LIST */}
@@ -227,10 +263,10 @@ const Finance = ({ lang = 'bg' }) => {
                   <thead className="bg-slate-50 dark:bg-slate-800/50 text-slate-400 text-[10px] font-black uppercase tracking-widest">
                      <tr>
                         <th className="p-5">{t.date}</th>
+                        <th className="p-5">{t.method}</th> {/* Сменихме мястото за по-добра видимост */}
                         <th className="p-5">{t.category}</th>
                         <th className="p-5">{t.desc}</th>
                         <th className="p-5">{t.linkedTo}</th>
-                        <th className="p-5">{t.method}</th>
                         <th className="p-5 text-right">{t.amount}</th>
                         <th className="p-5 text-center"></th>
                      </tr>
@@ -244,20 +280,25 @@ const Finance = ({ lang = 'bg' }) => {
                               </div>
                            </td>
                            <td className="p-5">
-                              <span className={`px-2 py-1 rounded text-[10px] font-black uppercase ${
-                                 tr.type === 'income' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'
+                              <span className={`px-2 py-1 rounded text-[10px] font-black uppercase border ${
+                                  tr.method === 'Bank' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 
+                                  tr.method === 'Cash 2' ? 'bg-amber-50 text-amber-600 border-amber-100' :
+                                  'bg-slate-100 text-slate-600 border-slate-200'
                               }`}>
+                                  {tr.method}
+                              </span>
+                           </td>
+                           <td className="p-5">
+                              <span className={`text-xs font-bold text-slate-500`}>
                                  {tr.category}
                               </span>
                            </td>
                            <td className="p-5">
-                              {/* Показваме 'description' или старото 'reasonDescription' */}
                               <p className="font-bold text-sm text-slate-700 dark:text-white truncate max-w-[200px]">
                                 {tr.description || tr.reasonDescription}
                               </p>
                            </td>
                            <td className="p-5">
-                              {/* Визуализация на връзките */}
                               {tr.associatedReservationId && (
                                 <div className="flex items-center gap-1 text-[10px] font-bold text-blue-500 bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded w-fit mb-1">
                                     <Users size={12} /> {tr.associatedReservationId}
@@ -272,7 +313,6 @@ const Finance = ({ lang = 'bg' }) => {
                                 <span className="text-slate-300 text-[10px]">-</span>
                               )}
                            </td>
-                           <td className="p-5 text-xs font-bold text-slate-500 uppercase">{t.methods[tr.method] || tr.method}</td>
                            <td className="p-5 text-right">
                               <span className={`text-sm font-black ${tr.type === 'income' ? 'text-emerald-500' : 'text-rose-500'}`}>
                                  {tr.type === 'income' ? '+' : '-'} {Number(tr.amount).toFixed(2)} лв.
@@ -301,6 +341,8 @@ const Finance = ({ lang = 'bg' }) => {
               </div>
               
               <form onSubmit={handleSaveTransaction} className="space-y-4">
+                 
+                 {/* Type Selection */}
                  <div className="flex gap-4 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl">
                     <label className="flex-1 cursor-pointer">
                         <input type="radio" name="type" value="income" className="peer hidden" defaultChecked />
@@ -316,6 +358,7 @@ const Finance = ({ lang = 'bg' }) => {
                     </label>
                  </div>
 
+                 {/* Date & Amount */}
                  <div className="grid grid-cols-2 gap-4">
                     <div>
                         <label className="block text-[10px] font-black text-slate-400 uppercase mb-1">{t.amount} *</label>
@@ -327,34 +370,36 @@ const Finance = ({ lang = 'bg' }) => {
                     </div>
                  </div>
 
+                 {/* Category & Method */}
                  <div className="grid grid-cols-2 gap-4">
                     <div>
                         <label className="block text-[10px] font-black text-slate-400 uppercase mb-1">{t.category}</label>
                         <select name="category" className="w-full bg-slate-50 dark:bg-slate-800 p-3 rounded-xl font-bold text-slate-700 dark:text-white outline-none cursor-pointer">
-                           <option value="General">Общи</option>
                            <option value="Reservation">Резервация</option>
-                           <option value="Hotel">Плащане Хотел</option>
+                           <option value="Hotel">Плащане към Хотел</option>
                            <option value="Transport">Транспорт</option>
-                           <option value="Office">Офис разходи</option>
+                           <option value="Office">Офис/Наем</option>
                            <option value="Salary">Заплати</option>
+                           <option value="General">Други</option>
                         </select>
                     </div>
                     <div>
                         <label className="block text-[10px] font-black text-slate-400 uppercase mb-1">{t.method}</label>
                         <select name="method" className="w-full bg-slate-50 dark:bg-slate-800 p-3 rounded-xl font-bold text-slate-700 dark:text-white outline-none cursor-pointer">
-                           <option value="Cash">В брой</option>
-                           <option value="Bank">Банков път</option>
-                           <option value="Card">Карта (POS)</option>
+                           <option value="Cash">Cash (В брой)</option>
+                           <option value="Cash 2">Cash 2 (Втора каса)</option>
+                           <option value="Bank">Bank (Банка)</option>
                         </select>
                     </div>
                  </div>
 
+                 {/* Description */}
                  <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase mb-1">{t.desc}</label>
-                    <input name="description" type="text" className="w-full bg-slate-50 dark:bg-slate-800 p-3 rounded-xl font-bold text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-blue-500" placeholder="Напр. Капаро от Иван..." />
+                    <input name="description" type="text" className="w-full bg-slate-50 dark:bg-slate-800 p-3 rounded-xl font-bold text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-blue-500" placeholder="Напр. Капаро..." />
                  </div>
 
-                 {/* --- НОВИ ПОЛЕТА ЗА СВЪРЗВАНЕ --- */}
+                 {/* Links */}
                  <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
                     <p className="text-xs font-black text-slate-400 uppercase mb-3 flex items-center gap-2">
                         <LinkIcon size={14}/> Връзки (Опционално)
