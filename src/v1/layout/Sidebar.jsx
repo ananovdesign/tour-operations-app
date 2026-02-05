@@ -1,8 +1,8 @@
 import React from 'react';
 import { 
   LayoutDashboard, Users, Hotel, Bus, 
-  Wallet, // <--- Сменено: Wallet вместо FileText
-  Megaphone, CheckSquare, LogOut, Sun, Moon, Languages 
+  Wallet, Megaphone, CheckSquare, LogOut, 
+  Sun, Moon, Languages, Briefcase // <--- Добавихме Briefcase
 } from 'lucide-react';
 import { useApp } from '../AppContext';
 import Logo from '../../Logo.png'; 
@@ -15,7 +15,12 @@ const Sidebar = ({ activeModule, setActiveModule, onLogout }) => {
     { id: 'reservations', label: t.reservations, icon: Users },
     { id: 'hotels', label: t.hotels, icon: Hotel },
     { id: 'bus', label: t.bus, icon: Bus },
-    { id: 'finance', label: t.finance || 'Финанси', icon: Wallet }, // <--- Нов модул: Финанси
+    { id: 'finance', label: t.finance || 'Финанси', icon: Wallet },
+    
+    // НОВИЯТ ТАБ
+    { id: 'tools', label: 'Инструменти', icon: Briefcase },
+
+    // Оставихме старите за всеки случай, може да ги махнеш ако искаш
     { id: 'marketing', label: t.marketing, icon: Megaphone },
     { id: 'tasks', label: t.tasks, icon: CheckSquare },
   ];
@@ -23,7 +28,6 @@ const Sidebar = ({ activeModule, setActiveModule, onLogout }) => {
   return (
     <aside className="w-72 bg-white dark:bg-slate-900 text-slate-800 dark:text-white flex flex-col border-r border-slate-200 dark:border-slate-800 transition-all duration-300 h-screen sticky top-0">
       <div className="p-6 flex flex-col items-center border-b border-slate-100 dark:border-slate-800">
-        {/* Използваме опит за зареждане на логото, ако липсва - показваме текст */}
         <img src={Logo} alt="Logo" className="w-20 h-20 object-contain mb-2" onError={(e) => e.target.style.display='none'} />
         <p className="text-[10px] uppercase tracking-widest opacity-50 font-bold">Travel Management</p>
       </div>
