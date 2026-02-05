@@ -49,7 +49,8 @@ const AddReservation = ({
       status: "Статус",
       adults: "Възрастни",
       children: "Деца",
-      bgn: "лв."
+      bgn: "лв.",
+      errorHotel: "Моля, въведете име на хотел!",
     },
     en: {
       back: "Back",
@@ -88,12 +89,14 @@ const AddReservation = ({
       status: "Status",
       adults: "Adults",
       children: "Children",
-      bgn: "BGN"
+      bgn: "BGN",
+      errorHotel: "Please enter a hotel name!",
     }
   };
 
   const t = translations[lang] || translations.bg;
 
+  // Автоматично генериране на следващ номер на резервация
   const nextResNumber = useMemo(() => {
     if (!reservations || reservations.length === 0) return 'dyt100101';
     const numericParts = reservations
@@ -189,6 +192,23 @@ const AddReservation = ({
     }
   };
 
+  // НОВО: Функция за валидация преди запис
+  const onSaveClick = () => {
+    // Проверка дали е въведен хотел
+    if (!reservationForm.hotel || reservationForm.hotel.trim() === '') {
+        alert(t.errorHotel);
+        return;
+    }
+    
+    // Ако всичко е наред, извикваме функцията от родителя
+    if (handleSubmitReservation) {
+        handleSubmitReservation(reservationForm);
+    } else {
+        console.error("Грешка: Функцията handleSubmitReservation не е подадена!");
+        alert("Системна грешка: Връзката с базата данни не е установена.");
+    }
+  };
+
   return (
     <div className="space-y-6 animate-in slide-in-from-right duration-300 font-sans pb-20 text-slate-800 dark:text-white">
       {/* Header */}
@@ -197,8 +217,14 @@ const AddReservation = ({
           <ArrowLeft size={18} /> {t.back}
         </button>
         <h1 className="text-xl font-black uppercase tracking-tighter">{t.resHeader} #{reservationForm.reservationNumber}</h1>
-        <button onClick={() => handleSubmitReservation(reservationForm)} disabled={loading} className="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-2 rounded-xl shadow-lg flex items-center gap-2 font-black uppercase text-[10px]">
-          <Save size={16} /> {loading ? '...' : t.save}
+        
+        {/* БУТОН ЗА ЗАПИС - СВЪРЗАН С НОВАТА ФУНКЦИЯ */}
+        <button 
+            onClick={onSaveClick} 
+            disabled={loading} 
+            className="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-2 rounded-xl shadow-lg flex items-center gap-2 font-black uppercase text-[10px]"
+        >
+          <Save size={16} /> {loading ? t.loading : t.save}
         </button>
       </div>
 
