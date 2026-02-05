@@ -17,6 +17,11 @@ const ReservationPreviewModal = ({ reservation, onClose, t }) => {
 
   const leadGuest = reservation.tourists?.[0] || {};
 
+  // Безопасно форматиране на суми
+  const formatMoney = (val) => {
+    return Number(val || 0).toFixed(2);
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-[2rem] shadow-2xl border border-slate-200 dark:border-slate-700 flex flex-col max-h-[90vh]">
@@ -40,10 +45,8 @@ const ReservationPreviewModal = ({ reservation, onClose, t }) => {
           </button>
         </div>
 
-        {/* BODY - Scrollable */}
+        {/* BODY */}
         <div className="p-8 overflow-y-auto space-y-8">
-          
-          {/* Section 1: Main Info */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-1">
               <div className="flex items-center gap-2 text-slate-400 text-xs font-black uppercase tracking-widest mb-1">
@@ -72,78 +75,54 @@ const ReservationPreviewModal = ({ reservation, onClose, t }) => {
             </div>
           </div>
 
-          {/* Section 2: Details */}
           <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-6 grid grid-cols-2 md:grid-cols-4 gap-4 border border-slate-100 dark:border-slate-800">
-             <div>
-               <p className="text-[10px] text-slate-400 font-black uppercase">Туроператор</p>
-               <p className="font-bold text-sm dark:text-white">{reservation.tourOperator || '-'}</p>
-             </div>
-             <div>
-               <p className="text-[10px] text-slate-400 font-black uppercase">Стая</p>
-               <p className="font-bold text-sm dark:text-white">{reservation.roomType || 'Std'}</p>
-             </div>
-             <div>
-               <p className="text-[10px] text-slate-400 font-black uppercase">Храна</p>
-               <p className="font-bold text-sm dark:text-white">{reservation.food || 'BB'}</p>
-             </div>
-             <div>
-               <p className="text-[10px] text-slate-400 font-black uppercase">Гости</p>
-               <p className="font-bold text-sm dark:text-white">{reservation.adults} Adl / {reservation.children} Chd</p>
-             </div>
+             <div><p className="text-[10px] text-slate-400 font-black uppercase">Туроператор</p><p className="font-bold text-sm dark:text-white">{reservation.tourOperator || '-'}</p></div>
+             <div><p className="text-[10px] text-slate-400 font-black uppercase">Стая</p><p className="font-bold text-sm dark:text-white">{reservation.roomType || 'Std'}</p></div>
+             <div><p className="text-[10px] text-slate-400 font-black uppercase">Храна</p><p className="font-bold text-sm dark:text-white">{reservation.food || 'BB'}</p></div>
+             <div><p className="text-[10px] text-slate-400 font-black uppercase">Гости</p><p className="font-bold text-sm dark:text-white">{reservation.adults} Adl / {reservation.children} Chd</p></div>
           </div>
 
-          {/* Section 3: Lead Guest */}
           <div>
              <div className="flex items-center gap-2 text-slate-400 text-xs font-black uppercase tracking-widest mb-3">
-                <User size={14} /> Водещ Турист / Lead Guest
+                <User size={14} /> Водещ Турист
              </div>
              <div className="flex flex-col md:flex-row gap-4">
                 <div className="flex-1 p-3 border border-slate-200 dark:border-slate-700 rounded-xl">
-                   <p className="text-xs text-slate-400">Име</p>
-                   <p className="font-bold dark:text-white">{leadGuest.firstName} {leadGuest.familyName}</p>
+                   <p className="text-xs text-slate-400">Име</p><p className="font-bold dark:text-white">{leadGuest.firstName} {leadGuest.familyName}</p>
                 </div>
                 <div className="flex-1 p-3 border border-slate-200 dark:border-slate-700 rounded-xl">
-                   <p className="text-xs text-slate-400">Телефон</p>
-                   <p className="font-bold dark:text-white">{leadGuest.phone || '-'}</p>
+                   <p className="text-xs text-slate-400">Телефон</p><p className="font-bold dark:text-white">{leadGuest.phone || '-'}</p>
                 </div>
                 <div className="flex-1 p-3 border border-slate-200 dark:border-slate-700 rounded-xl">
-                   <p className="text-xs text-slate-400">Имейл</p>
-                   <p className="font-bold dark:text-white break-all">{leadGuest.email || '-'}</p>
+                   <p className="text-xs text-slate-400">Имейл</p><p className="font-bold dark:text-white break-all">{leadGuest.email || '-'}</p>
                 </div>
              </div>
           </div>
 
-          {/* Section 4: Finances */}
           <div>
              <div className="flex items-center gap-2 text-slate-400 text-xs font-black uppercase tracking-widest mb-3">
-                <CreditCard size={14} /> Финанси / Finances
+                <CreditCard size={14} /> Финанси
              </div>
              <div className="grid grid-cols-3 gap-4">
                 <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl text-center">
-                   <p className="text-[10px] font-black uppercase text-blue-400">Продажна Цена</p>
-                   <p className="text-xl font-black text-blue-600 dark:text-blue-400">{Number(reservation.finalAmount).toFixed(2)} <span className="text-xs">лв.</span></p>
+                   <p className="text-[10px] font-black uppercase text-blue-400">Цена</p>
+                   <p className="text-xl font-black text-blue-600 dark:text-blue-400">{formatMoney(reservation.finalAmount)} <span className="text-xs">лв.</span></p>
                 </div>
                 <div className="bg-emerald-50 dark:bg-emerald-900/20 p-4 rounded-2xl text-center">
                    <p className="text-[10px] font-black uppercase text-emerald-400">Платено</p>
-                   <p className="text-xl font-black text-emerald-600 dark:text-emerald-400">{Number(reservation.totalPaid).toFixed(2)} <span className="text-xs">лв.</span></p>
+                   <p className="text-xl font-black text-emerald-600 dark:text-emerald-400">{formatMoney(reservation.totalPaid)} <span className="text-xs">лв.</span></p>
                 </div>
                 <div className="bg-rose-50 dark:bg-rose-900/20 p-4 rounded-2xl text-center">
                    <p className="text-[10px] font-black uppercase text-rose-400">Остатък</p>
-                   <p className="text-xl font-black text-rose-600 dark:text-rose-400">{Number(reservation.remainingAmount).toFixed(2)} <span className="text-xs">лв.</span></p>
+                   <p className="text-xl font-black text-rose-600 dark:text-rose-400">{formatMoney(reservation.remainingAmount)} <span className="text-xs">лв.</span></p>
                 </div>
              </div>
           </div>
-
         </div>
 
         {/* FOOTER */}
         <div className="p-6 border-t border-slate-100 dark:border-slate-800 flex justify-end">
-          <button 
-            onClick={onClose}
-            className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-white px-6 py-3 rounded-xl font-bold transition-colors uppercase text-xs tracking-wider"
-          >
-            Затвори
-          </button>
+          <button onClick={onClose} className="bg-slate-100 hover:bg-slate-200 text-slate-600 px-6 py-3 rounded-xl font-bold uppercase text-xs">Затвори</button>
         </div>
       </div>
     </div>
@@ -152,13 +131,12 @@ const ReservationPreviewModal = ({ reservation, onClose, t }) => {
 
 
 const Reservations = ({ lang = 'bg' }) => {
-  // view може да бъде: 'list', 'add', 'edit', 'voucher', 'contract', 'preview'
   const [view, setView] = useState('list');
   const [selectedRes, setSelectedRes] = useState(null); 
 
   const translations = {
     bg: {
-      loading: "Зареждане на резервации...",
+      loading: "Зареждане...",
       searchPlaceholder: "Търси гост или #dyt...",
       hotelPlaceholder: "Филтрирай по хотел...",
       checkInAfter: "Настаняване след:",
@@ -175,28 +153,28 @@ const Reservations = ({ lang = 'bg' }) => {
       financialRecords: "Финансови записи:",
       noPayments: "Няма открити плащания.",
       due: "Дължими:",
-      confirmDelete: "Сигурни ли сте, че искате да изтриете тази резервация? Това действие е необратимо.",
+      confirmDelete: "Сигурни ли сте? Действието е необратимо.",
       backToList: "Обратно към списъка"
     },
     en: {
-      loading: "Loading reservations...",
-      searchPlaceholder: "Search guest or #dyt...",
-      hotelPlaceholder: "Filter by hotel...",
+      loading: "Loading...",
+      searchPlaceholder: "Search guest...",
+      hotelPlaceholder: "Filter hotel...",
       checkInAfter: "Check-in after:",
       allStatus: "All Status",
       newRes: "New Reservation",
-      thNumber: "Res. Number",
+      thNumber: "Res. #",
       thHotel: "Hotel",
-      thGuest: "Lead Guest",
+      thGuest: "Guest",
       thDates: "Dates",
       thStatus: "Status",
       thPayment: "Payment",
       thProfit: "Profit",
       thActions: "Actions",
       financialRecords: "Financial Records:",
-      noPayments: "No linked payments found.",
+      noPayments: "No payments found.",
       due: "Due:",
-      confirmDelete: "Are you sure you want to delete this reservation? This action cannot be undone.",
+      confirmDelete: "Are you sure? This cannot be undone.",
       backToList: "Back to List"
     }
   };
@@ -217,7 +195,7 @@ const Reservations = ({ lang = 'bg' }) => {
 
   const userId = auth.currentUser?.uid;
 
-  // --- I. ИЗВЛИЧАНЕ НА ДАННИ ---
+  // --- I. ИЗВЛИЧАНЕ НА ДАННИ (С FIX ЗА ЧИСЛАТА) ---
   useEffect(() => {
     if (!userId) return;
 
@@ -241,15 +219,20 @@ const Reservations = ({ lang = 'bg' }) => {
             ft.type === 'income' && ft.associatedReservationId === res.reservationNumber
           );
           
-          const totalPaid = paymentsForRes.reduce((sum, ft) => sum + (ft.amount || 0), 0);
-          const finalAmt = res.finalAmount || 0;
+          // ВАЖНО: Принуждаваме всичко да е Number, за да избегнем грешки с toFixed
+          const totalPaid = paymentsForRes.reduce((sum, ft) => sum + (Number(ft.amount) || 0), 0);
+          const finalAmt = Number(res.finalAmount) || 0;
+          const owedToHotel = Number(res.owedToHotel) || 0;
+          const approxTransportCost = Number(res.approxTransportCost) || 0;
+          
           const remainingAmount = finalAmt - totalPaid;
+          const profit = finalAmt - owedToHotel - approxTransportCost;
 
           let paymentStatus = "Unpaid";
           let paymentStatusColor = 'bg-rose-100 text-rose-800';
           
           if (finalAmt <= 0 && totalPaid === 0) {
-             // Handle 0 price logic
+             // 0 price case
           } else if (remainingAmount <= 0.01) { 
             paymentStatus = "Paid";
             paymentStatusColor = 'bg-emerald-100 text-emerald-800';
@@ -260,6 +243,10 @@ const Reservations = ({ lang = 'bg' }) => {
 
           return {
             ...res,
+            finalAmount: finalAmt, // Запазваме като число
+            owedToHotel: owedToHotel,
+            approxTransportCost: approxTransportCost,
+            profit: profit, // Запазваме като число
             totalPaid,
             remainingAmount: remainingAmount < 0 ? 0 : remainingAmount,
             paymentStatus,
@@ -307,6 +294,11 @@ const Reservations = ({ lang = 'bg' }) => {
     try {
         const finalData = {
             ...reservationData,
+            // Принудително записваме числа в базата
+            finalAmount: Number(reservationData.finalAmount) || 0,
+            owedToHotel: Number(reservationData.owedToHotel) || 0,
+            approxTransportCost: Number(reservationData.approxTransportCost) || 0,
+            depositAmount: Number(reservationData.depositAmount) || 0,
             userId: userId,
             updatedAt: new Date().toISOString()
         };
@@ -314,14 +306,14 @@ const Reservations = ({ lang = 'bg' }) => {
         if (view === 'edit' && selectedRes?.id) {
             const docRef = doc(db, `artifacts/${appId}/users/${userId}/reservations`, selectedRes.id);
             await updateDoc(docRef, finalData);
-            alert("Резервацията е обновена успешно!");
+            alert("Успешна редакция!");
         } else {
             finalData.createdAt = new Date().toISOString();
             if (!finalData.reservationNumber || finalData.reservationNumber.includes('...')) {
                 finalData.reservationNumber = `DYT${Math.floor(Date.now() / 1000)}`;
             }
             await addDoc(collection(db, `artifacts/${appId}/users/${userId}/reservations`), finalData);
-            alert("Резервацията е създадена успешно!");
+            alert("Резервацията е създадена!");
         }
         
         setView('list');
@@ -329,7 +321,7 @@ const Reservations = ({ lang = 'bg' }) => {
 
     } catch (error) {
         console.error("Error saving reservation:", error);
-        alert("Грешка при запис: " + error.message);
+        alert("Грешка: " + error.message);
     }
   };
 
@@ -376,14 +368,13 @@ const Reservations = ({ lang = 'bg' }) => {
                   <div className="w-20"></div>
               </div>
               <VoucherPrint 
-                  reservationData={selectedRes} 
+                  reservationData={selectedRes} // Трябва да е reservationData
                   onPrintFinish={() => setView('list')} 
               />
           </div>
       );
   }
 
-// VIEW: ДОГОВОР
   if (view === 'contract' && selectedRes) {
       return (
           <div className="bg-white min-h-screen relative">
@@ -394,10 +385,8 @@ const Reservations = ({ lang = 'bg' }) => {
                   <h2 className="text-xl font-black uppercase text-slate-400">Преглед на Договор</h2>
                   <div className="w-20"></div>
               </div>
-              
-              {/* ПОПРАВКА: Подаваме 'reservationData' и 'onPrintFinish' */}
               <CustomerContractPrint 
-                  reservationData={selectedRes} 
+                  reservationData={selectedRes} // Трябва да е reservationData
                   onPrintFinish={() => setView('list')}
               />
           </div>
@@ -428,13 +417,9 @@ const Reservations = ({ lang = 'bg' }) => {
   return (
     <div className="space-y-6 animate-in fade-in duration-500 font-sans relative">
       
-      {/* POP-UP MODAL ЗА ПРЕГЛЕД */}
+      {/* POP-UP MODAL */}
       {view === 'preview' && selectedRes && (
-        <ReservationPreviewModal 
-          reservation={selectedRes} 
-          onClose={() => { setView('list'); setSelectedRes(null); }} 
-          t={t}
-        />
+        <ReservationPreviewModal reservation={selectedRes} onClose={() => { setView('list'); setSelectedRes(null); }} t={t} />
       )}
 
       {/* FILTERS */}
@@ -463,10 +448,7 @@ const Reservations = ({ lang = 'bg' }) => {
               <option value="Cancelled">Cancelled</option>
             </select>
             
-            <button 
-              onClick={() => { setSelectedRes(null); setView('add'); }}
-              className="bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-2xl shadow-lg transition-all flex items-center gap-2 font-black uppercase text-[10px] whitespace-nowrap"
-            >
+            <button onClick={() => { setSelectedRes(null); setView('add'); }} className="bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-2xl shadow-lg flex items-center gap-2 font-black uppercase text-[10px] whitespace-nowrap">
               <Plus size={16} /> {t.newRes}
             </button>
           </div>
@@ -475,24 +457,12 @@ const Reservations = ({ lang = 'bg' }) => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="relative">
             <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-            <input 
-              type="text"
-              placeholder={t.hotelPlaceholder}
-              className="w-full pl-12 pr-4 py-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border-none outline-none focus:ring-2 focus:ring-blue-500 shadow-sm dark:text-white font-bold text-sm"
-              value={hotelSearch}
-              onChange={(e) => setHotelSearch(e.target.value)}
-            />
+            <input type="text" placeholder={t.hotelPlaceholder} className="w-full pl-12 pr-4 py-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border-none outline-none focus:ring-2 focus:ring-blue-500 shadow-sm dark:text-white font-bold text-sm" value={hotelSearch} onChange={(e) => setHotelSearch(e.target.value)} />
           </div>
-
           <div className="relative">
             <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
             <div className="absolute left-12 top-2 text-[9px] font-black uppercase text-slate-400">{t.checkInAfter}</div>
-            <input 
-              type="date"
-              className="w-full pl-12 pr-4 pt-5 pb-1 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border-none outline-none focus:ring-2 focus:ring-blue-500 shadow-sm dark:text-white font-bold text-sm"
-              value={dateFilter}
-              onChange={(e) => setDateFilter(e.target.value)}
-            />
+            <input type="date" className="w-full pl-12 pr-4 pt-5 pb-1 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border-none outline-none focus:ring-2 focus:ring-blue-500 shadow-sm dark:text-white font-bold text-sm" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} />
           </div>
         </div>
       </div>
@@ -520,10 +490,7 @@ const Reservations = ({ lang = 'bg' }) => {
 
                 return (
                   <React.Fragment key={res.id}>
-                    <tr 
-                      onClick={() => setExpandedId(isExpanded ? null : res.id)}
-                      className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors group cursor-pointer"
-                    >
+                    <tr onClick={() => setExpandedId(isExpanded ? null : res.id)} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors group cursor-pointer">
                       <td className="px-6 py-5 font-black text-blue-600 dark:text-blue-400 tracking-tighter">
                         <div className="flex items-center gap-2">
                           {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
@@ -542,48 +509,29 @@ const Reservations = ({ lang = 'bg' }) => {
                           res.status === 'Confirmed' ? 'bg-emerald-100 text-emerald-700' : 
                           res.status === 'Pending' ? 'bg-amber-100 text-amber-700' : 
                           'bg-rose-100 text-rose-700'
-                        }`}>
-                          {res.status}
-                        </span>
+                        }`}>{res.status}</span>
                       </td>
                       <td className="px-6 py-5">
                         <div className="flex flex-col">
-                          <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-lg w-fit ${res.paymentStatusColor}`}>
-                            {res.paymentStatus}
-                          </span>
-                          {res.remainingAmount > 0 && (
-                            <span className="text-[10px] font-bold text-rose-500 mt-1">
-                              {t.due} {res.remainingAmount.toFixed(2)}
-                            </span>
-                          )}
+                          <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-lg w-fit ${res.paymentStatusColor}`}>{res.paymentStatus}</span>
+                          {/* СЕГА ТУК Е БЕЗОПАСНО, ЗАЩОТО remainingAmount ВЕЧЕ Е ЧИСЛО */}
+                          {res.remainingAmount > 0 && <span className="text-[10px] font-bold text-rose-500 mt-1">{t.due} {Number(res.remainingAmount).toFixed(2)}</span>}
                         </div>
                       </td>
                       <td className="px-6 py-5 font-black text-sm text-right">
-                        {res.profit?.toFixed(2)} <span className="text-[9px] text-slate-400">BGN</span>
+                        {/* СЕГА ТУК Е БЕЗОПАСНО, ЗАЩОТО profit ВЕЧЕ Е ЧИСЛО */}
+                        {Number(res.profit).toFixed(2)} <span className="text-[9px] text-slate-400">BGN</span>
                       </td>
-                      
                       <td className="px-6 py-5">
                         <div className="flex justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            {/* PREVIEW BUTTON */}
-                            <button onClick={(e) => handlePreview(e, res)} title="Преглед" className="p-2 hover:bg-blue-50 text-blue-500 rounded-xl">
-                                <Eye size={16} />
-                            </button>
-                            <button onClick={(e) => handlePrint(e, res, 'voucher')} title="Ваучер" className="p-2 hover:bg-purple-50 text-purple-500 rounded-xl">
-                                <Ticket size={16} />
-                            </button>
-                            <button onClick={(e) => handlePrint(e, res, 'contract')} title="Договор" className="p-2 hover:bg-indigo-50 text-indigo-500 rounded-xl">
-                                <FileText size={16} />
-                            </button>
-                            <button onClick={(e) => handleEdit(e, res)} title="Редакция" className="p-2 hover:bg-emerald-50 text-emerald-500 rounded-xl">
-                                <Edit3 size={16} />
-                            </button>
-                            <button onClick={(e) => handleDelete(e, res.id)} title="Изтриване" className="p-2 hover:bg-rose-50 text-rose-500 rounded-xl">
-                                <Trash2 size={16} />
-                            </button>
+                            <button onClick={(e) => handlePreview(e, res)} title="Преглед" className="p-2 hover:bg-blue-50 text-blue-500 rounded-xl"><Eye size={16} /></button>
+                            <button onClick={(e) => handlePrint(e, res, 'voucher')} title="Ваучер" className="p-2 hover:bg-purple-50 text-purple-500 rounded-xl"><Ticket size={16} /></button>
+                            <button onClick={(e) => handlePrint(e, res, 'contract')} title="Договор" className="p-2 hover:bg-indigo-50 text-indigo-500 rounded-xl"><FileText size={16} /></button>
+                            <button onClick={(e) => handleEdit(e, res)} title="Редакция" className="p-2 hover:bg-emerald-50 text-emerald-500 rounded-xl"><Edit3 size={16} /></button>
+                            <button onClick={(e) => handleDelete(e, res.id)} title="Изтриване" className="p-2 hover:bg-rose-50 text-rose-500 rounded-xl"><Trash2 size={16} /></button>
                         </div>
                       </td>
                     </tr>
-
                     {isExpanded && (
                       <tr className="bg-slate-50/30 dark:bg-slate-800/20 border-l-4 border-blue-500">
                         <td colSpan="8" className="px-12 py-4 animate-in slide-in-from-top-1 duration-200">
@@ -598,13 +546,11 @@ const Reservations = ({ lang = 'bg' }) => {
                                     <span className="text-slate-400 font-normal italic">{p.date}</span>
                                   </div>
                                   <span className={`font-black ${p.type === 'income' ? 'text-emerald-600' : 'text-rose-600'}`}>
-                                    {p.type === 'income' ? '+' : '-'} {p.amount?.toFixed(2)} BGN
+                                    {p.type === 'income' ? '+' : '-'} {Number(p.amount).toFixed(2)} BGN
                                   </span>
                                 </div>
                               ))
-                            ) : (
-                              <p className="text-[10px] italic text-slate-400 uppercase font-bold px-2">{t.noPayments}</p>
-                            )}
+                            ) : <p className="text-[10px] italic text-slate-400 uppercase font-bold px-2">{t.noPayments}</p>}
                           </div>
                         </td>
                       </tr>
