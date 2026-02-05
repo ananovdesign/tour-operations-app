@@ -6,7 +6,8 @@ import Sidebar from './layout/Sidebar';
 import Dashboard from './modules/Dashboard';
 import Reservations from './modules/Reservations'; 
 import { AppProvider, useApp } from './AppContext';
-import Hotels from './modules/Hotels'; // Импортираме модула
+import Hotels from './modules/Hotels';
+import BusTours from './modules/BusTours'; // <--- НОВ ИМПОРТ
 
 const AppContent = () => {
   const { t, language } = useApp();
@@ -102,6 +103,8 @@ const AppContent = () => {
                 <Reservations lang={language} />
             ) : activeModule === 'hotels' ? (  
                 <Hotels lang={language} />
+            ) : activeModule === 'bus' ? (  // <--- ТУК Е НОВИЯТ МОДУЛ
+                <BusTours lang={language} />
             ) : (
                 <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-20 shadow-sm border border-slate-100 dark:border-slate-800 text-center animate-in fade-in zoom-in duration-300">
                    <span className="text-slate-300 dark:text-slate-700 font-black uppercase tracking-widest text-lg italic">
