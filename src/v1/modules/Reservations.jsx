@@ -4,12 +4,27 @@ import { collection, onSnapshot, addDoc, doc, deleteDoc, updateDoc } from 'fireb
 import { 
   Search, Plus, Eye, Edit3, Trash2, FileText, Loader2, 
   ChevronDown, ChevronUp, ArrowDownLeft, ArrowUpRight, 
-  Calendar, Building2, Ticket, ArrowLeft, X, User, MapPin, CreditCard
+  Calendar, Building2, Ticket, ArrowLeft, X, User, MapPin, CreditCard, Info
 } from 'lucide-react';
 
 import AddReservation from './AddReservation';
 import VoucherPrint from '../../VoucherPrint';
 import CustomerContractPrint from '../../CustomerContractPrint';
+
+// ОФИЦИАЛЕН ФИКСИРАН КУРС
+const FIXED_EXCHANGE_RATE = 1.95583;
+
+// --- Helper за конвертиране към Евро ---
+const toEuro = (amount, currency) => {
+    const val = Number(amount) || 0;
+    if (currency === 'EUR') return val;
+    return val / FIXED_EXCHANGE_RATE;
+};
+
+// --- Helper за форматиране на валута ---
+const formatMoney = (val) => {
+    return `€${Number(val || 0).toFixed(2)}`;
+};
 
 // --- КОМПОНЕНТ ЗА POP-UP ПРЕГЛЕД ---
 const ReservationPreviewModal = ({ reservation, onClose, t }) => {
@@ -17,10 +32,10 @@ const ReservationPreviewModal = ({ reservation, onClose, t }) => {
 
   const leadGuest = reservation.tourists?.[0] || {};
 
-  // Безопасно форматиране на суми
-  const formatMoney = (val) => {
-    return Number(val || 0).toFixed(2);
-  };
+  // Изчисляваме всичко в Евро за прегледа
+  const finalEuro = toEuro(reservation.finalAmount, reservation.currency);
+  const paidEuro = toEuro(reservation.totalPaid, 'EUR'); // totalPaid е вече сумиран в Евро
+  const remainingEuro = finalEuro - paidEuro;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
@@ -76,47 +91,47 @@ const ReservationPreviewModal = ({ reservation, onClose, t }) => {
           </div>
 
           <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-6 grid grid-cols-2 md:grid-cols-4 gap-4 border border-slate-100 dark:border-slate-800">
-             <div><p className="text-[10px] text-slate-400 font-black uppercase">Туроператор</p><p className="font-bold text-sm dark:text-white">{reservation.tourOperator || '-'}</p></div>
-             <div><p className="text-[10px] text-slate-400 font-black uppercase">Стая</p><p className="font-bold text-sm dark:text-white">{reservation.roomType || 'Std'}</p></div>
-             <div><p className="text-[10px] text-slate-400 font-black uppercase">Храна</p><p className="font-bold text-sm dark:text-white">{reservation.food || 'BB'}</p></div>
-             <div><p className="text-[10px] text-slate-400 font-black uppercase">Гости</p><p className="font-bold text-sm dark:text-white">{reservation.adults} Adl / {reservation.children} Chd</p></div>
+              <div><p className="text-[10px] text-slate-400 font-black uppercase">Туроператор</p><p className="font-bold text-sm dark:text-white">{reservation.tourOperator || '-'}</p></div>
+              <div><p className="text-[10px] text-slate-400 font-black uppercase">Стая</p><p className="font-bold text-sm dark:text-white">{reservation.roomType || 'Std'}</p></div>
+              <div><p className="text-[10px] text-slate-400 font-black uppercase">Храна</p><p className="font-bold text-sm dark:text-white">{reservation.food || 'BB'}</p></div>
+              <div><p className="text-[10px] text-slate-400 font-black uppercase">Гости</p><p className="font-bold text-sm dark:text-white">{reservation.adults} Adl / {reservation.children} Chd</p></div>
           </div>
 
           <div>
-             <div className="flex items-center gap-2 text-slate-400 text-xs font-black uppercase tracking-widest mb-3">
-                <User size={14} /> Водещ Турист
-             </div>
-             <div className="flex flex-col md:flex-row gap-4">
-                <div className="flex-1 p-3 border border-slate-200 dark:border-slate-700 rounded-xl">
-                   <p className="text-xs text-slate-400">Име</p><p className="font-bold dark:text-white">{leadGuest.firstName} {leadGuest.familyName}</p>
-                </div>
-                <div className="flex-1 p-3 border border-slate-200 dark:border-slate-700 rounded-xl">
-                   <p className="text-xs text-slate-400">Телефон</p><p className="font-bold dark:text-white">{leadGuest.phone || '-'}</p>
-                </div>
-                <div className="flex-1 p-3 border border-slate-200 dark:border-slate-700 rounded-xl">
-                   <p className="text-xs text-slate-400">Имейл</p><p className="font-bold dark:text-white break-all">{leadGuest.email || '-'}</p>
-                </div>
-             </div>
+              <div className="flex items-center gap-2 text-slate-400 text-xs font-black uppercase tracking-widest mb-3">
+                 <User size={14} /> Водещ Турист
+              </div>
+              <div className="flex flex-col md:flex-row gap-4">
+                 <div className="flex-1 p-3 border border-slate-200 dark:border-slate-700 rounded-xl">
+                    <p className="text-xs text-slate-400">Име</p><p className="font-bold dark:text-white">{leadGuest.firstName} {leadGuest.familyName}</p>
+                 </div>
+                 <div className="flex-1 p-3 border border-slate-200 dark:border-slate-700 rounded-xl">
+                    <p className="text-xs text-slate-400">Телефон</p><p className="font-bold dark:text-white">{leadGuest.phone || '-'}</p>
+                 </div>
+                 <div className="flex-1 p-3 border border-slate-200 dark:border-slate-700 rounded-xl">
+                    <p className="text-xs text-slate-400">Имейл</p><p className="font-bold dark:text-white break-all">{leadGuest.email || '-'}</p>
+                 </div>
+              </div>
           </div>
 
           <div>
-             <div className="flex items-center gap-2 text-slate-400 text-xs font-black uppercase tracking-widest mb-3">
-                <CreditCard size={14} /> Финанси
-             </div>
-             <div className="grid grid-cols-3 gap-4">
-                <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl text-center">
-                   <p className="text-[10px] font-black uppercase text-blue-400">Цена</p>
-                   <p className="text-xl font-black text-blue-600 dark:text-blue-400">{formatMoney(reservation.finalAmount)} <span className="text-xs">лв.</span></p>
-                </div>
-                <div className="bg-emerald-50 dark:bg-emerald-900/20 p-4 rounded-2xl text-center">
-                   <p className="text-[10px] font-black uppercase text-emerald-400">Платено</p>
-                   <p className="text-xl font-black text-emerald-600 dark:text-emerald-400">{formatMoney(reservation.totalPaid)} <span className="text-xs">лв.</span></p>
-                </div>
-                <div className="bg-rose-50 dark:bg-rose-900/20 p-4 rounded-2xl text-center">
-                   <p className="text-[10px] font-black uppercase text-rose-400">Остатък</p>
-                   <p className="text-xl font-black text-rose-600 dark:text-rose-400">{formatMoney(reservation.remainingAmount)} <span className="text-xs">лв.</span></p>
-                </div>
-             </div>
+              <div className="flex items-center gap-2 text-slate-400 text-xs font-black uppercase tracking-widest mb-3">
+                 <CreditCard size={14} /> Финанси (EUR)
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                 <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl text-center">
+                    <p className="text-[10px] font-black uppercase text-blue-400">Цена</p>
+                    <p className="text-xl font-black text-blue-600 dark:text-blue-400">{formatMoney(finalEuro)}</p>
+                 </div>
+                 <div className="bg-emerald-50 dark:bg-emerald-900/20 p-4 rounded-2xl text-center">
+                    <p className="text-[10px] font-black uppercase text-emerald-400">Платено</p>
+                    <p className="text-xl font-black text-emerald-600 dark:text-emerald-400">{formatMoney(paidEuro)}</p>
+                 </div>
+                 <div className="bg-rose-50 dark:bg-rose-900/20 p-4 rounded-2xl text-center">
+                    <p className="text-[10px] font-black uppercase text-rose-400">Остатък</p>
+                    <p className="text-xl font-black text-rose-600 dark:text-rose-400">{formatMoney(Math.max(0, remainingEuro))}</p>
+                 </div>
+              </div>
           </div>
         </div>
 
@@ -148,7 +163,7 @@ const Reservations = ({ lang = 'bg' }) => {
       thDates: "Дати",
       thStatus: "Статус",
       thPayment: "Плащане",
-      thProfit: "Печалба",
+      thProfit: "Печалба (€)",
       thActions: "Действия",
       financialRecords: "Финансови записи:",
       noPayments: "Няма открити плащания.",
@@ -169,7 +184,7 @@ const Reservations = ({ lang = 'bg' }) => {
       thDates: "Dates",
       thStatus: "Status",
       thPayment: "Payment",
-      thProfit: "Profit",
+      thProfit: "Profit (€)",
       thActions: "Actions",
       financialRecords: "Financial Records:",
       noPayments: "No payments found.",
@@ -195,7 +210,7 @@ const Reservations = ({ lang = 'bg' }) => {
 
   const userId = auth.currentUser?.uid;
 
-  // --- I. ИЗВЛИЧАНЕ НА ДАННИ (С FIX ЗА ЧИСЛАТА) ---
+  // --- I. ИЗВЛИЧАНЕ НА ДАННИ (С EURO CONVERSION) ---
   useEffect(() => {
     if (!userId) return;
 
@@ -215,40 +230,43 @@ const Reservations = ({ lang = 'bg' }) => {
         const rawData = resSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
         const dataWithPayments = rawData.map(res => {
+          // 1. Намираме всички плащания към тази резервация
           const paymentsForRes = allTrans.filter(ft =>
             ft.type === 'income' && ft.associatedReservationId === res.reservationNumber
           );
           
-          // ВАЖНО: Принуждаваме всичко да е Number, за да избегнем грешки с toFixed
-          const totalPaid = paymentsForRes.reduce((sum, ft) => sum + (Number(ft.amount) || 0), 0);
-          const finalAmt = Number(res.finalAmount) || 0;
-          const owedToHotel = Number(res.owedToHotel) || 0;
-          const approxTransportCost = Number(res.approxTransportCost) || 0;
+          // 2. Сумираме плащанията, като ги превръщаме в Евро
+          const totalPaidEuro = paymentsForRes.reduce((sum, ft) => sum + toEuro(ft.amount, ft.currency), 0);
           
-          const remainingAmount = finalAmt - totalPaid;
-          const profit = finalAmt - owedToHotel - approxTransportCost;
+          // 3. Взимаме цената на резервацията и я правим в Евро
+          const finalAmtEuro = toEuro(res.finalAmount, res.currency);
+          
+          // 4. Изчисляваме остатък и печалба в Евро
+          const owedToHotelEuro = toEuro(res.owedToHotel, res.currency);
+          const transportCostEuro = toEuro(res.approxTransportCost, res.currency);
+          
+          const remainingEuro = finalAmtEuro - totalPaidEuro;
+          const profitEuro = finalAmtEuro - owedToHotelEuro - transportCostEuro;
 
           let paymentStatus = "Unpaid";
           let paymentStatusColor = 'bg-rose-100 text-rose-800';
           
-          if (finalAmt <= 0 && totalPaid === 0) {
-             // 0 price case
-          } else if (remainingAmount <= 0.01) { 
+          if (finalAmtEuro <= 0 && totalPaidEuro === 0) {
+              // 0 price case
+          } else if (remainingEuro <= 0.05) { // Толеранс за закръгляне 
             paymentStatus = "Paid";
             paymentStatusColor = 'bg-emerald-100 text-emerald-800';
-          } else if (totalPaid > 0) {
+          } else if (totalPaidEuro > 0) {
             paymentStatus = "Partial";
             paymentStatusColor = 'bg-amber-100 text-amber-800';
           }
 
           return {
             ...res,
-            finalAmount: finalAmt, // Запазваме като число
-            owedToHotel: owedToHotel,
-            approxTransportCost: approxTransportCost,
-            profit: profit, // Запазваме като число
-            totalPaid,
-            remainingAmount: remainingAmount < 0 ? 0 : remainingAmount,
+            finalAmountEuro: finalAmtEuro,
+            profitEuro: profitEuro,
+            totalPaidEuro: totalPaidEuro,
+            remainingEuro: remainingEuro < 0 ? 0 : remainingEuro,
             paymentStatus,
             paymentStatusColor,
           };
@@ -294,7 +312,8 @@ const Reservations = ({ lang = 'bg' }) => {
     try {
         const finalData = {
             ...reservationData,
-            // Принудително записваме числа в базата
+            // ВИНАГИ ЗАПИСВАМЕ В ЕВРО ОТ СЕГА НАТАТЪК
+            currency: 'EUR',
             finalAmount: Number(reservationData.finalAmount) || 0,
             owedToHotel: Number(reservationData.owedToHotel) || 0,
             approxTransportCost: Number(reservationData.approxTransportCost) || 0,
@@ -339,7 +358,17 @@ const Reservations = ({ lang = 'bg' }) => {
 
   const handleEdit = (e, res) => {
     e.stopPropagation();
-    setSelectedRes(res);
+    // Ако е стар запис (BGN), може да се наложи да го конвертираме, за да се покаже във формата като Евро
+    // Или AddReservation формата да поеме логиката. Засега подаваме raw данните.
+    const editData = { ...res };
+    if (editData.currency !== 'EUR') {
+        editData.finalAmount = toEuro(editData.finalAmount).toFixed(2);
+        editData.owedToHotel = toEuro(editData.owedToHotel).toFixed(2);
+        editData.approxTransportCost = toEuro(editData.approxTransportCost).toFixed(2);
+        editData.depositAmount = toEuro(editData.depositAmount).toFixed(2);
+    }
+    
+    setSelectedRes(editData);
     setView('edit');
   };
 
@@ -368,7 +397,7 @@ const Reservations = ({ lang = 'bg' }) => {
                   <div className="w-20"></div>
               </div>
               <VoucherPrint 
-                  reservationData={selectedRes} // Трябва да е reservationData
+                  reservationData={selectedRes} 
                   onPrintFinish={() => setView('list')} 
               />
           </div>
@@ -386,7 +415,7 @@ const Reservations = ({ lang = 'bg' }) => {
                   <div className="w-20"></div>
               </div>
               <CustomerContractPrint 
-                  reservationData={selectedRes} // Трябва да е reservationData
+                  reservationData={selectedRes} 
                   onPrintFinish={() => setView('list')}
               />
           </div>
@@ -486,7 +515,10 @@ const Reservations = ({ lang = 'bg' }) => {
             <tbody className="divide-y divide-slate-50 dark:divide-slate-800 text-slate-800 dark:text-slate-200">
               {filteredReservations.map((res) => {
                 const isExpanded = expandedId === res.id;
-                const linkedPayments = transactions.filter(t => t.associatedReservationId === res.reservationNumber);
+                // За разширения изглед показваме оригиналните транзакции в евро (преизчислени)
+                const linkedPayments = transactions
+                    .filter(t => t.associatedReservationId === res.reservationNumber)
+                    .map(t => ({...t, euroAmount: toEuro(t.amount, t.currency)}));
 
                 return (
                   <React.Fragment key={res.id}>
@@ -514,13 +546,15 @@ const Reservations = ({ lang = 'bg' }) => {
                       <td className="px-6 py-5">
                         <div className="flex flex-col">
                           <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-lg w-fit ${res.paymentStatusColor}`}>{res.paymentStatus}</span>
-                          {/* СЕГА ТУК Е БЕЗОПАСНО, ЗАЩОТО remainingAmount ВЕЧЕ Е ЧИСЛО */}
-                          {res.remainingAmount > 0 && <span className="text-[10px] font-bold text-rose-500 mt-1">{t.due} {Number(res.remainingAmount).toFixed(2)}</span>}
+                          {res.remainingEuro > 0.05 && (
+                              <span className="text-[10px] font-bold text-rose-500 mt-1">
+                                {t.due} €{res.remainingEuro.toFixed(2)}
+                              </span>
+                          )}
                         </div>
                       </td>
                       <td className="px-6 py-5 font-black text-sm text-right">
-                        {/* СЕГА ТУК Е БЕЗОПАСНО, ЗАЩОТО profit ВЕЧЕ Е ЧИСЛО */}
-                        {Number(res.profit).toFixed(2)} <span className="text-[9px] text-slate-400">BGN</span>
+                        {res.profitEuro.toFixed(2)} <span className="text-[9px] text-slate-400">€</span>
                       </td>
                       <td className="px-6 py-5">
                         <div className="flex justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -546,7 +580,7 @@ const Reservations = ({ lang = 'bg' }) => {
                                     <span className="text-slate-400 font-normal italic">{p.date}</span>
                                   </div>
                                   <span className={`font-black ${p.type === 'income' ? 'text-emerald-600' : 'text-rose-600'}`}>
-                                    {p.type === 'income' ? '+' : '-'} {Number(p.amount).toFixed(2)} BGN
+                                    {p.type === 'income' ? '+' : '-'} €{p.euroAmount.toFixed(2)}
                                   </span>
                                 </div>
                               ))
