@@ -3,11 +3,21 @@ import { db, appId, auth } from '../../firebase';
 import { collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { 
   Bus, MapPin, Calendar, Users, Plus, Search, 
-  Edit3, Trash2, X, User, Eye, FileText, CheckCircle, ArrowLeft 
+  Edit3, Trash2, X, User, Eye, FileText, CheckCircle, ArrowLeft, Euro 
 } from 'lucide-react';
 
-// Импорт на новия компонент за печат (увери се, че пътят е верен)
+// Импорт на новия компонент за печат
 import BusTourContractPrint from '../../BusTourContractPrint'; 
+
+// ОФИЦИАЛЕН ФИКСИРАН КУРС
+const FIXED_EXCHANGE_RATE = 1.95583;
+
+// Helper за конвертиране
+const toEuro = (amount, currency) => {
+    const val = Number(amount) || 0;
+    if (currency === 'EUR') return val;
+    return val / FIXED_EXCHANGE_RATE;
+};
 
 // --- КОМПОНЕНТ ЗА ДЕТАЙЛЕН ПРЕГЛЕД (PREVIEW) ---
 const TourPreviewModal = ({ tour, linkedReservations, onClose, t }) => {
@@ -15,6 +25,9 @@ const TourPreviewModal = ({ tour, linkedReservations, onClose, t }) => {
 
   const totalPax = linkedReservations.reduce((sum, res) => sum + (Number(res.adults)||0) + (Number(res.children)||0), 0);
   const occupancy = tour.maxPassengers > 0 ? (totalPax / tour.maxPassengers) * 100 : 0;
+  
+  // Конвертиране за преглед
+  const priceEuro = toEuro(tour.price, tour.currency);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
@@ -57,7 +70,7 @@ const TourPreviewModal = ({ tour, linkedReservations, onClose, t }) => {
              </div>
              <div className="text-center px-4">
                 <p className="text-[10px] font-black uppercase text-slate-400">Цена</p>
-                <p className="font-bold text-blue-600 dark:text-blue-400 text-lg">{Number(tour.price).toFixed(2)} лв.</p>
+                <p className="font-bold text-blue-600 dark:text-blue-400 text-lg">€{priceEuro.toFixed(2)}</p>
              </div>
           </div>
 
@@ -151,7 +164,7 @@ const BusTours = ({ lang = 'bg' }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentTour, setCurrentTour] = useState(null);
   const [previewTour, setPreviewTour] = useState(null); 
-  const [contractTour, setContractTour] = useState(null); // НОВО: State за активен договор
+  const [contractTour, setContractTour] = useState(null); 
 
   const userId = auth.currentUser?.uid;
 
@@ -175,7 +188,7 @@ const BusTours = ({ lang = 'bg' }) => {
       nights: "Нощувки",
       daysInclTravel: "Дни (с пътя)",
       maxPassengers: "Макс. пътници",
-      price: "Цена (лв)",
+      price: "Цена (€)", // Сменено на Евро
       
       departureDateTimePlace: "Час и място на тръгване",
       transportDescription: "Описание на транспорта",
@@ -210,7 +223,7 @@ const BusTours = ({ lang = 'bg' }) => {
       nights: "Nights",
       daysInclTravel: "Days (incl. Travel)",
       maxPassengers: "Max Passengers",
-      price: "Price",
+      price: "Price (€)", // Changed to Euro
 
       departureDateTimePlace: "Departure Time & Place",
       transportDescription: "Transport Description",
@@ -269,7 +282,6 @@ const BusTours = ({ lang = 'bg' }) => {
   // --- III. HELPERS ---
   const getLinkedReservations = (tourId) => {
       if (!tourId) return [];
-      // ВАЖНО: Търсим в полето 'linkedTourId'
       return reservations.filter(r => r.linkedTourId && r.linkedTourId.toString().trim() === tourId.toString().trim());
   };
 
@@ -292,8 +304,11 @@ const BusTours = ({ lang = 'bg' }) => {
       nights: Number(formData.get('nights')) || 0,
       daysInclTravel: Number(formData.get('daysInclTravel')) || 0,
       maxPassengers: Number(formData.get('maxPassengers')) || 45,
-      price: Number(formData.get('price')) || 0,
       
+      // ВИНАГИ ЗАПИСВАМЕ В ЕВРО
+      price: Number(formData.get('price')) || 0,
+      currency: 'EUR',
+
       departureDateTimePlace: formData.get('departureDateTimePlace'),
       transportDescription: formData.get('transportDescription'),
       insuranceDetails: formData.get('insuranceDetails'),
@@ -329,7 +344,7 @@ const BusTours = ({ lang = 'bg' }) => {
     }
   };
 
-  // --- V. RENDER CONTRACT VIEW (АКО Е АКТИВЕН) ---
+  // --- V. RENDER CONTRACT VIEW ---
   if (contractTour) {
       return (
           <div className="bg-white min-h-screen relative">
@@ -341,7 +356,6 @@ const BusTours = ({ lang = 'bg' }) => {
                   <div className="w-20"></div>
               </div>
               
-              {/* Подаваме данни към твоя компонент */}
               <BusTourContractPrint 
                   tourData={contractTour} 
                   allReservations={reservations} 
@@ -403,6 +417,7 @@ const BusTours = ({ lang = 'bg' }) => {
              const booked = getBookedCount(tour.tourId);
              const progress = (booked / (tour.maxPassengers || 1)) * 100;
              const isFull = booked >= tour.maxPassengers;
+             const priceEuro = toEuro(tour.price, tour.currency);
              
              return (
               <div key={tour.id} className="bg-white dark:bg-slate-900 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-lg transition-all group relative overflow-hidden flex flex-col">
@@ -437,21 +452,21 @@ const BusTours = ({ lang = 'bg' }) => {
 
                   {/* Capacity Bar */}
                   <div className="mb-4 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl">
-                     <div className="flex justify-between text-[10px] font-bold text-slate-500 mb-1">
+                      <div className="flex justify-between text-[10px] font-bold text-slate-500 mb-1">
                         <span>Заети: <span className={isFull ? 'text-rose-500' : 'text-emerald-500'}>{booked}</span></span>
                         <span>Капацитет: {tour.maxPassengers}</span>
-                     </div>
-                     <div className="h-2 w-full bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                      </div>
+                      <div className="h-2 w-full bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
                         <div 
                             className={`h-full transition-all duration-500 ${isFull ? 'bg-rose-500' : 'bg-emerald-400'}`} 
                             style={{width: `${Math.min(progress, 100)}%`}}
                         ></div>
-                     </div>
+                      </div>
                   </div>
 
                   {/* Price */}
                   <div className="pt-2 text-right">
-                     <span className="text-xl font-black text-slate-800 dark:text-white">{Number(tour.price).toFixed(2)} <span className="text-xs">лв.</span></span>
+                      <span className="text-xl font-black text-slate-800 dark:text-white">€{priceEuro.toFixed(2)}</span>
                   </div>
                 </div>
 
@@ -460,7 +475,6 @@ const BusTours = ({ lang = 'bg' }) => {
                   <button onClick={() => setPreviewTour(tour)} title="Преглед" className="p-2 bg-white shadow-md hover:bg-blue-50 text-slate-600 hover:text-blue-600 rounded-xl transition-colors">
                     <Eye size={16} />
                   </button>
-                  {/* НОВ БУТОН: ПЕЧАТ НА ДОГОВОР */}
                   <button onClick={() => setContractTour(tour)} title="Договор" className="p-2 bg-white shadow-md hover:bg-purple-50 text-slate-600 hover:text-purple-600 rounded-xl transition-colors">
                     <FileText size={16} />
                   </button>
@@ -477,7 +491,7 @@ const BusTours = ({ lang = 'bg' }) => {
         </div>
       )}
 
-      {/* --- ADD/EDIT MODAL FORM (Same as before) --- */}
+      {/* --- ADD/EDIT MODAL FORM --- */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white dark:bg-slate-900 w-full max-w-4xl rounded-[2rem] shadow-2xl border border-slate-200 dark:border-slate-700 p-8 relative flex flex-col max-h-[90vh] overflow-y-auto">
@@ -540,7 +554,14 @@ const BusTours = ({ lang = 'bg' }) => {
                  </div>
                  <div>
                     <label className="block text-xs font-black uppercase text-slate-400 mb-1 ml-1">{t.price}</label>
-                    <input name="price" defaultValue={currentTour?.price || 0} type="number" step="0.01" className="w-full bg-slate-50 dark:bg-slate-800 rounded-xl p-3 font-bold text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-blue-500" />
+                    <input 
+                        name="price" 
+                        // Ако редактираме стар тур, показваме цената конвертирана в евро
+                        defaultValue={currentTour ? toEuro(currentTour.price, currentTour.currency).toFixed(2) : 0} 
+                        type="number" 
+                        step="0.01" 
+                        className="w-full bg-slate-50 dark:bg-slate-800 rounded-xl p-3 font-bold text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-blue-500" 
+                    />
                  </div>
               </div>
 
