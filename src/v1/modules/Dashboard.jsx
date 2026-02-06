@@ -9,7 +9,10 @@ import {
   PieChart, Pie, Cell, Legend 
 } from 'recharts';
 
-// ДЕФИНИРАМЕ ПРЕВОДИТЕ ТУК, ЗА ДА НЯМА ГРЕШКИ ПРИ BUILD В NETLIFY
+// ОФИЦИАЛЕН ФИКСИРАН КУРС
+const FIXED_EXCHANGE_RATE = 1.95583;
+
+// ДЕФИНИРАМЕ ПРЕВОДИТЕ ТУК
 const uiTranslations = {
   bg: {
     reservations: "Резервации", avgNights: "Ср. нощувки", pending: "Изчакващи (Pending)",
@@ -86,20 +89,31 @@ const Dashboard = ({ lang = 'bg' }) => {
     return () => unsubscribes.forEach(unsub => unsub());
   }, [userId]);
 
-  // --- ВРЪЩАМЕ ТВОИТЕ ТОЧНИ КАЛКУЛАЦИИ БЕЗ ПРОМЯНА ---
+  // --- CALCULATIONS WITH EURO CONVERSION ---
   const stats = useMemo(() => {
-    const { reservations, financialTransactions, tours, customers, products } = collectionsData;
+    const { reservations, financialTransactions, tours } = collectionsData;
     
+    // Helper за конвертиране на всяка сума към Евро
+    const toEuro = (amount, currency) => {
+        const val = Number(amount) || 0;
+        // Ако валутата е изрично EUR, връщаме стойността.
+        // Ако е BGN или няма валута (стари записи), делим на курса.
+        if (currency === 'EUR') return val;
+        return val / FIXED_EXCHANGE_RATE;
+    };
+
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const thirtyDaysFromNow = new Date();
     thirtyDaysFromNow.setDate(today.getDate() + 30);
     thirtyDaysFromNow.setHours(23, 59, 59, 999);
 
     const activeReservations = reservations.filter(res => res.status !== 'Cancelled');
+    
+    // Изчисляваме печалбата от резервации в ЕВРО
     const profitableReservations = activeReservations.filter(res => (Number(res.profit) || 0) > 0);
-
     const totalReservations = activeReservations.length;
-    const totalProfit = profitableReservations.reduce((sum, res) => sum + (Number(res.profit) || 0), 0);
+    const totalProfit = profitableReservations.reduce((sum, res) => sum + toEuro(res.profit, res.currency), 0);
+    
     const averageProfitPerReservation = totalReservations > 0 ? totalProfit / totalReservations : 0;
     const totalNightsSum = activeReservations.reduce((sum, res) => sum + (Number(res.totalNights) || 0), 0);
     const averageStayPerReservation = totalReservations > 0 ? totalNightsSum / totalReservations : 0;
@@ -110,19 +124,21 @@ const Dashboard = ({ lang = 'bg' }) => {
         return checkInDate >= today && checkInDate <= thirtyDaysFromNow;
     });
     const countUpcomingReservations = upcomingReservations.length;
-    const profitUpcomingReservations = upcomingReservations.reduce((sum, res) => sum + (Number(res.profit) || 0), 0);
+    const profitUpcomingReservations = upcomingReservations.reduce((sum, res) => sum + toEuro(res.profit, res.currency), 0);
 
     const pendingReservations = activeReservations.filter(res => res.status === 'Pending');
     const countPendingReservations = pendingReservations.length;
 
+    // Финансови транзакции в ЕВРО
     const totalIncome = financialTransactions
         .filter(ft => ft.type === 'income')
-        .reduce((sum, ft) => sum + (Number(ft.amount) || 0), 0);
+        .reduce((sum, ft) => sum + toEuro(ft.amount, ft.currency), 0);
 
     const totalExpenses = financialTransactions
         .filter(ft => ft.type === 'expense')
-        .reduce((sum, ft) => sum + (Number(ft.amount) || 0), 0);
+        .reduce((sum, ft) => sum + toEuro(ft.amount, ft.currency), 0);
 
+    // Турове (няма промяна във валутата тук, само бройки)
     let totalBookedPassengersAcrossAllTours = 0;
     let totalMaxPassengersAcrossAllTours = 0;
     let totalBusToursCount = 0;
@@ -140,6 +156,7 @@ const Dashboard = ({ lang = 'bg' }) => {
         : 0;
     const averageTourPassengers = totalBusToursCount > 0 ? totalBookedPassengersAcrossAllTours / totalBusToursCount : 0;
 
+    // Баланси по каси (всичко обърнато в ЕВРО)
     const balances = {
         Bank: { income: 0, expense: 0 },
         Cash: { income: 0, expense: 0 },
@@ -148,7 +165,7 @@ const Dashboard = ({ lang = 'bg' }) => {
 
     financialTransactions.forEach(ft => {
         if (balances[ft.method]) {
-            balances[ft.method][ft.type] += (Number(ft.amount) || 0);
+            balances[ft.method][ft.type] += toEuro(ft.amount, ft.currency);
         }
     });
 
@@ -156,11 +173,12 @@ const Dashboard = ({ lang = 'bg' }) => {
     const cashBalance = balances.Cash.income - balances.Cash.expense;
     const cash2Balance = balances['Cash 2'].income - balances['Cash 2'].expense;
 
+    // Графика (Data for Chart) - също в ЕВРО
     const chartDataMap = {};
     financialTransactions.forEach(ft => {
       const d = ft.date || 'N/A';
       if (!chartDataMap[d]) chartDataMap[d] = { date: d, income: 0, expense: 0 };
-      chartDataMap[d][ft.type] += Number(ft.amount) || 0;
+      chartDataMap[d][ft.type] += toEuro(ft.amount, ft.currency);
     });
     const financialChartData = Object.values(chartDataMap).sort((a,b) => new Date(a.date) - new Date(b.date)).slice(-7);
 
@@ -183,9 +201,9 @@ const Dashboard = ({ lang = 'bg' }) => {
           <MetricRow label={t.pending} value={stats.countPendingReservations} colorClass="text-yellow-500" />
         </StatCard>
 
-        <StatCard title={t.finances} mainValue={`BGN ${stats.totalIncome.toFixed(2)}`} icon={TrendingUp} color="bg-emerald-500">
-          <MetricRow label={t.expenses} value={`BGN ${stats.totalExpenses.toFixed(2)}`} colorClass="text-rose-500" />
-          <MetricRow label={t.totalProfit} value={`BGN ${stats.totalProfit.toFixed(2)}`} colorClass="text-emerald-500" />
+        <StatCard title={t.finances} mainValue={`€${stats.totalIncome.toFixed(2)}`} icon={TrendingUp} color="bg-emerald-500">
+          <MetricRow label={t.expenses} value={`€${stats.totalExpenses.toFixed(2)}`} colorClass="text-rose-500" />
+          <MetricRow label={t.totalProfit} value={`€${stats.totalProfit.toFixed(2)}`} colorClass="text-emerald-500" />
         </StatCard>
 
         <StatCard title={t.passengers} mainValue={stats.totalBusPassengersBooked} icon={Bus} color="bg-purple-600">
@@ -193,22 +211,22 @@ const Dashboard = ({ lang = 'bg' }) => {
           <MetricRow label={t.fulfillment} value={`${stats.overallBusTourFulfillment.toFixed(1)}%`} />
         </StatCard>
 
-        <StatCard title={`${t.balances} (${t.bank})`} mainValue={`BGN ${stats.bankBalance.toFixed(2)}`} icon={Landmark} color="bg-orange-500">
-          <MetricRow label="Cash" value={`BGN ${stats.cashBalance.toFixed(2)}`} />
-          <MetricRow label="Cash 2" value={`BGN ${stats.cash2Balance.toFixed(2)}`} />
+        <StatCard title={`${t.balances} (${t.bank})`} mainValue={`€${stats.bankBalance.toFixed(2)}`} icon={Landmark} color="bg-orange-500">
+          <MetricRow label="Cash" value={`€${stats.cashBalance.toFixed(2)}`} />
+          <MetricRow label="Cash 2" value={`€${stats.cash2Balance.toFixed(2)}`} />
         </StatCard>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
-          <h4 className="text-xs font-black text-slate-400 uppercase mb-6 tracking-widest">{t.trend}</h4>
+          <h4 className="text-xs font-black text-slate-400 uppercase mb-6 tracking-widest">{t.trend} (EUR)</h4>
           <div className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={stats.financialChartData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                 <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fontSize: 12}} />
                 <YAxis axisLine={false} tickLine={false} tick={{fontSize: 12}} />
-                <Tooltip />
+                <Tooltip formatter={(value) => `€${Number(value).toFixed(2)}`} />
                 <Line type="monotone" dataKey="income" stroke="#10b981" strokeWidth={3} name={t.income} />
                 <Line type="monotone" dataKey="expense" stroke="#f43f5e" strokeWidth={3} name={t.expense} />
               </LineChart>
@@ -248,7 +266,7 @@ const Dashboard = ({ lang = 'bg' }) => {
                <p className="text-[10px] text-slate-400 uppercase font-bold">{t.resCount}</p>
              </div>
              <div>
-               <p className="text-2xl font-black text-emerald-500">BGN {stats.profitUpcomingReservations.toFixed(2)}</p>
+               <p className="text-2xl font-black text-emerald-500">€{stats.profitUpcomingReservations.toFixed(2)}</p>
                <p className="text-[10px] text-slate-400 uppercase font-bold">{t.expectedProfit}</p>
              </div>
           </div>
@@ -257,7 +275,7 @@ const Dashboard = ({ lang = 'bg' }) => {
         <div className="bg-indigo-600 p-6 rounded-3xl text-white flex items-center justify-between shadow-xl">
            <div>
              <h4 className="font-black italic uppercase text-lg leading-tight">{t.quickLook}</h4>
-             <p className="text-indigo-100 text-xs opacity-80">{t.avgProfitRes}: BGN {stats.averageProfitPerReservation.toFixed(2)}</p>
+             <p className="text-indigo-100 text-xs opacity-80">{t.avgProfitRes}: €{stats.averageProfitPerReservation.toFixed(2)}</p>
            </div>
            <button className="bg-white text-indigo-600 p-3 rounded-2xl shadow-lg hover:scale-105 transition-transform">
              <ArrowUpRight size={24} />
