@@ -1,5 +1,17 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { ArrowLeft, Save, UserPlus, CreditCard, Trash2, Plus, Hotel, Landmark, Plane, Mail, Phone } from 'lucide-react';
+import { ArrowLeft, Save, UserPlus, CreditCard, Trash2, Plus, Hotel, Landmark, Plane, Mail, Phone, Euro } from 'lucide-react';
+
+// ОФИЦИАЛЕН ФИКСИРАН КУРС
+const FIXED_EXCHANGE_RATE = 1.95583;
+
+// Помощна функция за конвертиране при зареждане на данни
+const toEuro = (amount, currency) => {
+    const val = Number(amount) || 0;
+    // Ако вече е EUR, връщаме го както е
+    if (currency === 'EUR') return val;
+    // Ако е стара резервация (BGN), делим на курса
+    return val / FIXED_EXCHANGE_RATE;
+};
 
 const AddReservation = ({ 
   onBack, 
@@ -39,7 +51,7 @@ const AddReservation = ({
       egn: "ЕГН",
       email: "Имейл",
       phone: "Телефон",
-      finance: "Финансов Баланс",
+      finance: "Финансов Баланс (EUR)",
       salePrice: "Продажна Цена",
       toHotel: "Към хотел",
       transport: "Разход Транспорт",
@@ -50,8 +62,9 @@ const AddReservation = ({
       status: "Статус",
       adults: "Възрастни",
       children: "Деца",
-      bgn: "лв.",
+      currencySign: "€",
       errorHotel: "Моля, въведете име на хотел!",
+      deposit: "Депозит / Капаро"
     },
     en: {
       back: "Back",
@@ -79,7 +92,7 @@ const AddReservation = ({
       egn: "ID/EGN",
       email: "Email",
       phone: "Phone",
-      finance: "Financial Balance",
+      finance: "Financial Balance (EUR)",
       salePrice: "Sale Price",
       toHotel: "To Hotel",
       transport: "Transport Cost",
@@ -90,8 +103,9 @@ const AddReservation = ({
       status: "Status",
       adults: "Adults",
       children: "Children",
-      bgn: "BGN",
+      currencySign: "€",
       errorHotel: "Please enter a hotel name!",
+      deposit: "Deposit"
     }
   };
 
@@ -99,7 +113,7 @@ const AddReservation = ({
 
   // Изчисляване на следващ номер (само ако не редактираме)
   const nextResNumber = useMemo(() => {
-    if (initialData) return initialData.reservationNumber; // Ако редактираме, връщаме текущия номер
+    if (initialData) return initialData.reservationNumber; 
 
     if (!reservations || reservations.length === 0) return 'DYT100101';
     
@@ -121,7 +135,7 @@ const AddReservation = ({
 
   const [reservationForm, setReservationForm] = useState({
     creationDate: new Date().toISOString().split('T')[0],
-    reservationNumber: '', // Оставяме празно първоначално
+    reservationNumber: '', 
     tourType: 'HOTEL ONLY',
     hotel: '',
     tourOperator: '',
@@ -139,18 +153,26 @@ const AddReservation = ({
     finalAmount: 0,
     owedToHotel: 0,
     approxTransportCost: 0,
+    depositAmount: 0,
     profit: 0,
     status: 'Pending',
     linkedTourId: '',
+    currency: 'EUR' // Default currency for new entries
   });
 
-  // ВАЖНО: Този Effect управлява инициализацията (Редакция vs Нов)
+  // ВАЖНО: Инициализация с конвертиране на валутата
   useEffect(() => {
     if (initialData) {
-        // РЕЖИМ РЕДАКЦИЯ: Директно зареждаме данните
+        // РЕЖИМ РЕДАКЦИЯ: 
+        // Ако редактираме стар запис, конвертираме сумите в Евро за визуализацията.
+        // Когато натиснем Save, те ще се запишат като нови Евро стойности.
         setReservationForm(prev => ({
             ...prev,
-            ...initialData
+            ...initialData,
+            finalAmount: toEuro(initialData.finalAmount, initialData.currency).toFixed(2),
+            owedToHotel: toEuro(initialData.owedToHotel, initialData.currency).toFixed(2),
+            approxTransportCost: toEuro(initialData.approxTransportCost, initialData.currency).toFixed(2),
+            depositAmount: toEuro(initialData.depositAmount, initialData.currency).toFixed(2)
         }));
     } else {
         // РЕЖИМ НОВА: Слагаме новия номер
@@ -161,7 +183,7 @@ const AddReservation = ({
     }
   }, [initialData, nextResNumber]);
 
-  // Останалата логика за изчисления
+  // Логика за автоматично попълване от тур
   useEffect(() => {
     if (reservationForm.linkedTourId && !initialData) {
       const selectedTour = tours.find(t => t.tourId === reservationForm.linkedTourId);
@@ -176,13 +198,17 @@ const AddReservation = ({
     }
   }, [reservationForm.linkedTourId, tours, initialData]);
 
+  // Изчисляване на нощувки и печалба
   useEffect(() => {
     let nights = 0;
     if (reservationForm.checkIn && reservationForm.checkOut) {
       const diff = new Date(reservationForm.checkOut) - new Date(reservationForm.checkIn);
       nights = Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
     }
+    
+    // Печалбата се смята директно от полетата, които вече са в Евро (заради конвертирането горе или въвеждането)
     const profit = Number(reservationForm.finalAmount || 0) - Number(reservationForm.owedToHotel || 0) - Number(reservationForm.approxTransportCost || 0);
+    
     setReservationForm(prev => ({ ...prev, profit, nights }));
   }, [reservationForm.finalAmount, reservationForm.owedToHotel, reservationForm.approxTransportCost, reservationForm.checkIn, reservationForm.checkOut]);
 
@@ -219,6 +245,7 @@ const AddReservation = ({
         return;
     }
     if (handleSubmitReservation) {
+        // Подаваме формата. Родителят (Reservations.jsx) ще добави currency: 'EUR'
         handleSubmitReservation(reservationForm);
     }
   };
@@ -363,9 +390,13 @@ const AddReservation = ({
                 <div className="flex items-center gap-1 uppercase text-[10px] font-black"><Plane size={12} /> {t.transport}</div>
                 <input type="number" name="approxTransportCost" value={reservationForm.approxTransportCost} onChange={handleFormChange} className="bg-transparent text-right font-bold outline-none w-24" />
               </div>
+              <div className="flex justify-between items-center border-b border-slate-800 pb-2 text-yellow-400">
+                <span className="text-slate-400 text-[10px] font-black uppercase">{t.deposit}</span>
+                <input type="number" name="depositAmount" value={reservationForm.depositAmount} onChange={handleFormChange} className="bg-transparent text-right font-bold outline-none w-24" />
+              </div>
               <div className="bg-emerald-500/10 p-4 rounded-2xl flex justify-between items-center border border-emerald-500/20">
                 <span className="text-emerald-400 text-[10px] font-black uppercase">{t.profit}</span>
-                <span className="font-black text-emerald-400 text-lg">{reservationForm.profit.toFixed(2)} {t.bgn}</span>
+                <span className="font-black text-emerald-400 text-lg">{reservationForm.profit.toFixed(2)} {t.currencySign}</span>
               </div>
             </div>
           </div>
