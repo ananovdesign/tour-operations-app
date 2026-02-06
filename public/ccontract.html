@@ -3,298 +3,324 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PDF Генератор на договори - Подобрена версия</title>
+    <title>Договори (EUR) - Генератор</title>
     
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- Libraries for PDF Generation -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     
-    <!-- Google Fonts: Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
     
     <style>
-        /* Custom styles for the new modern look */
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #f9fafb; /* Very light gray background */
+            background-color: #f1f5f9; /* Slate-100 */
         }
 
-        /* Custom focus ring color to match the new theme */
-        .form-input:focus, .form-textarea:focus {
-            border-color: #3b82f6; /* Blue-500 */
-            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+        /* Custom Input Styles to match React App */
+        .custom-input {
+            background-color: #f8fafc; /* Slate-50 */
+            border: 1px solid #e2e8f0; /* Slate-200 */
+            border-radius: 0.75rem; /* rounded-xl */
+            padding: 0.75rem 1rem;
+            font-size: 0.875rem;
+            font-weight: 700;
+            color: #334155; /* Slate-700 */
             outline: none;
+            width: 100%;
+            transition: all 0.2s;
+        }
+        .custom-input:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+        }
+        .custom-label {
+            display: block;
+            font-size: 0.65rem;
+            font-weight: 900;
+            text-transform: uppercase;
+            color: #94a3b8; /* Slate-400 */
+            margin-bottom: 0.25rem;
+            margin-left: 0.25rem;
+            letter-spacing: 0.05em;
         }
 
         /* Tab styles */
         .tab-btn {
-            transition: all 0.3s ease;
-            border-bottom: 2px solid transparent;
-            color: #6b7280; /* Gray-500 */
+            padding: 0.75rem 1.5rem;
+            font-size: 0.75rem;
+            font-weight: 900;
+            text-transform: uppercase;
+            border-radius: 0.75rem;
+            color: #64748b; /* Slate-500 */
+            transition: all 0.2s;
         }
-
-        .tab-btn.active {
-            border-color: #3b82f6; /* Blue-500 */
+        .tab-btn:hover {
+            background-color: #f1f5f9;
             color: #3b82f6;
         }
+        .tab-btn.active {
+            background-color: #3b82f6;
+            color: white;
+            box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.3);
+        }
 
-        /* --- PDF Content Styling (remains the same) --- */
+        /* PDF Styling (Hidden) */
         #pdf-content {
             position: absolute;
             left: -9999px;
             width: 210mm;
             color: black;
         }
-
         .pdf-logical-page {
             background: white;
             font-family: 'Times New Roman', Times, serif;
             font-size: 10pt;
-            line-height: 1.5;
-            padding: 15mm;
+            line-height: 1.4;
+            padding: 15mm 15mm;
             box-sizing: border-box;
             margin-bottom: 1mm; 
+            text-align: justify;
         }
-
         .pdf-logical-page h1, .pdf-logical-page h2 {
             text-align: center;
             font-weight: bold;
-            margin-top: 1.5em;
-            margin-bottom: 1em;
+            margin-top: 10px;
+            margin-bottom: 10px;
         }
         .pdf-logical-page h1 { font-size: 14pt; }
-        .pdf-logical-page h2 { font-size: 12pt; }
-        .pdf-logical-page p { text-align: justify; margin-bottom: 1em; }
-        .pdf-logical-page .signatures { margin-top: 50px; display: flex; justify-content: space-between; }
-        .pdf-logical-page .tourist-table-pdf { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 9pt; }
-        .pdf-logical-page .tourist-table-pdf th,
-        .pdf-logical-page .tourist-table-pdf td { border: 1px solid black; padding: 4px; text-align: left; }
+        .pdf-logical-page h2 { font-size: 11pt; }
+        .pdf-logical-page p { margin-bottom: 6px; }
+        .signatures { margin-top: 40px; display: flex; justify-content: space-between; font-weight: bold; }
+        .tourist-table-pdf { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 9pt; }
+        .tourist-table-pdf th, .tourist-table-pdf td { border: 1px solid black; padding: 3px; text-align: left; }
     </style>
 </head>
-<body class="antialiased">
+<body class="antialiased min-h-screen pb-20">
 
-    <div class="min-h-screen flex items-center justify-center p-4">
-        <div class="max-w-5xl w-full mx-auto bg-white rounded-xl shadow-md overflow-hidden">
-            
-            <!-- Header -->
-            <div class="p-8 text-center">
-                <h1 class="text-3xl font-bold text-gray-800">Генератор на договори</h1>
-                <p class="mt-2 text-gray-600">Попълнете данните, за да създадете вашия договор за туристически пакет.</p>
+    <div class="max-w-5xl mx-auto p-6">
+        
+        <div class="bg-white rounded-[2rem] shadow-sm border border-slate-200 p-6 mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div>
+                <h1 class="text-2xl font-black text-slate-800 uppercase tracking-tighter">Генератор на Договори</h1>
+                <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Официална валута: ЕВРО (€)</p>
             </div>
+            <button type="button" id="generate-pdf-btn" class="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-2xl shadow-lg shadow-blue-500/30 flex items-center gap-2 font-black uppercase text-xs tracking-wide transition-all transform hover:scale-105">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Генерирай PDF
+            </button>
+        </div>
 
-            <!-- Tab Navigation -->
-            <div class="px-8 border-b border-gray-200">
-                <nav class="flex flex-wrap -mb-px" id="tab-nav">
-                    <button data-tab="tab-1" class="tab-btn active py-4 px-4 text-sm font-medium">1. Основна информация</button>
-                    <button data-tab="tab-2" class="tab-btn py-4 px-4 text-sm font-medium">2. Данни за туристите</button>
-                    <button data-tab="tab-3" class="tab-btn py-4 px-4 text-sm font-medium">3. Детайли за пътуването</button>
-                    <button data-tab="tab-4" class="tab-btn py-4 px-4 text-sm font-medium">4. Финансови условия</button>
+        <div class="bg-white rounded-[2.5rem] shadow-xl border border-slate-100 overflow-hidden">
+            
+            <div class="px-8 pt-8 pb-4 border-b border-slate-100">
+                <nav class="flex flex-wrap gap-2" id="tab-nav">
+                    <button data-tab="tab-1" class="tab-btn active">1. Основна информация</button>
+                    <button data-tab="tab-2" class="tab-btn">2. Туристи</button>
+                    <button data-tab="tab-3" class="tab-btn">3. Детайли за пътуването</button>
+                    <button data-tab="tab-4" class="tab-btn">4. Финанси (EUR)</button>
                 </nav>
             </div>
 
-            <!-- Contract Form -->
-            <div class="p-8">
-                <form id="contract-form">
+            <form id="contract-form" class="p-8">
 
-                    <!-- Tab 1: General Info -->
-                    <div id="tab-1" class="tab-content">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
-                                <label for="contractNumber" class="block text-sm font-medium text-gray-700 mb-1">Номер на договор</label>
-                                <input type="text" id="contractNumber" class="form-input w-full rounded-md border-gray-300" placeholder="2025/01">
+                <div id="tab-1" class="tab-content">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label for="contractNumber" class="custom-label">Номер на договор</label>
+                            <input type="text" id="contractNumber" class="custom-input" placeholder="2025/001">
+                        </div>
+                        <div>
+                            <label for="signingDate" class="custom-label">Дата на подписване</label>
+                            <input type="date" id="signingDate" class="custom-input">
+                        </div>
+                    </div>
+                </div>
+
+                <div id="tab-2" class="tab-content hidden">
+                    <div class="bg-slate-50 p-6 rounded-[2rem] border border-slate-100 mb-8">
+                        <h3 class="text-sm font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                            <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+                            Основен Потребител
+                        </h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <div class="md:col-span-2">
+                                <label for="mainTouristName" class="custom-label">Трите имена</label>
+                                <input type="text" id="mainTouristName" class="custom-input" placeholder="Име Презиме Фамилия">
                             </div>
                             <div>
-                                <label for="signingDate" class="block text-sm font-medium text-gray-700 mb-1">Дата на подписване</label>
-                                <input type="date" id="signingDate" class="form-input w-full rounded-md border-gray-300">
+                                <label for="mainTouristEGN" class="custom-label">ЕГН</label>
+                                <input type="text" id="mainTouristEGN" class="custom-input" placeholder="0000000000">
+                            </div>
+                            <div>
+                                <label for="mainTouristIdCard" class="custom-label">Л.К. №</label>
+                                <input type="text" id="mainTouristIdCard" class="custom-input" placeholder="600000000">
+                            </div>
+                            <div class="md:col-span-2">
+                                <label for="mainTouristAddress" class="custom-label">Адрес</label>
+                                <input type="text" id="mainTouristAddress" class="custom-input" placeholder="гр. София, ул. ...">
+                            </div>
+                            <div>
+                                <label for="mainTouristPhone" class="custom-label">Телефон</label>
+                                <input type="text" id="mainTouristPhone" class="custom-input" placeholder="0888123456">
+                            </div>
+                            <div class="md:col-span-2">
+                                <label for="mainTouristEmail" class="custom-label">Email</label>
+                                <input type="email" id="mainTouristEmail" class="custom-input" placeholder="email@example.com">
                             </div>
                         </div>
                     </div>
 
-                    <!-- Tab 2: Tourist Info -->
-                    <div id="tab-2" class="tab-content hidden">
-                        <h3 class="text-lg font-semibold text-gray-800 mb-4 border-b pb-2">Данни на основен потребител</h3>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                            <div>
-                                <label for="mainTouristName" class="block text-sm font-medium text-gray-700 mb-1">Трите имена на турист</label>
-                                <input type="text" id="mainTouristName" class="form-input w-full rounded-md border-gray-300" placeholder="Иван Иванов Иванов">
-                            </div>
-                            <div>
-                                <label for="mainTouristEGN" class="block text-sm font-medium text-gray-700 mb-1">ЕГН</label>
-                                <input type="text" id="mainTouristEGN" class="form-input w-full rounded-md border-gray-300" placeholder="0000000000">
-                            </div>
-                            <div>
-                                <label for="mainTouristIdCard" class="block text-sm font-medium text-gray-700 mb-1">Л.К. №</label>
-                                <input type="text" id="mainTouristIdCard" class="form-input w-full rounded-md border-gray-300" placeholder="600000000">
-                            </div>
-                            <div>
-                                <label for="mainTouristAddress" class="block text-sm font-medium text-gray-700 mb-1">Адрес</label>
-                                <input type="text" id="mainTouristAddress" class="form-input w-full rounded-md border-gray-300" placeholder="гр. София, ул. Примерна №1">
-                            </div>
-                            <div>
-                                <label for="mainTouristPhone" class="block text-sm font-medium text-gray-700 mb-1">GSM</label>
-                                <input type="text" id="mainTouristPhone" class="form-input w-full rounded-md border-gray-300" placeholder="0888123456">
-                            </div>
-                            <div>
-                                <label for="mainTouristEmail" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                                <input type="email" id="mainTouristEmail" class="form-input w-full rounded-md border-gray-300" placeholder="ivan.ivanov@email.com">
-                            </div>
-                        </div>
-                        <div class="flex justify-between items-center mb-4 border-b pb-2">
-                            <h3 class="text-lg font-semibold text-gray-800">Придружаващи туристи</h3>
-                            <button type="button" id="add-tourist-btn" class="flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-500 hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg>
-                                Добави
-                            </button>
-                        </div>
-                        <div class="overflow-x-auto rounded-lg border border-gray-200">
-                            <table class="w-full text-sm text-left text-gray-600">
-                                <thead class="text-xs text-gray-700 uppercase bg-gray-50">
-                                    <tr>
-                                        <th scope="col" class="px-4 py-3 w-12 text-center">№</th>
-                                        <th scope="col" class="px-6 py-3">Трите имена</th>
-                                        <th scope="col" class="px-6 py-3">ЕГН/ЛНЧ</th>
-                                        <th scope="col" class="px-6 py-3">№ паспорт/л.к.</th>
-                                        <th scope="col" class="px-4 py-3 text-center">Действие</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="tourists-table-body">
-                                    <!-- Tourist rows will be added here -->
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    <!-- Tab 3: Trip Details -->
-                    <div id="tab-3" class="tab-content hidden">
-                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            <div>
-                                <label for="startDate" class="block text-sm font-medium text-gray-700 mb-1">Начална дата</label>
-                                <input type="date" id="startDate" class="form-input w-full rounded-md border-gray-300">
-                            </div>
-                            <div>
-                                <label for="endDate" class="block text-sm font-medium text-gray-700 mb-1">Крайна дата</label>
-                                <input type="date" id="endDate" class="form-input w-full rounded-md border-gray-300">
-                            </div>
-                            <div>
-                                <label for="tripDuration" class="block text-sm font-medium text-gray-700 mb-1">Продължителност</label>
-                                <input type="text" id="tripDuration" class="form-input w-full rounded-md border-gray-300 bg-gray-100" readonly placeholder="Автоматично">
-                            </div>
-                            <div class="lg:col-span-3">
-                                <label for="transportDesc" class="block text-sm font-medium text-gray-700 mb-1">1. Транспорт</label>
-                                <textarea id="transportDesc" rows="2" class="form-textarea w-full rounded-md border-gray-300" placeholder="Напр. Комфортен туристически автобус"></textarea>
-                            </div>
-                            <div>
-                                <label for="departureInfo" class="block text-sm font-medium text-gray-700 mb-1">Час и място на тръгване</label>
-                                <input type="text" id="departureInfo" class="form-input w-full rounded-md border-gray-300" placeholder="06:00, гр. София, пл. Ал. Невски">
-                            </div>
-                            <div class="lg:col-span-2">
-                                <label for="returnInfo" class="block text-sm font-medium text-gray-700 mb-1">Час и място на връщане</label>
-                                <input type="text" id="returnInfo" class="form-input w-full rounded-md border-gray-300" placeholder="Около 22:00, гр. София, пл. Ал. Невски">
-                            </div>
-                            <div class="lg:col-span-2">
-                                <label for="accommodationDesc" class="block text-sm font-medium text-gray-700 mb-1">2. Настаняване</label>
-                                <textarea id="accommodationDesc" rows="3" class="form-textarea w-full rounded-md border-gray-300" placeholder="Напр. Хотел 'Планина' 3*, гр. Банско, 2 нощувки"></textarea>
-                            </div>
-                            <div>
-                                <label for="roomType" class="block text-sm font-medium text-gray-700 mb-1">Брой и вид стаи</label>
-                                <input type="text" id="roomType" class="form-input w-full rounded-md border-gray-300" placeholder="1 двойна стая">
-                            </div>
-                            <div class="lg:col-span-3">
-                                <label for="mealsDesc" class="block text-sm font-medium text-gray-700 mb-1">3. Брой и вид на храненията, включени в пакетната цена</label>
-                                <input type="text" id="mealsDesc" class="form-input w-full rounded-md border-gray-300" placeholder="2 закуски и 2 вечери">
-                            </div>
-                            <div class="lg:col-span-3">
-                                <label for="otherServices" class="block text-sm font-medium text-gray-700 mb-1">3.3. Други услуги, включени в общата цена</label>
-                                <textarea id="otherServices" rows="3" class="form-textarea w-full rounded-md border-gray-300" placeholder="Водач-представител на фирмата по време на цялото пътуване;"></textarea>
-                            </div>
-                            <div class="lg:col-span-3">
-                                <label for="specialReqs" class="block text-sm font-medium text-gray-700 mb-1">3.4. Специални изисквания на потребителя</label>
-                                <textarea id="specialReqs" rows="2" class="form-textarea w-full rounded-md border-gray-300" placeholder="Вегетарианско меню, настаняване на висок етаж..."></textarea>
-                            </div>
-                        </div>
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-sm font-black text-slate-400 uppercase tracking-widest">Списък Пътници</h3>
+                        <button type="button" id="add-tourist-btn" class="bg-slate-100 hover:bg-slate-200 text-slate-600 p-2 rounded-full transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg>
+                        </button>
                     </div>
                     
-                    <!-- Tab 4: Financials -->
-                    <div id="tab-4" class="tab-content hidden">
+                    <div class="overflow-hidden rounded-2xl border border-slate-200">
+                        <table class="w-full text-sm text-left">
+                            <thead class="text-xs text-slate-400 uppercase bg-slate-50 font-black">
+                                <tr>
+                                    <th scope="col" class="px-4 py-3 w-10 text-center">#</th>
+                                    <th scope="col" class="px-4 py-3">Имена</th>
+                                    <th scope="col" class="px-4 py-3">ЕГН</th>
+                                    <th scope="col" class="px-4 py-3">Документ</th>
+                                    <th scope="col" class="px-4 py-3 text-center"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="tourists-table-body" class="divide-y divide-slate-100">
+                                </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div id="tab-3" class="tab-content hidden">
+                    <div class="bg-blue-50/50 p-6 rounded-[2rem] border border-blue-100/50 mb-6 grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div>
+                            <label for="startDate" class="custom-label text-blue-400">Начална дата</label>
+                            <input type="date" id="startDate" class="custom-input bg-white">
+                        </div>
+                        <div>
+                            <label for="endDate" class="custom-label text-blue-400">Крайна дата</label>
+                            <input type="date" id="endDate" class="custom-input bg-white">
+                        </div>
+                        <div>
+                            <label for="tripDuration" class="custom-label text-blue-400">Продължителност</label>
+                            <input type="text" id="tripDuration" class="custom-input bg-blue-50 text-blue-600" readonly placeholder="-">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="md:col-span-2">
+                            <label for="transportDesc" class="custom-label">1. Транспорт</label>
+                            <textarea id="transportDesc" rows="1" class="custom-input" placeholder="Автобус / Самолет..."></textarea>
+                        </div>
+                        <div>
+                            <label for="departureInfo" class="custom-label">Час/място тръгване</label>
+                            <input type="text" id="departureInfo" class="custom-input" placeholder="06:00, София">
+                        </div>
+                        <div>
+                            <label for="returnInfo" class="custom-label">Час/място връщане</label>
+                            <input type="text" id="returnInfo" class="custom-input" placeholder="22:00, София">
+                        </div>
+                        <div class="md:col-span-2">
+                            <label for="accommodationDesc" class="custom-label">2. Настаняване</label>
+                            <textarea id="accommodationDesc" rows="2" class="custom-input" placeholder="Хотел Име 3*, Град..."></textarea>
+                        </div>
+                        <div>
+                            <label for="roomType" class="custom-label">Вид стаи</label>
+                            <input type="text" id="roomType" class="custom-input" placeholder="Двойна стая">
+                        </div>
+                        <div class="md:col-span-2">
+                            <label for="mealsDesc" class="custom-label">3. Хранения</label>
+                            <input type="text" id="mealsDesc" class="custom-input" placeholder="BB (Закуска) / HB (Закуска и Вечеря)">
+                        </div>
+                        <div class="md:col-span-2">
+                            <label for="otherServices" class="custom-label">3.3. Други услуги</label>
+                            <textarea id="otherServices" rows="2" class="custom-input" placeholder="Водач, застраховка..."></textarea>
+                        </div>
+                        <div class="md:col-span-2">
+                            <label for="specialReqs" class="custom-label">3.4. Специални изисквания</label>
+                            <textarea id="specialReqs" rows="1" class="custom-input" placeholder="Няма"></textarea>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="tab-4" class="tab-content hidden">
+                    <div class="bg-emerald-50/50 p-6 rounded-[2rem] border border-emerald-100/50 mb-6">
+                        <h3 class="text-sm font-black text-emerald-500 uppercase tracking-widest mb-4">Финанси (Всички цени са в ЕВРО)</h3>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
-                                <label for="totalPrice" class="block text-sm font-medium text-gray-700 mb-1">3.5 Обща цена в лева на пътуването</label>
-                                <input type="number" id="totalPrice" class="form-input w-full rounded-md border-gray-300" placeholder="0.00">
+                                <label for="totalPrice" class="custom-label text-emerald-600">3.5 Обща цена (€)</label>
+                                <input type="number" id="totalPrice" class="custom-input bg-white text-emerald-600 font-black text-lg" placeholder="0.00">
                             </div>
                             <div>
-                                <label for="otherPayments" class="block text-sm font-medium text-gray-700 mb-1">3.5.1 Други плащания, включени в цената</label>
-                                <input type="text" id="otherPayments" class="form-input w-full rounded-md border-gray-300" placeholder="Пътни и гранични такси">
+                                <label for="finalAmount" class="custom-label text-emerald-600">3.6 Крайна дължима сума (€)</label>
+                                <input type="number" id="finalAmount" class="custom-input bg-white text-emerald-600 font-black text-lg" placeholder="0.00">
                             </div>
                             <div>
-                                <label for="childDiscount" class="block text-sm font-medium text-gray-700 mb-1">3.5.1.1 Отстъпки за деца до 10/12 г.</label>
-                                <input type="text" id="childDiscount" class="form-input w-full rounded-md border-gray-300" placeholder="50 лв.">
+                                <label for="depositAmount" class="custom-label text-emerald-600">Депозит (€)</label>
+                                <input type="number" id="depositAmount" class="custom-input bg-white" placeholder="0.00">
                             </div>
                             <div>
-                                <label for="adultDiscount" class="block text-sm font-medium text-gray-700 mb-1">3.5.1.2 Отстъпки за трети възрастен</label>
-                                <input type="text" id="adultDiscount" class="form-input w-full rounded-md border-gray-300" placeholder="20 лв.">
-                            </div>
-                            <div>
-                                <label for="singleRoomFee" class="block text-sm font-medium text-gray-700 mb-1">3.5.1.3 Доплащане за единична стая</label>
-                                <input type="text" id="singleRoomFee" class="form-input w-full rounded-md border-gray-300" placeholder="60 лв.">
-                            </div>
-                            <div>
-                                <label for="extraExcursion" class="block text-sm font-medium text-gray-700 mb-1">3.5.1.4 Други - допълнителна екскурзия</label>
-                                <input type="text" id="extraExcursion" class="form-input w-full rounded-md border-gray-300" placeholder="Екскурзия до ... - 30 лв.">
-                            </div>
-                            <div class="md:col-span-2">
-                                <label for="insurance" class="block text-sm font-medium text-gray-700 mb-1">3.5.1.5 Застраховка</label>
-                                <input type="text" id="insurance" class="form-input w-full rounded-md border-gray-300" placeholder="Медицинска застраховка 'Помощ при пътуване' с лимит 5000 евро">
-                            </div>
-                            <div>
-                                <label for="finalAmount" class="block text-sm font-medium text-gray-700 mb-1">3.6 Крайна обща дължима сума</label>
-                                <input type="number" id="finalAmount" class="form-input w-full rounded-md border-gray-300" placeholder="0.00">
-                            </div>
-                            <div class="md:col-span-2">
-                                <label for="paymentTerms" class="block text-sm font-medium text-gray-700 mb-1">3.7 Начин и срок за плащане</label>
-                                <input type="text" id="paymentTerms" class="form-input w-full rounded-md border-gray-300" placeholder="По банков път до ДД.ММ.ГГГГ">
-                            </div>
-                            <div>
-                                <label for="depositAmount" class="block text-sm font-medium text-gray-700 mb-1">Депозит (лв.)</label>
-                                <input type="number" id="depositAmount" class="form-input w-full rounded-md border-gray-300" placeholder="0.00">
-                            </div>
-                            <div>
-                                <label for="finalPayment" class="block text-sm font-medium text-gray-700 mb-1">Остатък от пълната сума в размер на</label>
-                                <input type="text" id="finalPayment" class="form-input w-full rounded-md border-gray-300" placeholder="... лв. до ДД.ММ.ГГГГ">
+                                <label for="finalPayment" class="custom-label text-emerald-600">Остатък (€) и срок</label>
+                                <input type="text" id="finalPayment" class="custom-input bg-white" placeholder="... евро до ДД.ММ.ГГГГ">
                             </div>
                         </div>
                     </div>
-                </form>
-            </div>
-            
-            <!-- Action Buttons -->
-            <div class="px-8 pb-8">
-                <button type="button" id="generate-pdf-btn" class="w-full inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all transform hover:scale-105">
-                    Генерирай Договор
-                </button>
-            </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label for="otherPayments" class="custom-label">3.5.1 Други плащания</label>
+                            <input type="text" id="otherPayments" class="custom-input" placeholder="Такси...">
+                        </div>
+                        <div>
+                            <label for="childDiscount" class="custom-label">3.5.1.1 Отстъпка деца</label>
+                            <input type="text" id="childDiscount" class="custom-input" placeholder="20 €">
+                        </div>
+                        <div>
+                            <label for="adultDiscount" class="custom-label">3.5.1.2 Отстъпка 3-ти възрастен</label>
+                            <input type="text" id="adultDiscount" class="custom-input" placeholder="10 €">
+                        </div>
+                        <div>
+                            <label for="singleRoomFee" class="custom-label">3.5.1.3 Доплащане единична стая</label>
+                            <input type="text" id="singleRoomFee" class="custom-input" placeholder="50 €">
+                        </div>
+                        <div>
+                            <label for="extraExcursion" class="custom-label">3.5.1.4 Допълнителни екскурзии</label>
+                            <input type="text" id="extraExcursion" class="custom-input" placeholder="...">
+                        </div>
+                        <div class="md:col-span-2">
+                            <label for="insurance" class="custom-label">3.5.1.5 Застраховка</label>
+                            <input type="text" id="insurance" class="custom-input" placeholder="Медицинска застраховка...">
+                        </div>
+                        <div class="md:col-span-2">
+                            <label for="paymentTerms" class="custom-label">3.7 Начин на плащане</label>
+                            <input type="text" id="paymentTerms" class="custom-input" placeholder="В брой / Банков път">
+                        </div>
+                    </div>
+                </div>
+            </form>
         </div>
     </div>
 
-    <!-- Loading Modal -->
-    <div id="loading-modal" class="fixed inset-0 bg-gray-900 bg-opacity-60 flex items-center justify-center z-50 hidden">
+    <div id="loading-modal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center z-50 hidden">
         <div class="flex flex-col items-center text-white">
-            <svg class="animate-spin h-10 w-10 text-white mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <svg class="animate-spin h-12 w-12 text-blue-500 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
-            <p class="text-lg font-semibold">Генериране на PDF...</p>
-            <p>Моля, изчакайте.</p>
+            <p class="text-xl font-bold uppercase tracking-widest">Генериране...</p>
         </div>
     </div>
 
-    <!-- Hidden content for PDF generation, divided into 6 logical pages -->
     <div id="pdf-content">
-        <!-- Section 1: Main Contract Header -->
         <div class="pdf-logical-page">
             <h1>ДОГОВОР ЗА ТУРИСТИЧЕСКИ ПАКЕТ № <span id="pdf-contractNumber"></span></h1>
             <p style="text-align: center;">съгласно разпоредбите на Закона за туризма</p>
@@ -310,7 +336,6 @@
             <div id="pdf-tourists-table-container"></div>
         </div>
 
-        <!-- Section 2: Subject of the Contract & Financials -->
         <div class="pdf-logical-page">
             <h2>І. ПРЕДМЕТ НА ДОГОВОРА</h2>
             <p>1. Потребителят възлага и заплаща на Туроператора да му предостави туристическо пътуване при определен маршрут и платена от него цена при условията на настоящия договор.</p>
@@ -330,7 +355,7 @@
             </p>
             <p><b>3.3. Други услуги, включени в общата цена:</b> <span id="pdf-otherServices"></span></p>
             <p><b>3.4. Специални изисквания на потребителя, за които е постигнато съгласие между двете страни по този договор:</b> <span id="pdf-specialReqs"></span></p>
-            <p><b>3.5. Обща цена в лева на пътуването:</b> <span id="pdf-totalPrice"></span></p>
+            <p><b>3.5. Обща цена в евро на пътуването:</b> <span id="pdf-totalPrice"></span></p>
             <p><b>3.5.1. Други плащания, включени в цената:</b> <span id="pdf-otherPayments"></span></p>
             <p><b>3.5.1.1. Отстъпки за деца до 10/12 г., настанени с двама възрастни в двойна стая:</b> <span id="pdf-childDiscount"></span></p>
             <p><b>3.5.1.2. Отстъпки за трети възрастен в тройна стая, общо:</b> <span id="pdf-adultDiscount"></span></p>
@@ -339,7 +364,7 @@
             <p><b>3.5.1.5. Застраховка:</b> <span id="pdf-insurance"></span></p>
             <p><b>3.6 Крайна обща дължима сума:</b> <span id="pdf-finalAmount"></span></p>
             <p><b>3.7 Начин и срок за плащане на пълната сума по пътуването:</b> <span id="pdf-paymentTerms"></span></p>
-            <p>ПОТВЪРЖДАВАМ от свое име и от името на гореизброените туристи, че съм запознат с условията за записване и програмата на пътуването и внасям депозит от <span id="pdf-depositAmount"></span> лв.</p>
+            <p>ПОТВЪРЖДАВАМ от свое име и от името на гореизброените туристи, че съм запознат с условията за записване и програмата на пътуването и внасям депозит от <span id="pdf-depositAmount"></span> €</p>
             <p>Потребителят се задължава да заплати остатъка от пълната сума в размер на <span id="pdf-finalPayment"></span>.</p>
             <div class="signatures">
                 <span>ЗА ТУРОПЕРАТОРА</span>
@@ -351,7 +376,6 @@
             </div>
         </div>
 
-        <!-- Section 3: General Conditions Part 1 -->
         <div class="pdf-logical-page">
             <p><b>Туристическа програма</b> - означава разглеждане на посещаваното селище пеша и/или с градски транспорт, като обектите се разглеждат отвън, освен ако в програмата не с упоменато изрично „посещение" на туристическия обект или друго. Екскурзоводът от фирмата няма право да води групата в музеи , където това право имат само местни оторизирани екскурзоводи, които при желание от страна на групата могат да бъдат наети срещу допълнително заплащане. В някои от посещаваните градове се налага ползването на обществен транспорт, който Потребителят плаща за своя сметка.</p>
             <p><b>8.2. Панорамна обиколка</b> -означава разглеждане на посещаваното селище с автобуса, като в някои случаи може да се спре и за пешеходно разглеждане по преценка на водача/екскурзовода.</p>
@@ -363,7 +387,6 @@
             <p><b>8.8. Посещение на туристически обект</b> означава разглеждане отвътре на посочения обект, като в програмата изрично е посочено понятието „ПОСЕЩЕНИЕ". В повечето случаи посещенията на туристически обекти изискват заплащане на входна такса (закупуване на билет), освен ако в програмата не е упоменато друго.Препоръчваме: потребителят да осигури още в България сумите, които предвижда да похарчи в съответните валути за посещаваните държави. Музейните такси се плащат само в местна валута</p>
         </div>
 
-        <!-- Section 4: General Conditions Part 2 -->
         <div class="pdf-logical-page">
             <p><b>8.9. Нощувка в</b> - означава, че нощувката е в рамките на обявеното селище.</p>
             <p><b>8.10.Нощувка в района на</b> - означава, че нощувката е в друго селище в близост до обявеното селище.</p>
@@ -390,7 +413,6 @@
             </div>
         </div>
         
-        <!-- Section 5: GDPR Declaration -->
         <div class="pdf-logical-page">
             <h2>ПРИЛОЖЕНИЕ Nº 1 КЪМ ДОГОВОР ЗА ТУРИСТИЧЕСКИ ПАКЕТ</h2>
             <h2 style="margin-top:0;">ДЕКЛАРАЦИЯ - СЪГЛАСИЕ ЗА ОБРАБОТКА НА ЛИЧНИ ДАННИ</h2>
@@ -406,7 +428,6 @@
             <p>ДАТА: <span id="pdf-declarationDate1"></span></p>
         </div>
 
-        <!-- Section 6: Information Confirmation Declaration -->
         <div class="pdf-logical-page">
             <h2 style="margin-top: 0;">ДЕКЛАРАЦИЯ - ПОТВЪРЖДЕНИЕ ЗА ИНФОРМИРАНОСТ ОТНОСНО УСЛОВИЯТА И ОСНОВНИТЕ ХАРАКТЕРИСТИКИ НА ПАКЕТА</h2>
             <p>Долуподписаният <b id="pdf-declarationName"></b>, ЕГН: <b id="pdf-declarationEGN"></b>, телефон за връзка, <b id="pdf-declarationPhone"></b> в качеството ми на Потребител по Договор Nº <b id="pdf-declarationContractNumber"></b></p>
@@ -468,14 +489,14 @@
             function addTouristRow() {
                 touristCount++;
                 const row = document.createElement('tr');
-                row.classList.add('bg-white', 'border-b', 'hover:bg-gray-50');
+                row.classList.add('bg-white', 'border-b', 'hover:bg-slate-50');
                 row.innerHTML = `
-                    <td class="px-4 py-3 text-center font-medium text-gray-700"></td>
-                    <td class="px-6 py-2"><input type="text" class="form-input w-full rounded-md border-gray-300 text-sm tourist-name" placeholder="Трите имена"></td>
-                    <td class="px-6 py-2"><input type="text" class="form-input w-full rounded-md border-gray-300 text-sm tourist-egn" placeholder="ЕГН/ЛНЧ"></td>
-                    <td class="px-6 py-2"><input type="text" class="form-input w-full rounded-md border-gray-300 text-sm tourist-id" placeholder="№ паспорт/л.к."></td>
+                    <td class="px-4 py-3 text-center font-bold text-slate-400"></td>
+                    <td class="px-4 py-2"><input type="text" class="custom-input bg-slate-50 tourist-name" placeholder="Трите имена"></td>
+                    <td class="px-4 py-2"><input type="text" class="custom-input bg-slate-50 tourist-egn" placeholder="ЕГН"></td>
+                    <td class="px-4 py-2"><input type="text" class="custom-input bg-slate-50 tourist-id" placeholder="Л.К."></td>
                     <td class="px-4 py-2 text-center">
-                        <button type="button" class="text-red-500 hover:text-red-700 remove-tourist-btn p-1 rounded-full hover:bg-red-100 transition-colors">
+                        <button type="button" class="text-rose-400 hover:text-rose-600 remove-tourist-btn p-1">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clip-rule="evenodd" /></svg>
                         </button>
                     </td>
@@ -543,12 +564,12 @@
                         }
                     }
                     
-                    const fileName = `Dogovor-${document.getElementById('contractNumber').value || 'XXXX'}.pdf`;
+                    const fileName = `Dogovor-${document.getElementById('contractNumber').value || 'New'}.pdf`;
                     doc.save(fileName);
 
                 } catch (err) {
                     console.error("Error generating PDF:", err);
-                    alert("Възникна грешка при генерирането на PDF файла. Моля, проверете конзолата за повече информация.");
+                    alert("Грешка при генерирането. Вижте конзолата.");
                 } finally {
                     loadingModal.classList.add('hidden');
                 }
@@ -587,15 +608,15 @@
                 document.getElementById('pdf-otherServices').textContent = getOptionalValue('otherServices');
                 document.getElementById('pdf-specialReqs').textContent = getOptionalValue('specialReqs');
 
-                // Populate financials
-                document.getElementById('pdf-totalPrice').innerHTML = getValue('totalPrice', ' лв.');
+                // Populate financials (Now in EURO)
+                document.getElementById('pdf-totalPrice').innerHTML = getValue('totalPrice', ' €');
                 document.getElementById('pdf-otherPayments').innerHTML = getOptionalValue('otherPayments');
                 document.getElementById('pdf-childDiscount').innerHTML = getOptionalValue('childDiscount', 'Не е приложимо.');
                 document.getElementById('pdf-adultDiscount').innerHTML = getOptionalValue('adultDiscount', 'Не е приложимо.');
                 document.getElementById('pdf-singleRoomFee').innerHTML = getOptionalValue('singleRoomFee', 'Не е приложимо.');
                 document.getElementById('pdf-extraExcursion').innerHTML = getOptionalValue('extraExcursion');
                 document.getElementById('pdf-insurance').innerHTML = getValue('insurance');
-                document.getElementById('pdf-finalAmount').innerHTML = getValue('finalAmount', ' лв.');
+                document.getElementById('pdf-finalAmount').innerHTML = getValue('finalAmount', ' €');
                 document.getElementById('pdf-paymentTerms').innerHTML = getValue('paymentTerms');
                 document.getElementById('pdf-depositAmount').textContent = getValue('depositAmount');
                 document.getElementById('pdf-finalPayment').innerHTML = getValue('finalPayment');
@@ -641,4 +662,3 @@
     </script>
 </body>
 </html>
-
