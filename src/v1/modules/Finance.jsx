@@ -3,8 +3,11 @@ import { db, appId, auth } from '../../firebase';
 import { collection, onSnapshot, addDoc, doc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { 
   Wallet, TrendingUp, TrendingDown, Plus, Search, 
-  Trash2, Calendar, Bus, Users, X, Link as LinkIcon, Filter, Edit3, ArrowRight
+  Trash2, Calendar, Bus, Users, X, Link as LinkIcon, Filter, Edit3, ArrowRight, Info
 } from 'lucide-react';
+
+// ОФИЦИАЛЕН ФИКСИРАН КУРС
+const FIXED_EXCHANGE_RATE = 1.95583;
 
 const Finance = ({ lang = 'bg' }) => {
   const [transactions, setTransactions] = useState([]);
@@ -19,14 +22,14 @@ const Finance = ({ lang = 'bg' }) => {
   // ФИЛТРИ
   const [filterType, setFilterType] = useState('all'); 
   const [filterMethod, setFilterMethod] = useState('all'); 
-  const [startDate, setStartDate] = useState(''); // НОВО: Начална дата
-  const [endDate, setEndDate] = useState('');     // НОВО: Крайна дата
+  const [startDate, setStartDate] = useState(''); 
+  const [endDate, setEndDate] = useState('');     
 
   const userId = auth.currentUser?.uid;
 
   const t = {
     bg: {
-      title: "Финанси",
+      title: "Финанси (EUR)",
       balance: "Текущ Баланс",
       income: "Приходи",
       expenses: "Разходи",
@@ -37,7 +40,7 @@ const Finance = ({ lang = 'bg' }) => {
       category: "Категория",
       desc: "Описание",
       method: "Каса / Сметка",
-      amount: "Сума",
+      amount: "Сума (€)", // Сменено на Евро
       linkedTo: "Свързано с",
       save: "Запази",
       update: "Обнови",
@@ -47,10 +50,11 @@ const Finance = ({ lang = 'bg' }) => {
       selectRes: "-- Избери Резервация --",
       selectTour: "-- Избери Тур --",
       methods: { "Cash": "Kaca 1 (Cash)", "Cash 2": "Каса 2 (Cash 2)", "Bank": "Банка (Bank)" },
-      confirmDelete: "Сигурни ли сте, че искате да изтриете този запис?"
+      confirmDelete: "Сигурни ли сте, че искате да изтриете този запис?",
+      convertedInfo: "Стойност конвертирана от BGN"
     },
     en: {
-      title: "Finance",
+      title: "Finance (EUR)",
       balance: "Balance",
       income: "Income",
       expenses: "Expenses",
@@ -61,7 +65,7 @@ const Finance = ({ lang = 'bg' }) => {
       category: "Category",
       desc: "Description",
       method: "Account / Method",
-      amount: "Amount",
+      amount: "Amount (€)",
       linkedTo: "Linked To",
       save: "Save",
       update: "Update",
@@ -71,7 +75,8 @@ const Finance = ({ lang = 'bg' }) => {
       selectRes: "-- Select Reservation --",
       selectTour: "-- Select Tour --",
       methods: { "Cash": "Cash", "Cash 2": "Cash 2", "Bank": "Bank" },
-      confirmDelete: "Are you sure you want to delete this record?"
+      confirmDelete: "Are you sure you want to delete this record?",
+      convertedInfo: "Value converted from BGN"
     }
   }[lang] || lang.bg;
 
@@ -79,7 +84,6 @@ const Finance = ({ lang = 'bg' }) => {
   useEffect(() => {
     if (!userId) return;
 
-    // 1. Transactions
     const financeRef = collection(db, `artifacts/${appId}/users/${userId}/financialTransactions`);
     const unsubFinance = onSnapshot(financeRef, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -87,7 +91,6 @@ const Finance = ({ lang = 'bg' }) => {
       setTransactions(data);
     });
 
-    // 2. Reservations
     const resRef = collection(db, `artifacts/${appId}/users/${userId}/reservations`);
     const unsubRes = onSnapshot(resRef, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -95,7 +98,6 @@ const Finance = ({ lang = 'bg' }) => {
       setReservations(data);
     });
 
-    // 3. Tours
     const toursRef = collection(db, `artifacts/${appId}/users/${userId}/tours`);
     const unsubTours = onSnapshot(toursRef, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -110,7 +112,19 @@ const Finance = ({ lang = 'bg' }) => {
     };
   }, [userId]);
 
-  // --- II. ХЕЛПЪРИ ---
+  // --- II. ХЕЛПЪРИ ЗА ВАЛУТА ---
+  
+  // Тази функция приравнява всичко към Евро за визуализацията
+  const getAmountInEuro = (transaction) => {
+    const amount = Number(transaction.amount) || 0;
+    // Ако изрично пише EUR, връщаме сумата както е.
+    if (transaction.currency === 'EUR') {
+        return amount;
+    }
+    // Ако няма валута или е BGN, делим на фиксирания курс
+    return amount / FIXED_EXCHANGE_RATE;
+  };
+
   const isIncome = (type) => type && type.toLowerCase() === 'income';
 
   // --- III. ФИЛТРИРАНЕ ---
@@ -121,17 +135,10 @@ const Finance = ({ lang = 'bg' }) => {
       const method = tr.method || '';
       const type = tr.type || '';
       
-      // 1. Search Text
       const matchesSearch = desc.toLowerCase().includes(searchTerm.toLowerCase()) || 
                             cat.toLowerCase().includes(searchTerm.toLowerCase());
-      
-      // 2. Filter Type (Income/Expense)
       const matchesType = filterType === 'all' || type.toLowerCase() === filterType.toLowerCase();
-      
-      // 3. Filter Method (Cash/Bank)
       const matchesMethod = filterMethod === 'all' || method === filterMethod;
-
-      // 4. НОВО: Date Range Filter
       const matchesStartDate = !startDate || tr.date >= startDate;
       const matchesEndDate = !endDate || tr.date <= endDate;
 
@@ -139,10 +146,18 @@ const Finance = ({ lang = 'bg' }) => {
     });
   }, [transactions, searchTerm, filterType, filterMethod, startDate, endDate]);
 
+  // СТАТИСТИКАТА СЕГА СМЯТА В ЕВРО
   const stats = useMemo(() => {
     const sourceData = filteredTransactions; 
-    const income = sourceData.filter(t => isIncome(t.type)).reduce((sum, t) => sum + (Number(t.amount)||0), 0);
-    const expense = sourceData.filter(t => !isIncome(t.type)).reduce((sum, t) => sum + (Number(t.amount)||0), 0);
+    
+    const income = sourceData
+        .filter(t => isIncome(t.type))
+        .reduce((sum, t) => sum + getAmountInEuro(t), 0);
+
+    const expense = sourceData
+        .filter(t => !isIncome(t.type))
+        .reduce((sum, t) => sum + getAmountInEuro(t), 0);
+
     return { income, expense, balance: income - expense };
   }, [filteredTransactions]);
 
@@ -154,6 +169,7 @@ const Finance = ({ lang = 'bg' }) => {
   };
 
   const openEditModal = (tr) => {
+    // При редакция подаваме целия обект. Формата ще реши дали да конвертира стойността.
     setCurrentTransaction(tr);
     setIsModalOpen(true);
   };
@@ -164,7 +180,8 @@ const Finance = ({ lang = 'bg' }) => {
     
     const transactionData = {
       type: formData.get('type'),
-      amount: Number(formData.get('amount')),
+      amount: Number(formData.get('amount')), // Тук вече винаги е сумата в Евро, въведена от потребителя
+      currency: 'EUR', // <--- ВИНАГИ ЗАПИСВАМЕ НОВИТЕ/РЕДАКТИРАНИТЕ КАТО ЕВРО
       date: formData.get('date'),
       category: formData.get('category'),
       method: formData.get('method'),
@@ -217,7 +234,7 @@ const Finance = ({ lang = 'bg' }) => {
   return (
     <div className="space-y-8 animate-in fade-in duration-500 font-sans relative pb-20">
       
-      {/* 1. STATS CARDS */}
+      {/* 1. STATS CARDS (IN EURO) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Balance */}
         <div className="bg-gradient-to-br from-blue-600 to-blue-800 text-white p-6 rounded-[2.5rem] shadow-xl shadow-blue-500/20 relative overflow-hidden">
@@ -225,14 +242,14 @@ const Finance = ({ lang = 'bg' }) => {
             <p className="text-blue-100 font-bold text-xs uppercase tracking-widest mb-1">
                 {filterMethod === 'all' ? t.balance : `${t.balance} (${filterMethod})`}
             </p>
-            <h2 className="text-4xl font-black">{stats.balance.toFixed(2)} <span className="text-lg">лв.</span></h2>
+            <h2 className="text-4xl font-black">€{stats.balance.toFixed(2)}</h2>
         </div>
 
         {/* Income */}
         <div className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm flex items-center justify-between">
             <div>
                 <p className="text-slate-400 font-black text-[10px] uppercase tracking-widest mb-1">{t.income}</p>
-                <h2 className="text-2xl font-black text-emerald-500">+{stats.income.toFixed(2)} лв.</h2>
+                <h2 className="text-2xl font-black text-emerald-500">+€{stats.income.toFixed(2)}</h2>
             </div>
             <div className="p-3 bg-emerald-50 text-emerald-500 rounded-2xl"><TrendingUp size={24} /></div>
         </div>
@@ -241,7 +258,7 @@ const Finance = ({ lang = 'bg' }) => {
         <div className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm flex items-center justify-between">
             <div>
                 <p className="text-slate-400 font-black text-[10px] uppercase tracking-widest mb-1">{t.expenses}</p>
-                <h2 className="text-2xl font-black text-rose-500">-{stats.expense.toFixed(2)} лв.</h2>
+                <h2 className="text-2xl font-black text-rose-500">-€{stats.expense.toFixed(2)}</h2>
             </div>
             <div className="p-3 bg-rose-50 text-rose-500 rounded-2xl"><TrendingDown size={24} /></div>
         </div>
@@ -273,7 +290,7 @@ const Finance = ({ lang = 'bg' }) => {
                 </select>
              </div>
 
-             {/* НОВО: Date Filter */}
+             {/* Date Filter */}
              <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800 px-3 py-1 rounded-xl">
                 <Calendar size={14} className="text-slate-400"/>
                 <input 
@@ -331,6 +348,9 @@ const Finance = ({ lang = 'bg' }) => {
                   <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
                      {filteredTransactions.map(tr => {
                         const isInc = isIncome(tr.type);
+                        const euroVal = getAmountInEuro(tr); // Винаги показваме Евро
+                        const isConverted = tr.currency !== 'EUR'; // Проверяваме дали е стар запис
+
                         return (
                         <tr key={tr.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors group">
                            <td className="p-5">
@@ -375,9 +395,17 @@ const Finance = ({ lang = 'bg' }) => {
                               )}
                            </td>
                            <td className="p-5 text-right">
-                              <span className={`text-sm font-black ${isInc ? 'text-emerald-500' : 'text-rose-500'}`}>
-                                 {isInc ? '+' : '-'} {Number(tr.amount).toFixed(2)} лв.
-                              </span>
+                              <div className="flex flex-col items-end">
+                                <span className={`text-sm font-black ${isInc ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                    {isInc ? '+' : '-'} €{euroVal.toFixed(2)}
+                                </span>
+                                {/* Ако е стар запис, показваме малък hint, че е преизчислен */}
+                                {isConverted && (
+                                    <div className="flex items-center gap-1 text-[9px] text-slate-400 mt-0.5" title={t.convertedInfo}>
+                                        <Info size={10} /> <span>(от BGN)</span>
+                                    </div>
+                                )}
+                              </div>
                            </td>
                            <td className="p-5 text-center flex items-center justify-center gap-1">
                               <button onClick={() => openEditModal(tr)} className="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors">
@@ -445,9 +473,11 @@ const Finance = ({ lang = 'bg' }) => {
                             name="amount" 
                             type="number" 
                             step="0.01" 
-                            defaultValue={currentTransaction?.amount}
+                            // Ако редактираме стар запис, показваме конвертираната стойност в Евро
+                            defaultValue={currentTransaction ? getAmountInEuro(currentTransaction).toFixed(2) : ''}
                             className="w-full bg-slate-50 dark:bg-slate-800 p-3 rounded-xl font-bold text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-blue-500" 
                         />
+                        <p className="text-[10px] text-slate-400 mt-1 font-bold">Въведи сумата в ЕВРО (€)</p>
                     </div>
                     <div>
                         <label className="block text-[10px] font-black text-slate-400 uppercase mb-1">{t.date} *</label>
