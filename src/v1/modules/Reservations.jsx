@@ -372,11 +372,14 @@ const Reservations = ({ lang = 'bg' }) => {
     setView('edit');
   };
 
-  const handlePrint = (e, res, type) => {
+// Намери този ред в Reservations.jsx
+const handlePrint = (e, res, type) => {
     e.stopPropagation();
-    setSelectedRes(res);
-    setView(type); 
-  };
+    setSelectedRes(res); // Първо се уверяваме, че данните са в стейта
+    setTimeout(() => {
+        setView(type);   // След кратко забавяне сменяме изгледа
+    }, 100);
+};
 
   const handlePreview = (e, res) => {
     e.stopPropagation();
