@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { createPortal } from 'react-dom'; // ВАЖНО: Ползваме Portal
 import Logo from './Logo.png'; 
 
 // --- Helper Functions ---
@@ -24,63 +23,46 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
     const [voucherNumber, setVoucherNumber] = useState('');
     const [voucherType, setVoucherType] = useState('original');
     
-    // Destinations
     const [destBg, setDestBg] = useState('');
     const [destEn, setDestEn] = useState('');
-    
-    // Pax
     const [adultsBg, setAdultsBg] = useState(0);
     const [adultsEn, setAdultsEn] = useState(0);
     const [chdRegBg, setChdRegBg] = useState(0);
     const [chdRegEn, setChdRegEn] = useState(0);
     const [chdExtBg, setChdExtBg] = useState(0);
     const [chdExtEn, setChdExtEn] = useState(0);
-
-    // Details
     const [itinBg, setItinBg] = useState('');
     const [itinEn, setItinEn] = useState('');
     const [placeBg, setPlaceBg] = useState('');
     const [placeEn, setPlaceEn] = useState('');
-    
-    // Dates
     const [startBg, setStartBg] = useState('');
     const [endBg, setEndBg] = useState('');
     const [startEn, setStartEn] = useState('');
     const [endEn, setEndEn] = useState('');
-    
-    // Accom & Room
     const [accomBg, setAccomBg] = useState('');
     const [accomEn, setAccomEn] = useState('');
     const [roomBg, setRoomBg] = useState('');
     const [roomEn, setRoomEn] = useState('');
-    
-    // Check In/Out
     const [checkInBg, setCheckInBg] = useState('');
     const [checkInEn, setCheckInEn] = useState('');
     const [checkOutBg, setCheckOutBg] = useState('');
     const [checkOutEn, setCheckOutEn] = useState('');
-
-    // Extras
     const [excBg, setExcBg] = useState('');
     const [excEn, setExcEn] = useState('');
     const [otherBg, setOtherBg] = useState('');
     const [otherEn, setOtherEn] = useState('');
     const [noteBg, setNoteBg] = useState('');
     const [noteEn, setNoteEn] = useState('');
-
-    // Footer
     const [dateIssuedBg, setDateIssuedBg] = useState('');
     const [dateIssuedEn, setDateIssuedEn] = useState('');
     const [payDocNum, setPayDocNum] = useState(''); 
     const [payDocDate, setPayDocDate] = useState('');
-
     const [tourists, setTourists] = useState([]);
 
     // --- EFFECT: POPULATE DATA ---
     useEffect(() => {
         if (reservationData) {
             setVoucherNumber(reservationData.reservationNumber || '');
-            
             const hotel = reservationData.hotel || '';
             const place = reservationData.place || '';
             
@@ -120,9 +102,10 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
 
     // --- HANDLERS ---
     const handlePrint = () => {
+        // Даваме малко време за рендиране
         setTimeout(() => {
             window.print();
-        }, 300);
+        }, 100);
     };
 
     const addTourist = () => setTourists([...tourists, { bg: '', en: '' }]);
@@ -133,15 +116,16 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
         if (field === 'bg' && !newArr[idx].en) newArr[idx].en = val;
         setTourists(newArr);
     };
-
     const handleSync = (val, setterBg, setterEn, currentEn) => {
         setterBg(val);
         if (!currentEn) setterEn(val);
     };
 
-    // --- PRINT CONTENT COMPONENT (За да не дублираме код) ---
-    const VoucherContent = ({ isPrintMode }) => (
-        <div className={`bg-white w-full max-w-[210mm] shadow-2xl rounded-sm overflow-hidden p-8 text-slate-900 mx-auto ${isPrintMode ? 'border-none shadow-none' : 'border border-slate-200'}`}>
+    // --- COMPONENT FOR THE VOUCHER ITSELF ---
+    // Това е съдържанието, което ще се показва и на екран (за редакция) и на листа (за печат)
+    // Разликата е само в класовете (hide-on-print vs visible-on-print)
+    const VoucherTemplate = ({ className }) => (
+        <div className={`bg-white w-full max-w-[210mm] shadow-2xl rounded-sm overflow-hidden p-8 text-slate-900 mx-auto ${className}`}>
             
             <div className="flex justify-center mb-2">
                 <img src={Logo} alt="Logo" className="h-16 object-contain" onError={(e) => e.target.style.display='none'} />
@@ -203,7 +187,7 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
                                 <input className="flex-1 bg-transparent border-b border-dashed border-slate-300 text-xs font-bold text-black outline-none" value={t.bg} onChange={e => updateTourist(idx, 'bg', e.target.value)} placeholder="Име (BG)" />
                                 <span className="text-slate-400">/</span>
                                 <input className="flex-1 bg-transparent border-b border-dashed border-slate-300 text-xs font-bold text-black outline-none" value={t.en} onChange={e => updateTourist(idx, 'en', e.target.value)} placeholder="Name (EN)" />
-                                {!isPrintMode && <button onClick={() => removeTourist(idx)} className="text-red-400 hover:text-red-600 text-xs px-1 opacity-0 group-hover:opacity-100 transition">✕</button>}
+                                <button onClick={() => removeTourist(idx)} className="no-print text-red-400 hover:text-red-600 text-xs px-1 opacity-0 group-hover:opacity-100 transition">✕</button>
                             </div>
                         ))}
                     </div>
@@ -370,6 +354,7 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
                         </div>
                     </div>
                 </div>
+
             </div>
 
             <div className="grid grid-cols-2 gap-8 mt-4">
@@ -388,46 +373,59 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
     return (
         <div className="flex flex-col items-center min-h-screen bg-slate-100 p-8 pb-20">
             
-            {/* CSS FIX ЗА БЯЛ ЕКРАН */}
+            {/* CSS: SCREEN vs PRINT MODE */}
             <style>{`
+                /* По подразбиране: Екранен режим */
+                .print-only { display: none; }
+                .screen-only { display: block; }
+
+                /* Режим на печат */
                 @media print {
-                    /* Скриваме основното съдържание на React приложението (#root) */
-                    #root {
-                        display: none !important;
-                    }
-
-                    /* Нулираме body */
-                    body {
-                        background: white;
-                        margin: 0;
-                        padding: 0;
-                    }
-
-                    /* Показваме само портала за принтиране */
-                    #print-portal-root {
-                        display: block !important;
+                    /* 1. Скриваме всичко от екрана */
+                    .screen-only { display: none !important; }
+                    .no-print { display: none !important; }
+                    
+                    /* 2. Показваме само версията за печат */
+                    .print-only { 
+                        display: block !important; 
                         position: absolute;
                         top: 0;
                         left: 0;
                         width: 100%;
-                        margin: 0;
-                        z-index: 99999;
+                        background: white;
                     }
 
-                    /* Скриваме бутоните */
-                    .no-print { display: none !important; }
+                    /* 3. ВАЖНО: Форсираме настройките на страницата, за да избегнем бял екран */
+                    html, body {
+                        height: 100%;
+                        overflow: visible !important;
+                        background: white !important;
+                        margin: 0 !important;
+                        padding: 0 !important;
+                    }
+                    
+                    /* Премахваме всички странични ефекти от framework-а */
+                    #root { display: block !important; position: static !important; overflow: visible !important; }
 
-                    /* Задължително черни бордове и текст */
-                    .voucher-grid, .voucher-row, .voucher-col { border-color: #000 !important; }
-                    input, textarea, select { color: #000 !important; }
+                    /* Настройки за хартията */
+                    @page { margin: 0; size: A4 portrait; }
+                    
+                    /* Стилове на inputs */
+                    input, textarea, select {
+                        border: none !important;
+                        background: transparent !important;
+                        resize: none !important;
+                        color: #000 !important;
+                        box-shadow: none !important;
+                    }
+                    
+                    /* Graphics */
+                    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
                 }
-                
-                /* Grid Helpers */
-                .voucher-grid { border: 1px solid #64748b; }
             `}</style>
 
-            {/* БУТОНИ ЗА УПРАВЛЕНИЕ */}
-            <div className="no-print fixed bottom-6 right-6 flex gap-4 z-50">
+            {/* БУТОНИ (Само за екран) */}
+            <div className="screen-only no-print fixed bottom-6 right-6 flex gap-4 z-50">
                 <button onClick={addTourist} className="bg-white text-blue-600 border border-blue-200 px-4 py-3 rounded-full font-bold shadow-lg hover:bg-blue-50 transition">
                     + Турист
                 </button>
@@ -436,16 +434,17 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
                 </button>
             </div>
 
-            {/* ВИЗУАЛИЗАЦИЯ НА ЕКРАНА (Интерактивна) */}
-            <VoucherContent isPrintMode={false} />
+            {/* 1. ВЕРСИЯ ЗА ЕКРАН (Интерактивна) */}
+            <div className="screen-only w-full">
+                <VoucherTemplate className="border border-slate-200" />
+            </div>
 
-            {/* СКРИТА ВИЗУАЛИЗАЦИЯ ЗА ПРИНТ (С ПОРТАЛ) */}
-            {createPortal(
-                <div id="print-portal-root" style={{ display: 'none' }}>
-                    <VoucherContent isPrintMode={true} />
-                </div>,
-                document.body
-            )}
+            {/* 2. ВЕРСИЯ ЗА ПЕЧАТ (Скрита, показва се само при Ctrl+P) */}
+            <div className="print-only">
+                {/* Тук премахваме сенките и бордовете от контейнера, за да е чисто върху листа */}
+                <VoucherTemplate className="shadow-none border-none p-4 mt-4" />
+            </div>
+
         </div>
     );
 };
