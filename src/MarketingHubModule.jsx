@@ -1,188 +1,121 @@
-import React, { useState, useEffect, useCallback } from 'react';
-// We will assume Logo.png is accessible from the main App.jsx context,
-// or ensure it's copied to a shared assets folder.
+import React, { useState, useEffect } from 'react';
+import { collection, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import Logo from './Logo.png'; 
 
-// Import Firebase operations directly from the main app's Firebase setup
-// We are REMOVING the FirebaseContext, FirebaseProvider, and useFirebase hook from here.
-// These props will now be passed down from the main App.jsx
-import { collection, addDoc, getDocs, onSnapshot, doc, updateDoc, deleteDoc, query, orderBy } from 'firebase/firestore';
-
-
-// Navbar Component for Marketing Hub's internal navigation
-// This Navbar will be used *inside* the MarketingHubModule, not replacing the main app's sidebar.
-const MarketingNavbar = ({ activeTab, setActiveTab }) => {
-    // Logout function will be handled by the main app's Navbar, not this internal one.
-    // So, we remove the useFirebase() and logout call from here.
-
-    const navItems = [
-        { name: 'Dashboard', icon: (
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-                <path fillRule="evenodd" d="M3 6a3 3 0 0 1 3-3h2.25a3 3 0 0 1 3 3v2.25a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V6Zm9.75 0a3 3 0 0 1 3-3H18a3 3 0 0 1 3 3v2.25a3 3 0 0 1-3 3h-2.25a3 3 0 0 1-3-3V6ZM3 15.75a3 3 0 0 1 3-3h2.25a3 3 0 0 1 3 3V18a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3v-2.25Zm9.75 0a3 3 0 0 1 3-3H18a3 3 0 0 1 3 3V18a3 3 0 0 1-3 3h-2.25a3 3 0 0 1-3-3v-2.25Z" clipRule="evenodd" />
-            </svg>
-        )},
-        { name: 'Add Campaign', icon: (
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-                <path d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25ZM12.75 9a.75.75 0 0 0-1.5 0v2.25H9a.75.75 0 0 0 0 1.5h2.25V15a.75.75 0 0 0 1.5 0v-2.25H15a.75.75 0 0 0 0-1.5h-2.25V9Z" />
-            </svg>
-        )},
-        { name: 'Manage Campaigns', icon: (
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-                <path d="M10.5 18.75a.75.75 0 0 0 0 1.5h3a.75.75 0 0 0 0-1.5h-3ZM12 3a.75.75 0 0 0-.75.75V6a.75.75 0 0 0 1.5 0V3.75A.75.75 0 0 0 12 3ZM12 15a.75.75 0 0 0-.75.75v2.25a.75.75 0 0 0 1.5 0V15.75A.75.75 0 0 0 12 15ZM12 9a.75.75 0 0 0-.75.75v2.25a.75.75 0 0 0 1.5 0V9.75A.75.75 0 0 0 12 9Z" />
-                <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25ZM4.5 12a7.5 7.5 0 0 0 7.5 7.5V4.5a7.5 7.5 0 0 0-7.5 7.5Z" clipRule="evenodd" />
-            </svg>
-        )},
-    ];
-
-    return (
-        <nav className="bg-gradient-to-r from-blue-600 to-blue-800 p-4 shadow-lg rounded-b-lg flex justify-center items-center">
-            <div className="container mx-auto flex flex-wrap justify-center gap-4">
-                {navItems.map((item) => (
-                    <button
-                        key={item.name}
-                        onClick={() => setActiveTab(item.name)}
-                        className={`flex items-center space-x-2 px-4 py-2 rounded-full transition-all duration-300 ease-in-out
-                            ${activeTab === item.name
-                                ? 'bg-white text-blue-700 shadow-md transform scale-105'
-                                : 'text-white hover:bg-blue-700 hover:shadow-md'
-                            }`}
-                    >
-                        {item.icon}
-                        <span className="font-semibold">{item.name}</span>
-                    </button>
-                ))}
-            </div>
-            {/* Logout button here is removed as it will be in the main app's sidebar */}
-        </nav>
-    );
-};
-
-// Dashboard Component
-const Dashboard = ({ campaigns }) => { // campaigns received as prop
-    // Filter for completed campaigns
+// --- Dashboard Component ---
+const Dashboard = ({ campaigns }) => { 
+    // Filter & Calc logic remains the same
     const completedCampaigns = campaigns.filter(c => c.status === 'Completed');
     const numberOfCompletedCampaigns = completedCampaigns.length;
 
-    // Calculate metrics only from completed campaigns
     const budgetSpent = completedCampaigns.reduce((sum, c) => sum + (c.budget || 0), 0);
-
     const totalClicks = completedCampaigns.reduce((sum, c) => sum + (c.clicks || 0), 0);
-    const avgClicks = numberOfCompletedCampaigns > 0 ? (totalClicks / numberOfCompletedCampaigns).toFixed(0) : 'N/A';
-
+    const avgClicks = numberOfCompletedCampaigns > 0 ? (totalClicks / numberOfCompletedCampaigns).toFixed(0) : '0';
     const totalPPC = completedCampaigns.reduce((sum, c) => sum + (c.pricePerClick || 0), 0);
-    const avgPPC = numberOfCompletedCampaigns > 0 ? (totalPPC / numberOfCompletedCampaigns).toFixed(2) : 'N/A';
-
+    const avgPPC = numberOfCompletedCampaigns > 0 ? (totalPPC / numberOfCompletedCampaigns).toFixed(2) : '0.00';
     const totalViews = completedCampaigns.reduce((sum, c) => sum + (c.views || 0), 0);
-    const avgViews = numberOfCompletedCampaigns > 0 ? (totalViews / numberOfCompletedCampaigns).toFixed(0) : 'N/A';
-
+    const avgViews = numberOfCompletedCampaigns > 0 ? (totalViews / numberOfCompletedCampaigns).toFixed(0) : '0';
     const totalReach = completedCampaigns.reduce((sum, c) => sum + (c.reach || 0), 0);
-    const avgReach = numberOfCompletedCampaigns > 0 ? (totalReach / numberOfCompletedCampaigns).toFixed(0) : 'N/A';
+    const avgReach = numberOfCompletedCampaigns > 0 ? (totalReach / numberOfCompletedCampaigns).toFixed(0) : '0';
+
+    const StatCard = ({ title, value, subtext, colorClass, icon }) => (
+        <div className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm flex items-start justify-between hover:shadow-md transition-shadow">
+            <div>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">{title}</p>
+                <h3 className={`text-3xl font-bold ${colorClass}`}>{value}</h3>
+                <p className="text-xs text-slate-400 mt-2">{subtext}</p>
+            </div>
+            <div className={`p-3 rounded-full bg-slate-50 ${colorClass.replace('text-', 'text-opacity-80 text-')}`}>
+                {icon}
+            </div>
+        </div>
+    );
 
     return (
-        <div className="p-6 bg-white rounded-lg shadow-md">
-            <h2 className="text-3xl font-bold text-gray-800 mb-6">Dashboard Overview (Completed Campaigns)</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <div className="bg-blue-50 p-6 rounded-lg shadow-sm border border-blue-200">
-                    <h3 className="text-xl font-semibold text-blue-700 mb-2">Total Completed Campaigns</h3>
-                    <p className="text-4xl font-bold text-blue-900">{numberOfCompletedCampaigns}</p>
-                    <p className="text-gray-600 mt-2">Number of campaigns with 'Completed' status.</p>
-                </div>
-                <div className="bg-green-50 p-6 rounded-lg shadow-sm border border-green-200">
-                    <h3 className="text-xl font-semibold text-green-700 mb-2">Budget Spent</h3>
-                    <p className="text-4xl font-bold text-green-900">€{budgetSpent.toFixed(2)}</p>
-                    <p className="text-gray-600 mt-2">Total budget for completed campaigns.</p>
-                </div>
-                <div className="bg-yellow-50 p-6 rounded-lg shadow-sm border border-yellow-200">
-                    <h3 className="text-xl font-semibold text-yellow-700 mb-2">Average Clicks</h3>
-                    <p className="text-4xl font-bold text-yellow-900">{avgClicks}</p>
-                    <p className="text-gray-600 mt-2">Average clicks across completed campaigns.</p>
-                </div>
-                <div className="bg-purple-50 p-6 rounded-lg shadow-sm border border-purple-200">
-                    <h3 className="text-xl font-semibold text-purple-700 mb-2">Average Price per Click</h3>
-                    <p className="text-4xl font-bold text-purple-900">€{avgPPC}</p>
-                    <p className="text-gray-600 mt-2">Average cost per click for completed campaigns.</p>
-                </div>
-                <div className="bg-red-50 p-6 rounded-lg shadow-sm border border-red-200">
-                    <h3 className="text-xl font-semibold text-red-700 mb-2">Average Views</h3>
-                    <p className="text-4xl font-bold text-red-900">{avgViews}</p>
-                    <p className="text-gray-600 mt-2">Average views across completed campaigns.</p>
-                </div>
-                <div className="bg-indigo-50 p-6 rounded-lg shadow-sm border border-indigo-200">
-                    <h3 className="text-xl font-semibold text-indigo-700 mb-2">Average Reach</h3>
-                    <p className="text-4xl font-bold text-indigo-900">{avgReach}</p>
-                    <p className="text-gray-600 mt-2">Average reach across completed campaigns.</p>
-                </div>
-            </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <StatCard 
+                title="Завършени Кампании" 
+                value={numberOfCompletedCampaigns} 
+                subtext="Кампании със статус 'Completed'"
+                colorClass="text-blue-600"
+                icon={<span className="text-xl">✅</span>}
+            />
+            <StatCard 
+                title="Изразходван Бюджет" 
+                value={`€${budgetSpent.toFixed(2)}`} 
+                subtext="Общ бюджет на завършени"
+                colorClass="text-green-600"
+                icon={<span className="text-xl">💰</span>}
+            />
+            <StatCard 
+                title="Средно Кликове" 
+                value={avgClicks} 
+                subtext="Средно на кампания"
+                colorClass="text-yellow-600"
+                icon={<span className="text-xl">🖱️</span>}
+            />
+            <StatCard 
+                title="Avg. Cost Per Click" 
+                value={`€${avgPPC}`} 
+                subtext="Средна цена за клик"
+                colorClass="text-purple-600"
+                icon={<span className="text-xl">📉</span>}
+            />
+            <StatCard 
+                title="Средно Преглеждания" 
+                value={avgViews} 
+                subtext="Views per campaign"
+                colorClass="text-red-600"
+                icon={<span className="text-xl">👁️</span>}
+            />
+            <StatCard 
+                title="Среден Reach" 
+                value={avgReach} 
+                subtext="Уникални потребители"
+                colorClass="text-indigo-600"
+                icon={<span className="text-xl">🌍</span>}
+            />
         </div>
     );
 };
 
-// AddCampaignForm Component
-const AddCampaignForm = ({ db, userId, isAuthReady }) => { // db, userId, isAuthReady received as props
-    const [newCampaignName, setNewCampaignName] = useState('');
-    const [newCampaignStatus, setNewCampaignStatus] = useState('Planned');
-    const [newCampaignBudget, setNewCampaignBudget] = useState('');
-    const [newCampaignStartDate, setNewCampaignStartDate] = useState('');
-    const [newCampaignEndDate, setNewCampaignEndDate] = useState('');
-    const [newCampaignTargetAudience, setNewCampaignTargetAudience] = useState('');
-    const [newCampaignClicks, setNewCampaignClicks] = useState('');
-    const [newCampaignPricePerClick, setNewCampaignPricePerClick] = useState('');
-    const [newCampaignViews, setNewCampaignViews] = useState('');
-    const [newCampaignReach, setNewCampaignReach] = useState('');
-    const [newCampaignAudienceNotes, setNewCampaignAudienceNotes] = useState('');
-    const [newCampaignPlatform, setNewCampaignPlatform] = useState('');
-    const [newCampaignPostText, setNewCampaignPostText] = useState('');
-    const [newCampaignPostConcept, setNewCampaignPostConcept] = useState('');
-    const [newCampaignPostScript, setNewCampaignPostScript] = useState('');
+// --- AddCampaignForm Component ---
+const AddCampaignForm = ({ db, userId, isAuthReady }) => {
+    const [formData, setFormData] = useState({
+        name: '', status: 'Planned', budget: '', startDate: '', endDate: '',
+        targetAudience: '', clicks: '', pricePerClick: '', views: '', reach: '',
+        audienceNotes: '', platform: '', postText: '', postConcept: '', postScript: ''
+    });
 
-    // appId needs to come from the main app's context or prop
-    // For now, keep the fallback or define it if you know it's always available globally
+    // App ID fallback
     const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id'; 
 
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({ ...prev, [name]: value }));
+    };
+
     const handleAddCampaign = async () => {
-        if (!db || !userId || !isAuthReady || !newCampaignName.trim()) {
-            console.error("Cannot add campaign: Firestore not ready, user not authenticated, or campaign name is empty.");
-            return;
-        }
+        if (!db || !userId || !isAuthReady || !formData.name.trim()) return;
         try {
             const campaignsCollectionRef = collection(db, `artifacts/${appId}/public/data/campaigns`);
             await addDoc(campaignsCollectionRef, {
-                name: newCampaignName,
-                status: newCampaignStatus,
-                budget: newCampaignBudget ? parseFloat(newCampaignBudget) : 0, // Convert to number
-                startDate: newCampaignStartDate,
-                endDate: newCampaignEndDate,
-                targetAudience: newCampaignTargetAudience,
-                clicks: newCampaignClicks ? parseInt(newCampaignClicks) : 0, // Convert to number
-                pricePerClick: newCampaignPricePerClick ? parseFloat(newCampaignPricePerClick) : 0, // Convert to number
-                views: newCampaignViews ? parseInt(newCampaignViews) : 0, // Convert to number
-                reach: newCampaignReach ? parseInt(newCampaignReach) : 0, // Convert to number
-                audienceNotes: newCampaignAudienceNotes,
-                platform: newCampaignPlatform,
-                postText: newCampaignPostText,
-                postConcept: newCampaignPostConcept,
-                postScript: newCampaignPostScript,
+                ...formData,
+                budget: parseFloat(formData.budget) || 0,
+                clicks: parseInt(formData.clicks) || 0,
+                pricePerClick: parseFloat(formData.pricePerClick) || 0,
+                views: parseInt(formData.views) || 0,
+                reach: parseInt(formData.reach) || 0,
                 createdAt: new Date().toISOString(),
                 createdBy: userId,
             });
-            // Reset form fields
-            setNewCampaignName('');
-            setNewCampaignStatus('Planned');
-            setNewCampaignBudget('');
-            setNewCampaignStartDate('');
-            setNewCampaignEndDate('');
-            setNewCampaignTargetAudience('');
-            setNewCampaignClicks('');
-            setNewCampaignPricePerClick('');
-            setNewCampaignViews('');
-            setNewCampaignReach('');
-            setNewCampaignAudienceNotes('');
-            setNewCampaignPlatform('');
-            setNewCampaignPostText('');
-            setNewCampaignPostConcept('');
-            setNewCampaignPostScript('');
-
-            console.log("Campaign added successfully!");
+            // Reset form
+            setFormData({
+                name: '', status: 'Planned', budget: '', startDate: '', endDate: '',
+                targetAudience: '', clicks: '', pricePerClick: '', views: '', reach: '',
+                audienceNotes: '', platform: '', postText: '', postConcept: '', postScript: ''
+            });
+            alert("Кампанията е добавена успешно!");
         } catch (error) {
             console.error("Error adding campaign:", error);
         }
@@ -191,467 +124,266 @@ const AddCampaignForm = ({ db, userId, isAuthReady }) => { // db, userId, isAuth
     const isFormDisabled = !isAuthReady || !userId;
 
     return (
-        <div className="p-6 bg-white rounded-lg shadow-md">
-            <h2 className="text-3xl font-bold text-gray-800 mb-6">Add New Campaign</h2>
-            <div className="mb-8 p-6 bg-blue-50 rounded-lg shadow-inner border border-blue-200">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <input
-                        type="text"
-                        placeholder="Campaign Name"
-                        value={newCampaignName}
-                        onChange={(e) => setNewCampaignName(e.target.value)}
-                        className="p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
-                        disabled={isFormDisabled}
-                    />
-                    <select
-                        value={newCampaignStatus}
-                        onChange={(e) => setNewCampaignStatus(e.target.value)}
-                        className="p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
-                        disabled={isFormDisabled}
-                    >
-                        <option value="Planned">Planned</option>
-                        <option value="Active">Active</option>
-                        <option value="Completed">Completed</option>
-                        <option value="Paused">Paused</option>
-                    </select>
-                    <input
-                        type="number"
-                        placeholder="Budget (€)"
-                        value={newCampaignBudget}
-                        onChange={(e) => setNewCampaignBudget(e.target.value)}
-                        className="p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
-                        disabled={isFormDisabled}
-                    />
-                    <input
-                        type="date"
-                        placeholder="Start Date"
-                        value={newCampaignStartDate}
-                        onChange={(e) => setNewCampaignStartDate(e.target.value)}
-                        className="p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
-                        disabled={isFormDisabled}
-                    />
-                    <input
-                        type="date"
-                        placeholder="End Date"
-                        value={newCampaignEndDate}
-                        onChange={(e) => setNewCampaignEndDate(e.target.value)}
-                        className="p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
-                        disabled={isFormDisabled}
-                    />
-                    <input
-                        type="text"
-                        placeholder="Target Audience (e.g., 'Young Adults')"
-                        value={newCampaignTargetAudience}
-                        onChange={(e) => setNewCampaignTargetAudience(e.target.value)}
-                        className="p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
-                        disabled={isFormDisabled}
-                    />
-                    <input
-                        type="number"
-                        placeholder="Clicks"
-                        value={newCampaignClicks}
-                        onChange={(e) => setNewCampaignClicks(e.target.value)}
-                        className="p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
-                        disabled={isFormDisabled}
-                    />
-                    <input
-                        type="number"
-                        step="0.01" // Allow decimal for price
-                        placeholder="Price per Click (€)"
-                        value={newCampaignPricePerClick}
-                        onChange={(e) => setNewCampaignPricePerClick(e.target.value)}
-                        className="p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
-                        disabled={isFormDisabled}
-                    />
-                    <input
-                        type="number"
-                        placeholder="Views"
-                        value={newCampaignViews}
-                        onChange={(e) => setNewCampaignViews(e.target.value)}
-                        className="p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
-                        disabled={isFormDisabled}
-                    />
-                    <input
-                        type="number"
-                        placeholder="Reach"
-                        value={newCampaignReach}
-                        onChange={(e) => setNewCampaignReach(e.target.value)}
-                        className="p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
-                        disabled={isFormDisabled}
-                    />
-                    <input
-                        type="text"
-                        placeholder="Audience Notes (e.g., 'Male, 18-24, interests in tech')"
-                        value={newCampaignAudienceNotes}
-                        onChange={(e) => setNewCampaignAudienceNotes(e.target.value)}
-                        className="p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
-                        disabled={isFormDisabled}
-                    />
-                    <select
-                        value={newCampaignPlatform}
-                        onChange={(e) => setNewCampaignPlatform(e.target.value)}
-                        className="p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
-                        disabled={isFormDisabled}
-                    >
-                        <option value="">Select Platform</option>
-                        <option value="TikTok">TikTok</option>
-                        <option value="Facebook">Facebook</option>
-                        <option value="Instagram">Instagram</option>
-                        <option value="Instagram/Facebook">Instagram/Facebook</option>
-                        <option value="Other">Other</option>
-                    </select>
-                    <textarea
-                        placeholder="Post Text"
-                        value={newCampaignPostText}
-                        onChange={(e) => setNewCampaignPostText(e.target.value)}
-                        className="p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 col-span-full"
-                        rows="3"
-                        disabled={isFormDisabled}
-                    ></textarea>
-                    <textarea
-                        placeholder="Post Concept"
-                        value={newCampaignPostConcept}
-                        onChange={(e) => setNewCampaignPostConcept(e.target.value)}
-                        className="p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 col-span-full"
-                        rows="3"
-                        disabled={isFormDisabled}
-                    ></textarea>
-                    <textarea
-                        placeholder="Post Script"
-                        value={newCampaignPostScript}
-                        onChange={(e) => setNewCampaignPostScript(e.target.value)}
-                        className="p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 col-span-full"
-                        rows="3"
-                        disabled={isFormDisabled}
-                    ></textarea>
+        <div className="bg-white border border-slate-200 rounded-lg shadow-sm p-6">
+            <h3 className="text-lg font-bold text-slate-700 uppercase mb-6 border-b border-slate-100 pb-2">Нова Кампания</h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Basic Info */}
+                <div className="md:col-span-1 space-y-4">
+                    <h4 className="text-xs font-bold text-blue-600 uppercase">1. Основна информация</h4>
+                    <div>
+                        <label className="label-clean">Име на кампания</label>
+                        <input type="text" name="name" value={formData.name} onChange={handleChange} className="input-clean" disabled={isFormDisabled} />
+                    </div>
+                    <div>
+                        <label className="label-clean">Статус</label>
+                        <select name="status" value={formData.status} onChange={handleChange} className="input-clean bg-white" disabled={isFormDisabled}>
+                            <option value="Planned">Планирана</option>
+                            <option value="Active">Активна</option>
+                            <option value="Completed">Приключила</option>
+                            <option value="Paused">На пауза</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label className="label-clean">Бюджет (€)</label>
+                        <input type="number" name="budget" value={formData.budget} onChange={handleChange} className="input-clean" disabled={isFormDisabled} />
+                    </div>
                 </div>
+
+                {/* Targeting & Dates */}
+                <div className="md:col-span-1 space-y-4">
+                    <h4 className="text-xs font-bold text-blue-600 uppercase">2. Таргетиране & Дати</h4>
+                    <div className="grid grid-cols-2 gap-2">
+                        <div>
+                            <label className="label-clean">Начало</label>
+                            <input type="date" name="startDate" value={formData.startDate} onChange={handleChange} className="input-clean" disabled={isFormDisabled} />
+                        </div>
+                        <div>
+                            <label className="label-clean">Край</label>
+                            <input type="date" name="endDate" value={formData.endDate} onChange={handleChange} className="input-clean" disabled={isFormDisabled} />
+                        </div>
+                    </div>
+                    <div>
+                        <label className="label-clean">Платформа</label>
+                        <select name="platform" value={formData.platform} onChange={handleChange} className="input-clean bg-white" disabled={isFormDisabled}>
+                            <option value="">Избери...</option>
+                            <option value="TikTok">TikTok</option>
+                            <option value="Facebook">Facebook</option>
+                            <option value="Instagram">Instagram</option>
+                            <option value="Instagram/Facebook">Instagram/Facebook</option>
+                            <option value="Other">Друга</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label className="label-clean">Целева Аудитория</label>
+                        <input type="text" name="targetAudience" value={formData.targetAudience} onChange={handleChange} className="input-clean" disabled={isFormDisabled} />
+                    </div>
+                </div>
+
+                {/* Content */}
+                <div className="md:col-span-1 space-y-4">
+                    <h4 className="text-xs font-bold text-blue-600 uppercase">3. Съдържание</h4>
+                    <div>
+                        <label className="label-clean">Текст на поста</label>
+                        <textarea name="postText" value={formData.postText} onChange={handleChange} rows="2" className="input-clean resize-none" disabled={isFormDisabled}></textarea>
+                    </div>
+                    <div>
+                        <label className="label-clean">Концепция</label>
+                        <textarea name="postConcept" value={formData.postConcept} onChange={handleChange} rows="2" className="input-clean resize-none" disabled={isFormDisabled}></textarea>
+                    </div>
+                </div>
+
+                {/* Metrics (Optional / Forecast) */}
+                <div className="md:col-span-3 pt-4 border-t border-slate-100">
+                    <h4 className="text-xs font-bold text-slate-400 uppercase mb-3">Метрики (Прогноза / Начални)</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                        <div><label className="label-clean">Clicks</label><input type="number" name="clicks" value={formData.clicks} onChange={handleChange} className="input-clean" disabled={isFormDisabled} /></div>
+                        <div><label className="label-clean">PPC (€)</label><input type="number" step="0.01" name="pricePerClick" value={formData.pricePerClick} onChange={handleChange} className="input-clean" disabled={isFormDisabled} /></div>
+                        <div><label className="label-clean">Views</label><input type="number" name="views" value={formData.views} onChange={handleChange} className="input-clean" disabled={isFormDisabled} /></div>
+                        <div><label className="label-clean">Reach</label><input type="number" name="reach" value={formData.reach} onChange={handleChange} className="input-clean" disabled={isFormDisabled} /></div>
+                        <div><label className="label-clean">Audience Notes</label><input type="text" name="audienceNotes" value={formData.audienceNotes} onChange={handleChange} className="input-clean" disabled={isFormDisabled} /></div>
+                    </div>
+                </div>
+            </div>
+
+            <div className="mt-6 flex justify-end">
                 <button
                     onClick={handleAddCampaign}
-                    className={`mt-6 w-full px-6 py-3 font-semibold rounded-lg shadow-md transition duration-300 ease-in-out transform
-                        ${isFormDisabled || !newCampaignName.trim()
-                            ? 'bg-gray-400 text-gray-700 cursor-not-allowed'
-                            : 'bg-blue-600 text-white hover:bg-blue-700 hover:scale-105'
-                        }`}
-                    disabled={isFormDisabled || !newCampaignName.trim()}
+                    className={`px-8 py-3 rounded-lg font-bold shadow-md transition transform hover:scale-105 ${isFormDisabled || !formData.name.trim() ? 'bg-slate-300 text-slate-500 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
+                    disabled={isFormDisabled || !formData.name.trim()}
                 >
-                    Add Campaign
+                    + Добави Кампания
                 </button>
-                {isFormDisabled && (
-                    <p className="text-red-600 text-sm mt-2">
-                        Please ensure you are logged in to add campaigns.
-                    </p>
-                )}
             </div>
         </div>
     );
 };
 
-// ManageCampaignsList Component (formerly Campaigns component)
-const ManageCampaignsList = ({ db, userId, isAuthReady, campaigns }) => { // db, userId, isAuthReady, campaigns received as props
-
-    const [editingCampaign, setEditingCampaign] = useState(null); // Stores campaign being edited
-
-    // appId needs to come from the main app's context or prop
-    // For now, keep the fallback or define it if you know it's always available globally
+// --- ManageCampaignsList Component ---
+const ManageCampaignsList = ({ db, userId, isAuthReady, campaigns }) => {
+    const [editingCampaign, setEditingCampaign] = useState(null);
     const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
-    // Start editing a campaign
     const handleEditClick = (campaign) => {
         setEditingCampaign({
             ...campaign,
-            // Ensure dates are formatted for input type="date"
             startDate: campaign.startDate ? new Date(campaign.startDate).toISOString().split('T')[0] : '',
             endDate: campaign.endDate ? new Date(campaign.endDate).toISOString().split('T')[0] : '',
-            // Ensure numeric fields are strings for input value
-            budget: campaign.budget !== undefined ? String(campaign.budget) : '',
-            clicks: campaign.clicks !== undefined ? String(campaign.clicks) : '',
-            pricePerClick: campaign.pricePerClick !== undefined ? String(campaign.pricePerClick) : '',
-            views: campaign.views !== undefined ? String(campaign.views) : '',
-            reach: campaign.reach !== undefined ? String(campaign.reach) : '',
+            // Convert numbers to strings for inputs
+            budget: String(campaign.budget || ''),
+            clicks: String(campaign.clicks || ''),
+            pricePerClick: String(campaign.pricePerClick || ''),
+            views: String(campaign.views || ''),
+            reach: String(campaign.reach || ''),
         });
     };
 
-    // Update a campaign
     const handleUpdateCampaign = async () => {
-        if (!db || !userId || !isAuthReady || !editingCampaign || !editingCampaign.name.trim()) {
-            console.error("Cannot update campaign: Firestore not ready, user not authenticated, or campaign data is invalid.");
-            return;
-        }
+        if (!db || !userId || !isAuthReady || !editingCampaign || !editingCampaign.name.trim()) return;
         try {
             const campaignDocRef = doc(db, `artifacts/${appId}/public/data/campaigns`, editingCampaign.id);
             await updateDoc(campaignDocRef, {
                 name: editingCampaign.name,
                 status: editingCampaign.status,
-                budget: editingCampaign.budget ? parseFloat(editingCampaign.budget) : 0,
+                budget: parseFloat(editingCampaign.budget) || 0,
                 startDate: editingCampaign.startDate,
                 endDate: editingCampaign.endDate,
                 targetAudience: editingCampaign.targetAudience,
-                clicks: editingCampaign.clicks ? parseInt(editingCampaign.clicks) : 0,
-                pricePerClick: editingCampaign.pricePerClick ? parseFloat(editingCampaign.pricePerClick) : 0,
-                views: editingCampaign.views ? parseInt(editingCampaign.views) : 0,
-                reach: editingCampaign.reach ? parseInt(editingCampaign.reach) : 0,
+                clicks: parseInt(editingCampaign.clicks) || 0,
+                pricePerClick: parseFloat(editingCampaign.pricePerClick) || 0,
+                views: parseInt(editingCampaign.views) || 0,
+                reach: parseInt(editingCampaign.reach) || 0,
                 audienceNotes: editingCampaign.audienceNotes,
                 platform: editingCampaign.platform,
                 postText: editingCampaign.postText,
                 postConcept: editingCampaign.postConcept,
                 postScript: editingCampaign.postScript,
             });
-            setEditingCampaign(null); // Exit editing mode
-            console.log("Campaign updated successfully!");
+            setEditingCampaign(null);
         } catch (error) {
             console.error("Error updating campaign:", error);
         }
     };
 
-    // Delete a campaign
     const handleDeleteCampaign = async (id) => {
-        if (!db || !userId || !isAuthReady) {
-            console.error("Cannot delete campaign: Firestore not ready or user not authenticated.");
-            return;
-        }
-        // Implement a simple confirmation dialog (not alert)
-        if (window.confirm("Are you sure you want to delete this campaign?")) {
-            try {
-                const campaignDocRef = doc(db, `artifacts/${appId}/public/data/campaigns`, id);
-                await deleteDoc(campaignDocRef);
-                console.log("Campaign deleted successfully!");
-            } catch (error) {
-                console.error("Error deleting campaign:", error);
-            }
+        if (!window.confirm("Сигурни ли сте, че искате да изтриете тази кампания?")) return;
+        try {
+            const campaignDocRef = doc(db, `artifacts/${appId}/public/data/campaigns`, id);
+            await deleteDoc(campaignDocRef);
+        } catch (error) {
+            console.error("Error deleting campaign:", error);
         }
     };
 
-    // Sort campaigns by creation date (client-side)
     const sortedCampaigns = [...campaigns].sort((a, b) => {
         const dateA = new Date(a.createdAt || 0);
         const dateB = new Date(b.createdAt || 0);
-        return dateB.getTime() - dateA.getTime(); // Newest first
+        return dateB.getTime() - dateA.getTime();
     });
 
-    const isFormDisabled = !isAuthReady || !userId; // Used for disabling edit/delete buttons if not authenticated
+    const isFormDisabled = !isAuthReady || !userId;
 
     return (
-        <div className="p-6 bg-white rounded-lg shadow-md">
-            <h2 className="text-3xl font-bold text-gray-800 mb-6">Manage Campaigns</h2>
+        <div>
             {sortedCampaigns.length === 0 ? (
-                <p className="text-gray-600">No campaigns found. Go to "Add Campaign" to create one!</p>
+                <div className="text-center py-12 bg-slate-50 rounded-lg border border-dashed border-slate-300">
+                    <p className="text-slate-500">Няма намерени кампании.</p>
+                </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {sortedCampaigns.map((campaign) => (
-                        <div key={campaign.id} className="bg-white border border-gray-200 rounded-lg shadow-md p-6 flex flex-col justify-between transition-transform duration-200 hover:scale-[1.02]">
-                            {editingCampaign && editingCampaign.id === campaign.id ? (
-                                // Edit Form within Card
-                                <div className="space-y-3">
-                                    <input
-                                        type="text"
-                                        value={editingCampaign.name}
-                                        onChange={(e) => setEditingCampaign({ ...editingCampaign, name: e.target.value })}
-                                        className="w-full p-2 border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-400"
-                                        disabled={isFormDisabled}
+                        <div key={campaign.id} className="bg-white border border-slate-200 rounded-lg shadow-sm hover:shadow-md transition-all flex flex-col">
+                            
+                            {/* HEADER */}
+                            <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex justify-between items-start">
+                                {editingCampaign && editingCampaign.id === campaign.id ? (
+                                    <input 
+                                        value={editingCampaign.name} 
+                                        onChange={(e) => setEditingCampaign({ ...editingCampaign, name: e.target.value })} 
+                                        className="font-bold text-slate-700 bg-white border border-blue-300 rounded px-1 w-full"
                                     />
-                                    <select
-                                        value={editingCampaign.status}
+                                ) : (
+                                    <div>
+                                        <h3 className="font-bold text-slate-700 text-sm truncate w-48" title={campaign.name}>{campaign.name}</h3>
+                                        <p className="text-[10px] text-slate-400">{campaign.platform || 'No Platform'}</p>
+                                    </div>
+                                )}
+                                
+                                {editingCampaign && editingCampaign.id === campaign.id ? (
+                                    <select 
+                                        value={editingCampaign.status} 
                                         onChange={(e) => setEditingCampaign({ ...editingCampaign, status: e.target.value })}
-                                        className="w-full p-2 border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-400"
-                                        disabled={isFormDisabled}
+                                        className="text-xs border rounded ml-2"
                                     >
                                         <option value="Planned">Planned</option>
                                         <option value="Active">Active</option>
-                                        <option value="Completed">Completed</option>
+                                        <option value="Completed">Done</option>
                                         <option value="Paused">Paused</option>
                                     </select>
-                                    <input
-                                        type="number"
-                                        placeholder="Budget (€)"
-                                        value={editingCampaign.budget}
-                                        onChange={(e) => setEditingCampaign({ ...editingCampaign, budget: e.target.value })}
-                                        className="w-full p-2 border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-400"
-                                        disabled={isFormDisabled}
-                                    />
-                                    <input
-                                        type="date"
-                                        value={editingCampaign.startDate}
-                                        onChange={(e) => setEditingCampaign({ ...editingCampaign, startDate: e.target.value })}
-                                        className="w-full p-2 border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-400"
-                                        disabled={isFormDisabled}
-                                    />
-                                    <input
-                                        type="date"
-                                        value={editingCampaign.endDate}
-                                        onChange={(e) => setEditingCampaign({ ...editingCampaign, endDate: e.target.value })}
-                                        className="w-full p-2 border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-400"
-                                        disabled={isFormDisabled}
-                                    />
-                                    <input
-                                        type="text"
-                                        placeholder="Target Audience"
-                                        value={editingCampaign.targetAudience}
-                                        onChange={(e) => setEditingCampaign({ ...editingCampaign, targetAudience: e.target.value })}
-                                        className="w-full p-2 border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-400"
-                                        disabled={isFormDisabled}
-                                    />
-                                    <input
-                                        type="number"
-                                        placeholder="Clicks"
-                                        value={editingCampaign.clicks}
-                                        onChange={(e) => setEditingCampaign({ ...editingCampaign, clicks: e.target.value })}
-                                        className="w-full p-2 border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-400"
-                                        disabled={isFormDisabled}
-                                    />
-                                    <input
-                                        type="number"
-                                        step="0.01"
-                                        placeholder="PPC (€)"
-                                        value={editingCampaign.pricePerClick}
-                                        onChange={(e) => setEditingCampaign({ ...editingCampaign, pricePerClick: e.target.value })}
-                                        className="w-full p-2 border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-400"
-                                        disabled={isFormDisabled}
-                                    />
-                                    <input
-                                        type="number"
-                                        placeholder="Views"
-                                        value={editingCampaign.views}
-                                        onChange={(e) => setEditingCampaign({ ...editingCampaign, views: e.target.value })}
-                                        className="w-full p-2 border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-400"
-                                        disabled={isFormDisabled}
-                                    />
-                                    <input
-                                        type="number"
-                                        placeholder="Reach"
-                                        value={editingCampaign.reach}
-                                        onChange={(e) => setEditingCampaign({ ...editingCampaign, reach: e.target.value })}
-                                        className="w-full p-2 border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-400"
-                                        disabled={isFormDisabled}
-                                    />
-                                    <input
-                                        type="text"
-                                        placeholder="Audience Notes"
-                                        value={editingCampaign.audienceNotes}
-                                        onChange={(e) => setEditingCampaign({ ...editingCampaign, audienceNotes: e.target.value })}
-                                        className="w-full p-2 border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-400"
-                                        disabled={isFormDisabled}
-                                    />
-                                    <select
-                                        value={editingCampaign.platform}
-                                        onChange={(e) => setEditingCampaign({ ...editingCampaign, platform: e.target.value })}
-                                        className="w-full p-2 border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-400"
-                                        disabled={isFormDisabled}
-                                    >
-                                        <option value="">Select Platform</option>
-                                        <option value="TikTok">TikTok</option>
-                                        <option value="Facebook">Facebook</option>
-                                        <option value="Instagram">Instagram</option>
-                                        <option value="Instagram/Facebook">Instagram/Facebook</option>
-                                        <option value="Other">Other</option>
-                                    </select>
-                                    <textarea
-                                        placeholder="Post Text"
-                                        value={editingCampaign.postText}
-                                        onChange={(e) => setEditingCampaign({ ...editingCampaign, postText: e.target.value })}
-                                        className="w-full p-2 border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-400"
-                                        rows="2"
-                                        disabled={isFormDisabled}
-                                    ></textarea>
-                                    <textarea
-                                        placeholder="Post Concept"
-                                        value={editingCampaign.postConcept}
-                                        onChange={(e) => setEditingCampaign({ ...editingCampaign, postConcept: e.target.value })}
-                                        className="w-full p-2 border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-400"
-                                        rows="2"
-                                        disabled={isFormDisabled}
-                                    ></textarea>
-                                    <textarea
-                                        placeholder="Post Script"
-                                        value={editingCampaign.postScript}
-                                        onChange={(e) => setEditingCampaign({ ...editingCampaign, postScript: e.target.value })}
-                                        className="w-full p-2 border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-400"
-                                        rows="2"
-                                        disabled={isFormDisabled}
-                                    ></textarea>
-                                    <div className="flex justify-end gap-2 mt-4">
-                                        <button
-                                            onClick={handleUpdateCampaign}
-                                            className={`px-4 py-2 rounded-md transition duration-200 text-sm
-                                                ${isFormDisabled || !editingCampaign.name.trim()
-                                                    ? 'bg-gray-400 text-gray-700 cursor-not-allowed'
-                                                    : 'bg-green-500 text-white hover:bg-green-600'
-                                                }`}
-                                            disabled={isFormDisabled || !editingCampaign.name.trim()}
-                                        >
-                                            Save
-                                        </button>
-                                        <button
-                                            onClick={() => setEditingCampaign(null)}
-                                            className="px-4 py-2 bg-gray-400 text-white rounded-md hover:bg-gray-500 transition duration-200 text-sm"
-                                            disabled={isFormDisabled}
-                                        >
-                                            Cancel
-                                        </button>
-                                    </div>
-                                </div>
-                            ) : (
-                                // Display Card
-                                <div className="flex flex-col h-full">
-                                    <div className="flex-grow space-y-2 mb-4">
-                                        <h3 className="text-xl font-bold text-blue-700">{campaign.name}</h3>
-                                        <p className="text-sm text-gray-600">
-                                            Status: <span className={`px-2 py-0.5 rounded-full text-xs font-semibold
-                                                ${campaign.status === 'Active' ? 'bg-green-100 text-green-800' : ''}
-                                                ${campaign.status === 'Planned' ? 'bg-blue-100 text-blue-800' : ''}
-                                                ${campaign.status === 'Completed' ? 'bg-purple-100 text-purple-800' : ''}
-                                                ${campaign.status === 'Paused' ? 'bg-yellow-100 text-yellow-800' : ''}
-                                            `}>
-                                                {campaign.status}
-                                            </span>
-                                        </p>
-                                        <p className="text-gray-700">Budget: €{campaign.budget || 'N/A'}</p>
-                                        <p className="text-gray-700">Dates: {campaign.startDate ? new Date(campaign.startDate).toLocaleDateString() : 'N/A'} - {campaign.endDate ? new Date(campaign.endDate).toLocaleDateString() : 'N/A'}</p>
-                                        <p className="text-gray-700">Platform: {campaign.platform || 'N/A'}</p>
-                                        <p className="text-gray-700">Target: {campaign.targetAudience || 'N/A'}</p>
-                                        <p className="text-gray-700">Audience Notes: {campaign.audienceNotes || 'N/A'}</p>
-                                        <p className="text-gray-700">Clicks: {campaign.clicks || 'N/A'}</p>
-                                        <p className="text-gray-700">PPC: €{campaign.pricePerClick || 'N/A'}</p>
-                                        <p className="text-gray-700">Views: {campaign.views || 'N/A'}</p>
-                                        <p className="text-gray-700">Reach: {campaign.reach || 'N/A'}</p>
-                                        <div className="text-sm text-gray-700 mt-2">
-                                            <p className="font-semibold">Post Text:</p>
-                                            <p className="text-xs max-h-16 overflow-y-auto border border-gray-200 rounded p-2">{campaign.postText || 'N/A'}</p>
+                                ) : (
+                                    <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wide
+                                        ${campaign.status === 'Active' ? 'bg-green-100 text-green-700' :
+                                          campaign.status === 'Completed' ? 'bg-purple-100 text-purple-700' :
+                                          campaign.status === 'Paused' ? 'bg-yellow-100 text-yellow-700' :
+                                          'bg-blue-100 text-blue-700'}`}>
+                                        {campaign.status}
+                                    </span>
+                                )}
+                            </div>
+
+                            {/* BODY */}
+                            <div className="p-4 flex-grow space-y-3 text-xs">
+                                {editingCampaign && editingCampaign.id === campaign.id ? (
+                                    // EDIT MODE
+                                    <div className="space-y-2">
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <div><label className="text-[9px] font-bold text-slate-400">Budget</label><input type="number" value={editingCampaign.budget} onChange={e => setEditingCampaign({...editingCampaign, budget: e.target.value})} className="input-clean py-1" /></div>
+                                            <div><label className="text-[9px] font-bold text-slate-400">Clicks</label><input type="number" value={editingCampaign.clicks} onChange={e => setEditingCampaign({...editingCampaign, clicks: e.target.value})} className="input-clean py-1" /></div>
                                         </div>
-                                        <div className="text-sm text-gray-700 mt-2">
-                                            <p className="font-semibold">Post Concept:</p>
-                                            <p className="text-xs max-h-16 overflow-y-auto border border-gray-200 rounded p-2">{campaign.postConcept || 'N/A'}</p>
-                                        </div>
-                                        <div className="text-sm text-gray-700 mt-2">
-                                            <p className="font-semibold">Post Script:</p>
-                                            <p className="text-xs max-h-16 overflow-y-auto border border-gray-200 rounded p-2">{campaign.postScript || 'N/A'}</p>
+                                        <div><label className="text-[9px] font-bold text-slate-400">Audience</label><input type="text" value={editingCampaign.targetAudience} onChange={e => setEditingCampaign({...editingCampaign, targetAudience: e.target.value})} className="input-clean py-1" /></div>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <div><label className="text-[9px] font-bold text-slate-400">Start</label><input type="date" value={editingCampaign.startDate} onChange={e => setEditingCampaign({...editingCampaign, startDate: e.target.value})} className="input-clean py-1" /></div>
+                                            <div><label className="text-[9px] font-bold text-slate-400">End</label><input type="date" value={editingCampaign.endDate} onChange={e => setEditingCampaign({...editingCampaign, endDate: e.target.value})} className="input-clean py-1" /></div>
                                         </div>
                                     </div>
-                                    <div className="flex justify-end gap-2 mt-4">
-                                        <button
-                                            onClick={() => handleEditClick(campaign)}
-                                            className={`px-4 py-2 rounded-md transition duration-200 text-sm
-                                                ${isFormDisabled
-                                                    ? 'bg-gray-400 text-gray-700 cursor-not-allowed'
-                                                    : 'bg-yellow-500 text-white hover:bg-yellow-600'
-                                                }`}
-                                            disabled={isFormDisabled}
-                                        >
-                                            Edit
+                                ) : (
+                                    // VIEW MODE
+                                    <>
+                                        <div className="grid grid-cols-2 gap-2 text-slate-600">
+                                            <div><span className="block text-[9px] text-slate-400 uppercase font-bold">Budget</span>€{campaign.budget || 0}</div>
+                                            <div><span className="block text-[9px] text-slate-400 uppercase font-bold">Clicks</span>{campaign.clicks || 0}</div>
+                                            <div><span className="block text-[9px] text-slate-400 uppercase font-bold">Reach</span>{campaign.reach || 0}</div>
+                                            <div><span className="block text-[9px] text-slate-400 uppercase font-bold">PPC</span>€{campaign.pricePerClick || 0}</div>
+                                        </div>
+                                        <div className="pt-2 border-t border-slate-100">
+                                            <p className="text-[9px] text-slate-400 uppercase font-bold">Target</p>
+                                            <p className="text-slate-800 truncate">{campaign.targetAudience || '-'}</p>
+                                        </div>
+                                        <div className="text-[10px] text-slate-500">
+                                            {campaign.startDate ? new Date(campaign.startDate).toLocaleDateString() : 'N/A'} - {campaign.endDate ? new Date(campaign.endDate).toLocaleDateString() : 'N/A'}
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+
+                            {/* FOOTER ACTIONS */}
+                            <div className="p-3 bg-slate-50 border-t border-slate-200 flex justify-end gap-2">
+                                {editingCampaign && editingCampaign.id === campaign.id ? (
+                                    <>
+                                        <button onClick={() => setEditingCampaign(null)} className="px-3 py-1 text-xs font-bold text-slate-500 hover:text-slate-700">Cancel</button>
+                                        <button onClick={handleUpdateCampaign} className="px-3 py-1 text-xs font-bold bg-green-500 text-white rounded hover:bg-green-600">Save</button>
+                                    </>
+                                ) : (
+                                    <>
+                                        <button onClick={() => handleDeleteCampaign(campaign.id)} className="p-1 text-slate-400 hover:text-red-500 transition" disabled={isFormDisabled}>
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                                         </button>
-                                        <button
-                                            onClick={() => handleDeleteCampaign(campaign.id)}
-                                            className={`px-4 py-2 rounded-md transition duration-200 text-sm
-                                                ${isFormDisabled
-                                                    ? 'bg-gray-400 text-gray-700 cursor-not-allowed'
-                                                    : 'bg-red-500 text-white hover:bg-red-600'
-                                                }`}
-                                            disabled={isFormDisabled}
-                                        >
-                                            Delete
+                                        <button onClick={() => handleEditClick(campaign)} className="px-3 py-1 text-xs font-bold bg-white border border-slate-300 text-slate-600 rounded hover:bg-slate-100 transition" disabled={isFormDisabled}>
+                                            Manage
                                         </button>
-                                    </div>
-                                </div>
-                            )}
+                                    </>
+                                )}
+                            </div>
                         </div>
                     ))}
                 </div>
@@ -660,43 +392,55 @@ const ManageCampaignsList = ({ db, userId, isAuthReady, campaigns }) => { // db,
     );
 };
 
-
-// MarketingHubModule will encapsulate the internal navigation and components of the Marketing Hub
+// --- Main Module ---
 const MarketingHubModule = ({ db, userId, isAuthReady, campaigns }) => {
-    // State for the Marketing Hub's internal tabs
     const [activeSubTab, setActiveSubTab] = useState('Dashboard');
 
-    // Function to render content based on active internal tab
-    const renderContent = () => {
-        switch (activeSubTab) {
-            case 'Dashboard':
-                return <Dashboard campaigns={campaigns} />;
-            case 'Add Campaign':
-                return <AddCampaignForm db={db} userId={userId} isAuthReady={isAuthReady} />;
-            case 'Manage Campaigns':
-                return <ManageCampaignsList db={db} userId={userId} isAuthReady={isAuthReady} campaigns={campaigns} />;
-            default:
-                return <Dashboard campaigns={campaigns} />;
-        }
-    };
-
     return (
-        <div className="container mx-auto p-4 sm:p-6 lg:p-8">
-            <header className="text-center mb-8">
-                {/* Logo added here */}
-                <img src={Logo} alt="Dynamax Logo" className="mx-auto mb-4 w-32 h-auto rounded-full shadow-lg" />
-                <h1 className="text-5xl font-extrabold text-blue-800 leading-tight mb-2">
-                    Marketing Hub
-                </h1>
-                <p className="text-xl text-gray-600">Your all-in-one solution for marketing management.</p>
-                {/* User status display will be handled by the main app, or pass currentUser as a prop if needed here */}
-            </header>
+        <div className="flex flex-col items-center min-h-screen bg-slate-100 p-8 pb-20">
+            {/* Global Style for this module */}
+            <style>{`
+                .label-clean { display: block; font-size: 0.65rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 0.25rem; }
+                .input-clean { width: 100%; padding: 0.5rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size: 0.875rem; outline: none; transition: all 0.2s; }
+                .input-clean:focus { border-color: #3b82f6; ring: 2px; ring-color: #bfdbfe; }
+            `}</style>
 
-            <MarketingNavbar activeTab={activeSubTab} setActiveTab={setActiveSubTab} />
+            {/* Header */}
+            <div className="w-full max-w-6xl mb-8 text-center">
+                <div className="flex justify-center mb-4">
+                    <img src={Logo} alt="Dynamax Logo" className="h-20 w-auto object-contain" onError={(e) => e.target.style.display='none'} />
+                </div>
+                <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight">Marketing Hub</h1>
+                <p className="text-slate-500 mt-1">Център за управление на рекламни кампании и анализи.</p>
+            </div>
 
-            <main className="mt-8">
-                {renderContent()}
-            </main>
+            {/* Main Card Container */}
+            <div className="bg-white w-full max-w-6xl shadow-xl rounded-lg overflow-hidden border border-slate-200">
+                
+                {/* Tabs */}
+                <div className="flex border-b border-slate-200 bg-slate-50 overflow-x-auto">
+                    {['Dashboard', 'Add Campaign', 'Manage Campaigns'].map((tab) => (
+                        <button
+                            key={tab}
+                            onClick={() => setActiveSubTab(tab)}
+                            className={`flex-1 py-4 px-6 text-sm font-bold uppercase tracking-wide whitespace-nowrap transition-colors
+                                ${activeSubTab === tab 
+                                    ? 'bg-white text-blue-600 border-t-4 border-blue-600' 
+                                    : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
+                                }`}
+                        >
+                            {tab === 'Add Campaign' ? '+ Добави Кампания' : tab === 'Manage Campaigns' ? 'Управление' : 'Табло (Dashboard)'}
+                        </button>
+                    ))}
+                </div>
+
+                {/* Content Area */}
+                <div className="p-8 bg-slate-50/30 min-h-[500px]">
+                    {activeSubTab === 'Dashboard' && <Dashboard campaigns={campaigns} />}
+                    {activeSubTab === 'Add Campaign' && <AddCampaignForm db={db} userId={userId} isAuthReady={isAuthReady} />}
+                    {activeSubTab === 'Manage Campaigns' && <ManageCampaignsList db={db} userId={userId} isAuthReady={isAuthReady} campaigns={campaigns} />}
+                </div>
+            </div>
         </div>
     );
 };
