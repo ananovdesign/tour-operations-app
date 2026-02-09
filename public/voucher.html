@@ -9,15 +9,15 @@
     <style>
         body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; }
         
-        /* Table-like Grid Styling */
-        .voucher-grid { border: 1px solid #64748b; }
-        .voucher-row { display: flex; border-bottom: 1px solid #94a3b8; }
+        /* Compact Grid Styling */
+        .voucher-grid { border: 1px solid #000; }
+        .voucher-row { display: flex; border-bottom: 1px solid #000; }
         .voucher-row:last-child { border-bottom: none; }
         
         .voucher-col {
             flex: 1;
-            padding: 4px 8px; /* Compact padding */
-            border-right: 1px solid #94a3b8;
+            padding: 2px 6px; /* Extremely compact padding */
+            border-right: 1px solid #000;
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -30,67 +30,63 @@
             text-align: center;
             text-transform: uppercase;
             font-size: 0.7rem;
-            color: #1e293b;
-            padding: 4px;
+            color: #000;
+            padding: 3px;
+            border-bottom: 1px solid #000;
         }
 
         /* Inputs */
         .input-field {
             width: 100%;
             background: transparent;
-            padding: 2px 0;
+            padding: 0;
             font-weight: 600;
-            font-size: 0.85rem;
-            color: #0f172a;
+            font-size: 0.8rem; /* Slightly smaller text */
+            color: #000;
             outline: none;
             border-bottom: 1px dashed #cbd5e1;
+            line-height: 1.1; /* Tighter lines */
         }
         .input-field:focus { border-bottom: 1px solid #3b82f6; background-color: #f8fafc; }
         
         .label-text {
-            font-size: 0.6rem;
+            font-size: 0.55rem; /* Tiny labels */
             font-weight: 700;
             color: #64748b;
             text-transform: uppercase;
-            margin-bottom: 1px;
+            margin-bottom: 0px;
         }
 
-        /* Print Optimization */
+        /* Print Optimization - THE FIX */
         @media print {
             @page {
-                margin: 5mm; /* Very small margins */
+                margin: 0;
                 size: A4 portrait;
             }
             body { 
                 background: white; 
                 padding: 0; 
-                margin: 0; 
-                -webkit-print-color-adjust: exact; 
-                print-color-adjust: exact;
+                margin: 0;
             }
             .no-print { display: none !important; }
             
             .main-container { 
                 box-shadow: none !important; 
-                margin: 0 !important; 
+                margin: 5mm auto !important; /* Small centering margin */
                 width: 100% !important;
-                max-width: 100% !important;
                 border: none !important;
-                /* Slightly scale down to ensure fit on one page */
-                transform: scale(0.98);
-                transform-origin: top center;
+                /* KEY FIX: Scale down slightly to fit ANY printer margin */
+                transform: scale(0.95);
+                transform-origin: top center; 
             }
             
-            /* Ensure borders print clearly */
-            .voucher-grid, .voucher-row, .voucher-col { border-color: #000 !important; }
-            .header-bg { background-color: #f1f5f9 !important; color: #000 !important; border-bottom: 1px solid #000; }
-            
             .input-field { border-bottom: none !important; }
+            .label-text { color: #64748b !important; } /* Keep labels gray to save ink/focus on content */
             
-            /* Reduce unnecessary spacing for print */
-            .p-8 { padding: 10px !important; }
-            .mb-6 { margin-bottom: 10px !important; }
-            .gap-12 { gap: 1rem !important; }
+            /* Remove screen padding */
+            .p-8 { padding: 0 !important; }
+            .mb-6 { margin-bottom: 5px !important; }
+            .gap-8 { gap: 1rem !important; }
             .mt-12 { margin-top: 1rem !important; }
         }
     </style>
@@ -100,7 +96,7 @@
     <div class="main-container bg-white w-full max-w-[210mm] shadow-2xl rounded-sm overflow-hidden">
         
         <div class="no-print bg-slate-800 text-white p-3 flex justify-between items-center text-sm">
-            <h1 class="font-bold">Ваучер (Версия 1 страница)</h1>
+            <h1 class="font-bold">Ваучер (Compact Fit)</h1>
             <button onclick="window.print()" class="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded font-bold transition">
                 🖨️ Принтирай
             </button>
@@ -108,46 +104,42 @@
 
         <div class="p-8">
             
-            <div class="flex justify-center mb-4">
+            <div class="flex justify-center mb-2">
                 <img src="https://dynamexres.netlify.app/assets/Logo-BhKKBcxG.png" 
                      alt="DYNAMEX LOGO" 
-                     class="h-20 object-contain"
-                     onerror="this.style.display='none'; document.getElementById('logo-fallback').style.display='block';">
-                
-                <div id="logo-fallback" style="display:none;" class="text-2xl font-black text-slate-800 border-2 border-slate-800 p-2">
-                    DYNAMEX TOUR
-                </div>
+                     class="h-16 object-contain"
+                     onerror="this.style.display='none';">
             </div>
 
             <div class="voucher-grid text-sm">
                 
-                <div class="header-bg border-b border-slate-300">
+                <div class="header-bg">
                     РЕПУБЛИКА БЪЛГАРИЯ / REPUBLIC OF BULGARIA
                 </div>
 
                 <div class="voucher-row bg-slate-50">
-                    <div class="voucher-col items-center flex-row gap-4 justify-between w-full py-2">
+                    <div class="voucher-col items-center flex-row gap-4 justify-between w-full py-1">
                         <span class="font-black text-lg uppercase">Ваучер / Voucher:</span>
                         <input type="text" id="voucherNumber" class="text-right text-xl font-black text-red-600 bg-transparent outline-none w-1/2" placeholder="№">
                     </div>
                 </div>
 
                 <div class="voucher-row">
-                    <div class="voucher-col"><span class="font-bold text-xs">ДАЙНАМЕКС ТУР ЕООД</span></div>
-                    <div class="voucher-col"><span class="font-bold text-xs">DYNAMEX TOUR LTD</span></div>
+                    <div class="voucher-col"><span class="font-bold text-[10px]">ДАЙНАМЕКС ТУР ЕООД</span></div>
+                    <div class="voucher-col"><span class="font-bold text-[10px]">DYNAMEX TOUR LTD</span></div>
                 </div>
                 <div class="voucher-row">
-                    <div class="voucher-col text-[10px]">ЛИЦЕНЗ ЗА ТУРОПЕРАТОР: РК-01-8569/15.04.2025г.</div>
-                    <div class="voucher-col text-[10px]">TUROPERATOR LICENSE: PK-01-8569/15.04.2025.</div>
+                    <div class="voucher-col text-[9px]">ЛИЦЕНЗ ЗА ТУРОПЕРАТОР: РК-01-8569/15.04.2025г.</div>
+                    <div class="voucher-col text-[9px]">TUROPERATOR LICENSE: PK-01-8569/15.04.2025.</div>
                 </div>
                 <div class="voucher-row">
-                    <div class="voucher-col text-[10px]">ЕИК: 208193140, АДРЕС: БЪЛГАРИЯ, РАКИТОВО, ВАСИЛ КУРТЕВ 12А</div>
-                    <div class="voucher-col text-[10px]">ID: 208193140, ADDRESS: BULGARIA, RAKITOVO, VASIL KURTEV 12A</div>
+                    <div class="voucher-col text-[9px]">ЕИК: 208193140, АДРЕС: БЪЛГАРИЯ, РАКИТОВО, ВАСИЛ КУРТЕВ 12А</div>
+                    <div class="voucher-col text-[9px]">ID: 208193140, ADDRESS: BULGARIA, RAKITOVO, VASIL KURTEV 12A</div>
                 </div>
 
                 <div class="voucher-row bg-blue-50/30">
-                    <div class="w-full p-1 text-center">
-                        <select id="voucherType" class="bg-transparent font-bold uppercase text-center w-full outline-none cursor-pointer appearance-none text-xs">
+                    <div class="w-full p-0 text-center">
+                        <select id="voucherType" class="bg-transparent font-bold uppercase text-center w-full outline-none cursor-pointer appearance-none text-[10px] py-1">
                             <option value="original">ОРИГИНАЛ / ORIGINAL</option>
                             <option value="copy">КОПИЕ / COPY</option>
                         </select>
@@ -165,16 +157,16 @@
                     </div>
                 </div>
 
-                <div class="header-bg border-y border-slate-300">
+                <div class="header-bg border-y border-black">
                     ИМЕ И ФАМИЛИЯ НА ТУРИСТА / NAME AND SURNAME OF TOURIST
                 </div>
 
                 <div class="voucher-row">
-                    <div class="w-full p-2">
+                    <div class="w-full p-1">
                         <div id="touristInputsContainer" class="space-y-1">
                             </div>
-                        <button id="addTouristBtn" class="no-print mt-2 text-[10px] bg-green-100 hover:bg-green-200 text-green-700 px-2 py-1 rounded font-bold border border-green-300">
-                            + Добави Турист
+                        <button id="addTouristBtn" class="no-print mt-1 text-[10px] bg-green-100 hover:bg-green-200 text-green-700 px-2 py-0.5 rounded font-bold border border-green-300 w-full">
+                            + Добави
                         </button>
                     </div>
                 </div>
@@ -183,41 +175,35 @@
                     <div class="voucher-col">
                         <div class="flex justify-between items-center">
                             <span class="label-text">Възрастни:</span>
-                            <input type="number" id="adultsCountBg" class="w-10 text-center font-bold bg-transparent border-b border-slate-300" value="2">
+                            <input type="number" id="adultsCountBg" class="w-8 text-center font-bold bg-transparent" value="2">
                         </div>
                     </div>
                     <div class="voucher-col">
                         <div class="flex justify-between items-center">
                             <span class="label-text">Adults:</span>
-                            <input type="number" id="adultsCountEn" class="w-10 text-center font-bold bg-transparent border-b border-slate-300" value="2">
+                            <input type="number" id="adultsCountEn" class="w-8 text-center font-bold bg-transparent" value="2">
                         </div>
                     </div>
                 </div>
                 <div class="voucher-row">
                     <div class="voucher-col">
+                        <div class="flex justify-between items-center border-b border-dashed border-slate-300 pb-1 mb-1">
+                            <span class="label-text">Деца (Редовно):</span>
+                            <input type="number" id="childrenRegularBedCountBg" class="w-8 text-center font-bold bg-transparent" value="0">
+                        </div>
                         <div class="flex justify-between items-center">
-                            <span class="label-text">Деца (Редовно легло):</span>
-                            <input type="number" id="childrenRegularBedCountBg" class="w-10 text-center font-bold bg-transparent border-b border-slate-300" value="0">
+                            <span class="label-text">Деца (Доп.):</span>
+                            <input type="number" id="childrenExtraBedCountBg" class="w-8 text-center font-bold bg-transparent" value="0">
                         </div>
                     </div>
                     <div class="voucher-col">
-                        <div class="flex justify-between items-center">
-                            <span class="label-text">Children (Regular Bed):</span>
-                            <input type="number" id="childrenRegularBedCountEn" class="w-10 text-center font-bold bg-transparent border-b border-slate-300" value="0">
+                        <div class="flex justify-between items-center border-b border-dashed border-slate-300 pb-1 mb-1">
+                            <span class="label-text">Chd (Regular):</span>
+                            <input type="number" id="childrenRegularBedCountEn" class="w-8 text-center font-bold bg-transparent" value="0">
                         </div>
-                    </div>
-                </div>
-                <div class="voucher-row">
-                    <div class="voucher-col">
                         <div class="flex justify-between items-center">
-                            <span class="label-text">Деца (Доп. легло):</span>
-                            <input type="number" id="childrenExtraBedCountBg" class="w-10 text-center font-bold bg-transparent border-b border-slate-300" value="0">
-                        </div>
-                    </div>
-                    <div class="voucher-col">
-                        <div class="flex justify-between items-center">
-                            <span class="label-text">Children (Extra Bed):</span>
-                            <input type="number" id="childrenExtraBedCountEn" class="w-10 text-center font-bold bg-transparent border-b border-slate-300" value="0">
+                            <span class="label-text">Chd (Extra):</span>
+                            <input type="number" id="childrenExtraBedCountEn" class="w-8 text-center font-bold bg-transparent" value="0">
                         </div>
                     </div>
                 </div>
@@ -235,11 +221,11 @@
 
                 <div class="voucher-row">
                     <div class="voucher-col">
-                        <div class="label-text">Място:</div>
+                        <div class="label-text">Място / Настаняване:</div>
                         <input type="text" id="destinationBg" class="input-field">
                     </div>
                     <div class="voucher-col">
-                        <div class="label-text">Destination:</div>
+                        <div class="label-text">Destination / Accom:</div>
                         <input type="text" id="destinationEn" class="input-field">
                     </div>
                 </div>
@@ -248,137 +234,117 @@
                     <div class="voucher-col">
                         <div class="label-text">Срок (От - До):</div>
                         <div class="flex gap-1">
-                            <input type="date" id="dateStartBg" class="input-field text-xs">
+                            <input type="date" id="dateStartBg" class="input-field text-[10px]">
                             <span class="self-center">-</span>
-                            <input type="date" id="dateEndBg" class="input-field text-xs">
+                            <input type="date" id="dateEndBg" class="input-field text-[10px]">
                         </div>
                     </div>
                     <div class="voucher-col">
-                        <div class="label-text">Dates of Itinerary:</div>
+                        <div class="label-text">Period (From - To):</div>
                         <div class="flex gap-1">
-                            <input type="date" id="dateStartEn" class="input-field text-xs">
+                            <input type="date" id="dateStartEn" class="input-field text-[10px]">
                             <span class="self-center">-</span>
-                            <input type="date" id="dateEndEn" class="input-field text-xs">
+                            <input type="date" id="dateEndEn" class="input-field text-[10px]">
                         </div>
                     </div>
                 </div>
 
                 <div class="voucher-row">
                     <div class="voucher-col">
-                        <div class="label-text">Настаняване в:</div>
-                        <input type="text" id="accommodationBg" class="input-field">
-                    </div>
-                    <div class="voucher-col">
-                        <div class="label-text">Accommodation at:</div>
-                        <input type="text" id="accommodationEn" class="input-field">
-                    </div>
-                </div>
-
-                <div class="voucher-row">
-                    <div class="voucher-col">
-                        <div class="label-text">Категория и брой стаи:</div>
+                        <div class="label-text">Тип стая / Пансион:</div>
                         <input type="text" id="roomCategoryBg" class="input-field">
                     </div>
                     <div class="voucher-col">
-                        <div class="label-text">Category and number of rooms:</div>
+                        <div class="label-text">Room Type / Board:</div>
                         <input type="text" id="roomCategoryEn" class="input-field">
                     </div>
                 </div>
 
                 <div class="voucher-row">
                     <div class="voucher-col">
-                        <div class="label-text">Дата и час на пристигане:</div>
-                        <input type="datetime-local" id="checkInBg" class="input-field text-xs">
+                        <div class="label-text">Пристигане / Заминаване:</div>
+                        <div class="flex gap-1">
+                            <input type="datetime-local" id="checkInBg" class="input-field text-[10px]">
+                            <span class="self-center">/</span>
+                            <input type="datetime-local" id="checkOutBg" class="input-field text-[10px]">
+                        </div>
                     </div>
                     <div class="voucher-col">
-                        <div class="label-text">Check in:</div>
-                        <input type="datetime-local" id="checkInEn" class="input-field text-xs">
-                    </div>
-                </div>
-
-                <div class="voucher-row">
-                    <div class="voucher-col">
-                        <div class="label-text">Дата и час на заминаване:</div>
-                        <input type="datetime-local" id="checkOutBg" class="input-field text-xs">
-                    </div>
-                    <div class="voucher-col">
-                        <div class="label-text">Check out:</div>
-                        <input type="datetime-local" id="checkOutEn" class="input-field text-xs">
+                        <div class="label-text">Check-in / Check-out:</div>
+                        <div class="flex gap-1">
+                            <input type="datetime-local" id="checkInEn" class="input-field text-[10px]">
+                            <span class="self-center">/</span>
+                            <input type="datetime-local" id="checkOutEn" class="input-field text-[10px]">
+                        </div>
                     </div>
                 </div>
 
                 <div class="voucher-row">
                     <div class="voucher-col">
                         <div class="label-text">Екскурзионна програма:</div>
-                        <textarea id="excursionsBg" class="input-field resize-none h-8 overflow-hidden"></textarea>
+                        <textarea id="excursionsBg" class="input-field resize-none h-6 overflow-hidden"></textarea>
                     </div>
                     <div class="voucher-col">
                         <div class="label-text">Excursions:</div>
-                        <textarea id="excursionsEn" class="input-field resize-none h-8 overflow-hidden"></textarea>
+                        <textarea id="excursionsEn" class="input-field resize-none h-6 overflow-hidden"></textarea>
                     </div>
                 </div>
 
                 <div class="voucher-row">
                     <div class="voucher-col">
                         <div class="label-text">Други услуги:</div>
-                        <textarea id="otherServicesBg" class="input-field resize-none h-8 overflow-hidden"></textarea>
+                        <textarea id="otherServicesBg" class="input-field resize-none h-6 overflow-hidden"></textarea>
                     </div>
                     <div class="voucher-col">
                         <div class="label-text">Other Services:</div>
-                        <textarea id="otherServicesEn" class="input-field resize-none h-8 overflow-hidden"></textarea>
+                        <textarea id="otherServicesEn" class="input-field resize-none h-6 overflow-hidden"></textarea>
                     </div>
                 </div>
 
                 <div class="voucher-row">
                     <div class="voucher-col">
                         <div class="label-text">Забележки:</div>
-                        <textarea id="notesBg" class="input-field resize-none h-8 overflow-hidden"></textarea>
+                        <textarea id="notesBg" class="input-field resize-none h-6 overflow-hidden"></textarea>
                     </div>
                     <div class="voucher-col">
                         <div class="label-text">Notes:</div>
-                        <textarea id="notesEn" class="input-field resize-none h-8 overflow-hidden"></textarea>
+                        <textarea id="notesEn" class="input-field resize-none h-6 overflow-hidden"></textarea>
                     </div>
                 </div>
 
                 <div class="voucher-row">
                     <div class="voucher-col">
                         <div class="label-text">Дата на издаване:</div>
-                        <input type="date" id="dateIssuedBg" class="input-field text-xs">
+                        <input type="date" id="dateIssuedBg" class="input-field text-[10px]">
                     </div>
                     <div class="voucher-col">
                         <div class="label-text">Date Issued:</div>
-                        <input type="date" id="dateIssuedEn" class="input-field text-xs">
+                        <input type="date" id="dateIssuedEn" class="input-field text-[10px]">
                     </div>
                 </div>
 
                 <div class="voucher-row">
                     <div class="voucher-col">
-                        <div class="label-text">Номер и дата на документа за плащане:</div>
-                        <div class="flex gap-2">
-                            <input type="text" id="paymentDocNumBg" class="input-field" placeholder="№">
-                            <input type="date" id="paymentDocDateBg" class="input-field text-xs w-28">
-                        </div>
+                        <div class="label-text">Документ за плащане (№ / Дата):</div>
+                        <input type="text" id="paymentDocNumBg" class="input-field" placeholder="...">
                     </div>
                     <div class="voucher-col">
-                        <div class="label-text">Payment document number and date:</div>
-                        <div class="flex gap-2">
-                            <input type="text" id="paymentDocNumEn" class="input-field" placeholder="No">
-                            <input type="date" id="paymentDocDateEn" class="input-field text-xs w-28">
-                        </div>
+                        <div class="label-text">Payment Doc (No / Date):</div>
+                        <input type="text" id="paymentDocNumEn" class="input-field" placeholder="...">
                     </div>
                 </div>
 
-            </div> <div class="grid grid-cols-2 gap-8 mt-6">
+            </div> <div class="grid grid-cols-2 gap-8 mt-4">
                 <div class="text-center">
-                    <div class="border-b border-slate-400 h-8 mb-1"></div>
+                    <div class="border-b border-black h-8 mb-1"></div>
                     <p class="text-[8px] font-bold text-slate-500 uppercase">
-                        Подпис и печат на фирма Изпращач<br>Sender Company Signature and Stamp
+                        Подпис и печат на Изпращач<br>Sender Signature
                     </p>
                 </div>
                 <div class="text-center">
-                    <div class="border-b border-slate-400 h-8 mb-1"></div>
+                    <div class="border-b border-black h-8 mb-1"></div>
                     <p class="text-[8px] font-bold text-slate-500 uppercase">
-                        Подпис и печат на Приемаща фирма<br>Receiving Company Signature and Stamp
+                        Подпис и печат на Приемащ<br>Receiver Signature
                     </p>
                 </div>
             </div>
@@ -396,8 +362,8 @@
                 const div = document.createElement('div');
                 div.className = 'flex gap-2 tourist-row mb-1';
                 div.innerHTML = `
-                    <input type="text" class="input-field flex-1" placeholder="Име на турист (BG)">
-                    <input type="text" class="input-field flex-1" placeholder="Tourist Name (EN)">
+                    <input type="text" class="input-field flex-1 text-xs" placeholder="Име на турист (BG)">
+                    <input type="text" class="input-field flex-1 text-xs" placeholder="Tourist Name (EN)">
                     <button type="button" class="no-print text-red-500 font-bold px-1 hover:bg-red-50 rounded remove-btn text-xs">✕</button>
                 `;
                 
@@ -423,7 +389,6 @@
                 ['destinationBg', 'destinationEn'],
                 ['dateStartBg', 'dateStartEn'],
                 ['dateEndBg', 'dateEndEn'],
-                ['accommodationBg', 'accommodationEn'],
                 ['roomCategoryBg', 'roomCategoryEn'],
                 ['checkInBg', 'checkInEn'],
                 ['checkOutBg', 'checkOutEn'],
@@ -431,8 +396,7 @@
                 ['otherServicesBg', 'otherServicesEn'],
                 ['notesBg', 'notesEn'],
                 ['dateIssuedBg', 'dateIssuedEn'],
-                ['paymentDocNumBg', 'paymentDocNumEn'],
-                ['paymentDocDateBg', 'paymentDocDateEn']
+                ['paymentDocNumBg', 'paymentDocNumEn']
             ];
 
             syncPairs.forEach(pair => {
