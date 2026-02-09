@@ -15,8 +15,7 @@ const TaskManagementModule = ({ db, userId, isAuthReady, addNotification, setSho
     const [filterTaskStatus, setFilterTaskStatus] = useState('All');
     const [sortTaskConfig, setSortTaskConfig] = useState({ key: 'createdAt', direction: 'descending' });
 
-    // App ID needs to be consistent with your Firebase setup
-    // Using a fallback 'default-app-id' for development/testing if __app_id is not globally defined.
+    // App ID fallback
     const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
     // Firestore listener for Tasks
@@ -28,7 +27,7 @@ const TaskManagementModule = ({ db, userId, isAuthReady, addNotification, setSho
                 return;
             }
             const tasksCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/tasks`);
-            const q = query(tasksCollectionRef, orderBy('createdAt', 'desc')); // Order tasks by creation date newest first
+            const q = query(tasksCollectionRef, orderBy('createdAt', 'desc'));
 
             unsubscribe = onSnapshot(q, (snapshot) => {
                 const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
@@ -65,7 +64,7 @@ const TaskManagementModule = ({ db, userId, isAuthReady, addNotification, setSho
 
     const handleSubmitTask = async (e) => {
         e.preventDefault();
-        addNotification(''); // Clear previous messages
+        addNotification('');
 
         if (!userId) {
             addNotification("User not authenticated. Please log in to save data.", 'error');
@@ -75,7 +74,7 @@ const TaskManagementModule = ({ db, userId, isAuthReady, addNotification, setSho
         try {
             const taskData = {
                 ...taskForm,
-                createdAt: taskForm.createdAt || new Date().toISOString(), // Set creation date if new
+                createdAt: taskForm.createdAt || new Date().toISOString(),
             };
 
             const tasksCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/tasks`);
@@ -99,17 +98,18 @@ const TaskManagementModule = ({ db, userId, isAuthReady, addNotification, setSho
     const handleEditTask = useCallback((task) => {
         setTaskForm({
             ...task,
-            // Ensure dueDate is correctly formatted for input type="date"
             dueDate: task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : '',
         });
         setSelectedTask(task);
+        // Scroll to form (optional UX improvement)
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     }, []);
 
     const handleDeleteTask = useCallback((taskId) => {
         setShowConfirmModal(true);
         setConfirmMessage("Are you sure you want to delete this task?");
         setConfirmAction(() => async () => {
-            addNotification(''); // Clear previous messages
+            addNotification('');
             if (!userId) {
                 addNotification("User not authenticated. Please log in to delete data.", 'error');
                 return;
@@ -140,22 +140,16 @@ const TaskManagementModule = ({ db, userId, isAuthReady, addNotification, setSho
     const filteredAndSortedTasks = useMemo(() => {
         let currentTasks = [...tasks];
 
-        // Filter by status
         if (filterTaskStatus !== 'All') {
             currentTasks = currentTasks.filter(task => task.status === filterTaskStatus);
         }
 
-        // Sort
         currentTasks.sort((a, b) => {
             const aValue = a[sortTaskConfig.key];
             const bValue = b[sortTaskConfig.key];
 
-            if (aValue < bValue) {
-                return sortTaskConfig.direction === 'ascending' ? -1 : 1;
-            }
-            if (aValue > bValue) {
-                return sortTaskConfig.direction === 'ascending' ? 1 : -1;
-            }
+            if (aValue < bValue) return sortTaskConfig.direction === 'ascending' ? -1 : 1;
+            if (aValue > bValue) return sortTaskConfig.direction === 'ascending' ? 1 : -1;
             return 0;
         });
 
@@ -163,183 +157,215 @@ const TaskManagementModule = ({ db, userId, isAuthReady, addNotification, setSho
     }, [tasks, filterTaskStatus, sortTaskConfig]);
 
     return (
-        <div className="p-6 bg-white rounded-xl shadow-lg">
-            <h2 className="text-3xl font-bold mb-8 text-gray-800 border-b pb-4">
-                Task Management
-            </h2>
+        <div className="bg-white w-full shadow-xl rounded-lg overflow-hidden border border-slate-200">
+            {/* Header */}
+            <div className="bg-slate-50 p-6 border-b border-slate-200 flex justify-between items-center">
+                <div>
+                    <h2 className="text-2xl font-bold text-slate-800">Задачи</h2>
+                    <p className="text-slate-500 text-sm mt-1">Управление на оперативни задачи и напомняния.</p>
+                </div>
+                <div className="text-3xl">📋</div>
+            </div>
 
-            {/* Task Form (Add/Edit) */}
-            <div className="mb-8 p-6 bg-blue-50 rounded-lg shadow-inner border border-blue-200">
-                <h3 className="text-xl font-semibold text-gray-800 mb-4">{selectedTask ? 'Edit Task' : 'Create New Task'}</h3>
-                <form onSubmit={handleSubmitTask} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label htmlFor="taskTitle" className="block text-sm font-medium text-gray-700">Title</label>
-                        <input
-                            type="text"
-                            id="taskTitle"
-                            name="title"
-                            value={taskForm.title}
-                            onChange={handleTaskFormChange}
-                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2"
-                            required
-                        />
+            <div className="p-6 md:p-8">
+                {/* Task Form (Add/Edit) */}
+                <div className="mb-8 bg-white border border-slate-200 rounded-lg shadow-sm">
+                    <div className="bg-slate-100 px-4 py-3 border-b border-slate-200">
+                        <h3 className="font-bold text-slate-700 uppercase text-xs tracking-wider">
+                            {selectedTask ? 'Редактиране на задача' : 'Нова задача'}
+                        </h3>
                     </div>
-                    <div>
-                        <label htmlFor="taskStatus" className="block text-sm font-medium text-gray-700">Status</label>
+                    
+                    <form onSubmit={handleSubmitTask} className="p-4 grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="md:col-span-2">
+                            <label htmlFor="taskTitle" className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Заглавие</label>
+                            <input
+                                type="text"
+                                id="taskTitle"
+                                name="title"
+                                value={taskForm.title}
+                                onChange={handleTaskFormChange}
+                                className="w-full p-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
+                                placeholder="Напр: Обаждане на хотел..."
+                                required
+                            />
+                        </div>
+
+                        <div>
+                            <label htmlFor="taskStatus" className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Статус</label>
+                            <select
+                                id="taskStatus"
+                                name="status"
+                                value={taskForm.status}
+                                onChange={handleTaskFormChange}
+                                className="w-full p-2 border border-slate-300 rounded text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+                            >
+                                <option value="Planned">Планирана</option>
+                                <option value="Completed">Завършена</option>
+                                <option value="Cancelled">Отменена</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label htmlFor="taskDueDate" className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Краен срок</label>
+                            <input
+                                type="date"
+                                id="taskDueDate"
+                                name="dueDate"
+                                value={taskForm.dueDate}
+                                onChange={handleTaskFormChange}
+                                className="w-full p-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                            />
+                        </div>
+
+                        <div className="md:col-span-2">
+                            <label htmlFor="taskDescription" className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Описание</label>
+                            <textarea
+                                id="taskDescription"
+                                name="description"
+                                rows="3"
+                                value={taskForm.description}
+                                onChange={handleTaskFormChange}
+                                className="w-full p-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none resize-none"
+                                placeholder="Допълнителни детайли..."
+                            ></textarea>
+                        </div>
+
+                        <div className="md:col-span-2 flex justify-end space-x-3 pt-2">
+                            {selectedTask && (
+                                <button
+                                    type="button"
+                                    onClick={resetTaskForm}
+                                    className="px-4 py-2 border border-slate-300 rounded text-slate-600 hover:bg-slate-50 transition text-sm font-medium"
+                                >
+                                    Отказ
+                                </button>
+                            )}
+                            <button
+                                type="submit"
+                                className={`px-6 py-2 rounded text-white text-sm font-bold shadow-md transition transform hover:scale-105 ${
+                                    selectedTask ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-blue-600 hover:bg-blue-700'
+                                }`}
+                                disabled={!taskForm.title.trim() || !isAuthReady || !userId}
+                            >
+                                {selectedTask ? '💾 Запази промените' : '+ Добави задача'}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                {/* Filters & Controls */}
+                <div className="flex flex-col md:flex-row justify-between items-end md:items-center gap-4 mb-6">
+                    <div className="w-full md:w-auto">
+                        <label htmlFor="filterTaskStatus" className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Филтър по статус</label>
                         <select
-                            id="taskStatus"
-                            name="status"
-                            value={taskForm.status}
-                            onChange={handleTaskFormChange}
-                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2"
+                            id="filterTaskStatus"
+                            value={filterTaskStatus}
+                            onChange={handleTaskFilterChange}
+                            className="w-full md:w-48 p-2 border border-slate-300 rounded text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none"
                         >
-                            <option value="Planned">Planned</option>
-                            <option value="Completed">Completed</option>
-                            <option value="Cancelled">Cancelled</option>
+                            <option value="All">Всички</option>
+                            <option value="Planned">Планирани</option>
+                            <option value="Completed">Завършени</option>
+                            <option value="Cancelled">Отменени</option>
                         </select>
                     </div>
-                    <div className="md:col-span-2">
-                        <label htmlFor="taskDescription" className="block text-sm font-medium text-gray-700">Description</label>
-                        <textarea
-                            id="taskDescription"
-                            name="description"
-                            rows="3"
-                            value={taskForm.description}
-                            onChange={handleTaskFormChange}
-                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2"
-                        ></textarea>
-                    </div>
-                    <div>
-                        <label htmlFor="taskDueDate" className="block text-sm font-medium text-gray-700">Due Date</label>
-                        <input
-                            type="date"
-                            id="taskDueDate"
-                            name="dueDate"
-                            value={taskForm.dueDate}
-                            onChange={handleTaskFormChange}
-                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2"
-                        />
-                    </div>
-                    <div className="md:col-span-2 flex justify-end space-x-3 mt-4">
+                    
+                    <div className="flex gap-2">
                         <button
-                            type="button"
-                            onClick={resetTaskForm}
-                            className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100 transition duration-200 shadow-sm"
+                            onClick={() => handleTaskSortRequest('dueDate')}
+                            className={`px-3 py-2 text-xs font-bold rounded border transition ${
+                                sortTaskConfig.key === 'dueDate' ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-50'
+                            }`}
                         >
-                            Cancel
+                            Срок {sortTaskConfig.key === 'dueDate' ? (sortTaskConfig.direction === 'ascending' ? '▲' : '▼') : ''}
                         </button>
                         <button
-                            type="submit"
-                            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition duration-200 shadow-md"
-                            disabled={!taskForm.title.trim() || !isAuthReady || !userId}
+                            onClick={() => handleTaskSortRequest('createdAt')}
+                            className={`px-3 py-2 text-xs font-bold rounded border transition ${
+                                sortTaskConfig.key === 'createdAt' ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-50'
+                            }`}
                         >
-                            {selectedTask ? 'Update Task' : 'Add Task'}
+                            Създадени {sortTaskConfig.key === 'createdAt' ? (sortTaskConfig.direction === 'ascending' ? '▲' : '▼') : ''}
                         </button>
                     </div>
-                </form>
-            </div>
+                </div>
 
-            {/* Task List with Filters and Sort */}
-            <h3 className="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">All Tasks</h3>
-            <div className="flex flex-wrap gap-4 mb-6">
-                <div>
-                    <label htmlFor="filterTaskStatus" className="block text-sm font-medium text-gray-700">Filter by Status</label>
-                    <select
-                        id="filterTaskStatus"
-                        value={filterTaskStatus}
-                        onChange={handleTaskFilterChange}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2"
-                    >
-                        <option value="All">All</option>
-                        <option value="Planned">Planned</option>
-                        <option value="Completed">Completed</option>
-                        <option value="Cancelled">Cancelled</option>
-                    </select>
-                </div>
-                <div className="flex items-end">
-                    <button
-                        onClick={() => handleTaskSortRequest('dueDate')}
-                        className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition duration-200 shadow-sm border border-gray-200"
-                    >
-                        Sort by Due Date {sortTaskConfig.key === 'dueDate' ? (sortTaskConfig.direction === 'ascending' ? '▲' : '▼') : ''}
-                    </button>
-                </div>
-                <div className="flex items-end">
-                    <button
-                        onClick={() => handleTaskSortRequest('createdAt')}
-                        className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition duration-200 shadow-sm border border-gray-200"
-                    >
-                        Sort by Creation Date {sortTaskConfig.key === 'createdAt' ? (sortTaskConfig.direction === 'ascending' ? '▲' : '▼') : ''}
-                    </button>
-                </div>
-            </div>
-
-            {!isAuthReady || !userId ? (
-                <p className="text-red-600 text-center py-8">Please log in to view and manage tasks.</p>
-            ) : tasks.length === 0 ? (
-                <p className="text-gray-600 text-center py-8">No tasks found. Create a new task to get started!</p>
-            ) : (
-                <div className="overflow-x-auto rounded-xl shadow-md border border-gray-200">
-                    <table className="min-w-full bg-white">
-                        <thead className="bg-gray-50 text-gray-700 border-b border-gray-200">
-                            <tr>
-                                <th className="py-3 px-4 text-left font-medium">Title</th>
-                                <th className="py-3 px-4 text-left font-medium">Status</th>
-                                <th className="py-3 px-4 text-left font-medium">Due Date</th>
-                                <th className="py-3 px-4 text-left font-medium">Created At</th>
-                                <th className="py-3 px-4 text-center font-medium">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="text-gray-700">
-                            {filteredAndSortedTasks.map(task => (
-                                <React.Fragment key={task.id}>
-                                    <tr className="border-b border-gray-100 hover:bg-gray-50 transition-colors duration-150">
-                                        <td className="py-3 px-4 font-semibold">{task.title}</td>
-                                        <td className="py-3 px-4">
-                                            <span className={`px-3 py-1 rounded-full text-xs font-semibold
-                                                ${task.status === 'Completed' ? 'bg-green-100 text-green-800' :
-                                                  task.status === 'Planned' ? 'bg-blue-100 text-blue-800' :
-                                                  'bg-red-100 text-red-800'}`
-                                            }>
-                                                {task.status}
-                                            </span>
-                                        </td>
-                                        <td className="py-3 px-4 text-gray-600">{task.dueDate || 'N/A'}</td>
-                                        <td className="py-3 px-4 text-gray-600">{task.createdAt ? new Date(task.createdAt).toLocaleDateString(navigator.language, { year: 'numeric', month: 'short', day: 'numeric' }) : 'N/A'}</td>
-                                        <td className="py-3 px-4 flex justify-center space-x-2">
-                                            <button
-                                                onClick={() => handleEditTask(task)}
-                                                className="bg-yellow-500 hover:bg-yellow-600 text-white p-2 rounded-full shadow-md transition duration-200"
-                                                title="Edit Task"
-                                                disabled={!isAuthReady || !userId}
-                                            >
-                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zm-5.69 5.69L11.586 7.586 14.414 10.414 11.586 13.242 8.758 10.414l2.828-2.828z" /><path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm-4 8a1 1 0 011-1h1a1 1 0 110 2H7a1 1 0 01-1-1zm10 0a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1zM4 14a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm10 0a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1zM3 18a1 1 0 011-1h1a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" /></svg>
-                                            </button>
-                                            <button
-                                                onClick={() => handleDeleteTask(task.id)}
-                                                className="bg-red-500 hover:bg-red-600 text-white p-2 rounded-full shadow-md transition duration-200"
-                                                title="Delete Task"
-                                                disabled={!isAuthReady || !userId}
-                                            >
-                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1zm-1 3a1 1 0 011-1h4a1 1 0 110 2H7a1 1 0 01-1-1zm-1 3a1 1 0 011-1h4a1 1 0 110 2H7a1 1 0 01-1-1z" clipRule="evenodd" /></svg>
-                                            </button>
-                                        </td>
-                                    </tr>
-                                    {/* Only show description when editing (selectedTask.id matches current task.id) */}
-                                    {selectedTask && selectedTask.id === task.id && (
-                                        <tr className="bg-gray-50">
-                                            <td colSpan="5" className="p-4 text-sm text-gray-700 border-t">
-                                                <p className="font-semibold mb-1">Description:</p>
-                                                <p>{task.description || 'No description provided.'}</p>
+                {/* Task List */}
+                {!isAuthReady || !userId ? (
+                    <div className="text-center py-10 bg-slate-50 rounded-lg border border-dashed border-slate-300">
+                        <p className="text-slate-500">Моля, влезте в системата, за да управлявате задачи.</p>
+                    </div>
+                ) : tasks.length === 0 ? (
+                    <div className="text-center py-10 bg-slate-50 rounded-lg border border-dashed border-slate-300">
+                        <p className="text-slate-500">Няма намерени задачи. Създайте нова!</p>
+                    </div>
+                ) : (
+                    <div className="overflow-hidden rounded-lg border border-slate-200 shadow-sm">
+                        <table className="min-w-full bg-white text-sm">
+                            <thead className="bg-slate-50 text-slate-500 uppercase text-xs font-bold border-b border-slate-200">
+                                <tr>
+                                    <th className="py-3 px-4 text-left">Заглавие</th>
+                                    <th className="py-3 px-4 text-center">Статус</th>
+                                    <th className="py-3 px-4 text-left">Краен срок</th>
+                                    <th className="py-3 px-4 text-left">Създадена</th>
+                                    <th className="py-3 px-4 text-right">Действия</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {filteredAndSortedTasks.map(task => (
+                                    <React.Fragment key={task.id}>
+                                        <tr className={`hover:bg-slate-50 transition ${selectedTask && selectedTask.id === task.id ? 'bg-blue-50' : ''}`}>
+                                            <td className="py-3 px-4 font-semibold text-slate-700">{task.title}</td>
+                                            <td className="py-3 px-4 text-center">
+                                                <span className={`inline-block px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide
+                                                    ${task.status === 'Completed' ? 'bg-green-100 text-green-700' :
+                                                      task.status === 'Planned' ? 'bg-blue-100 text-blue-700' :
+                                                      'bg-red-100 text-red-700'}`
+                                                }>
+                                                    {task.status === 'Planned' ? 'Планирана' : 
+                                                     task.status === 'Completed' ? 'Завършена' : 
+                                                     task.status === 'Cancelled' ? 'Отменена' : task.status}
+                                                </span>
+                                            </td>
+                                            <td className="py-3 px-4 text-slate-600">
+                                                {task.dueDate ? new Date(task.dueDate).toLocaleDateString('bg-BG') : '-'}
+                                            </td>
+                                            <td className="py-3 px-4 text-slate-500 text-xs">
+                                                {task.createdAt ? new Date(task.createdAt).toLocaleDateString('bg-BG') : '-'}
+                                            </td>
+                                            <td className="py-3 px-4 text-right space-x-2">
+                                                <button
+                                                    onClick={() => handleEditTask(task)}
+                                                    className="text-yellow-600 hover:text-yellow-800 p-1 hover:bg-yellow-50 rounded transition"
+                                                    title="Редактирай"
+                                                >
+                                                    ✏️
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDeleteTask(task.id)}
+                                                    className="text-red-500 hover:text-red-700 p-1 hover:bg-red-50 rounded transition"
+                                                    title="Изтрий"
+                                                >
+                                                    🗑️
+                                                </button>
                                             </td>
                                         </tr>
-                                    )}
-                                </React.Fragment>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            )}
+                                        {/* Description Row - Visible only when editing or if desired explicitly */}
+                                        {((selectedTask && selectedTask.id === task.id) || task.description) && (
+                                            <tr className="bg-slate-50/50">
+                                                <td colSpan="5" className="px-4 py-2 text-xs text-slate-500 italic border-b border-slate-100 pl-8">
+                                                    {task.description}
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </React.Fragment>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </div>
         </div>
     );
 };
