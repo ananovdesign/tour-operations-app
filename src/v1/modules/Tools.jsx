@@ -18,7 +18,7 @@ const Tools = ({ lang = 'bg' }) => {
         { id: 'transport', name: "Договор Транспорт", desc: "transportcontract.html", file: "/transportcontract.html", icon: Bus, color: "text-indigo-600", bg: "bg-indigo-50" },
         { id: 'confirmation', name: "Потвърждение", desc: "confirmation.html", file: "/confirmation.html", icon: CheckCircle, color: "text-emerald-600", bg: "bg-emerald-50" },
         { id: 'invoice', name: "Фактури (Legacy)", desc: "createinvoice.html", file: "/createinvoice.html", icon: FileText, color: "text-slate-600", bg: "bg-slate-50" },
-        { id: 'offer', name: "Оферта", desc: "offer.html", file: "/offer.html", icon: Megaphone, color: "text-orange-600", bg: "bg-orange-50" },
+    
         { id: 'voucher', name: "Ваучер (Legacy)", desc: "voucher.html", file: "/voucher.html", icon: Ticket, color: "text-purple-600", bg: "bg-purple-50" },
       ]
     },
