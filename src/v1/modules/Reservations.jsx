@@ -378,7 +378,7 @@ const handlePrint = (e, res, type) => {
     setSelectedRes(res); // Първо се уверяваме, че данните са в стейта
     setTimeout(() => {
         setView(type);   // След кратко забавяне сменяме изгледа
-    }, 100);
+    }, 900);
 };
 
   const handlePreview = (e, res) => {
