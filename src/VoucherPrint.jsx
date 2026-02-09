@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import Logo from './Logo.png'; // Увери се, че логото е там, или ползвай URL
+import React, { useEffect, useState } from 'react';
+import Logo from './Logo.png'; 
 
 // --- Helper Functions ---
 const formatDateForInput = (dateString) => {
@@ -13,7 +13,6 @@ const formatDateTimeForInput = (dateString) => {
     if (!dateString) return '';
     const date = new Date(dateString);
     if (isNaN(date.getTime())) return '';
-    // Format: YYYY-MM-DDThh:mm for datetime-local input
     const pad = (n) => n.toString().padStart(2, '0');
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 };
@@ -71,7 +70,7 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
     // Footer
     const [dateIssuedBg, setDateIssuedBg] = useState('');
     const [dateIssuedEn, setDateIssuedEn] = useState('');
-    const [payDocNum, setPayDocNum] = useState(''); // Shared for both usually
+    const [payDocNum, setPayDocNum] = useState(''); 
     const [payDocDate, setPayDocDate] = useState('');
 
     const [tourists, setTourists] = useState([]);
@@ -81,7 +80,6 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
         if (reservationData) {
             setVoucherNumber(reservationData.reservationNumber || '');
             
-            // Auto-populate logic
             const hotel = reservationData.hotel || '';
             const place = reservationData.place || '';
             
@@ -108,7 +106,6 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
             const today = formatDateForInput(new Date());
             setDateIssuedBg(today); setDateIssuedEn(today);
 
-            // Tourists
             if (reservationData.tourists && reservationData.tourists.length > 0) {
                 setTourists(reservationData.tourists.map(t => ({
                     bg: `${t.firstName || ''} ${t.familyName || ''}`.trim(),
@@ -122,14 +119,9 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
 
     // --- HANDLERS ---
     const handlePrint = () => {
-        const timer = setTimeout(() => {
+        setTimeout(() => {
             window.print();
-            window.onafterprint = () => {
-                if (onPrintFinish) onPrintFinish();
-                window.onafterprint = null;
-            };
-        }, 300);
-        return () => clearTimeout(timer);
+        }, 100);
     };
 
     const addTourist = () => setTourists([...tourists, { bg: '', en: '' }]);
@@ -137,12 +129,10 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
     const updateTourist = (idx, field, val) => {
         const newArr = [...tourists];
         newArr[idx][field] = val;
-        // Auto-sync EN if empty
         if (field === 'bg' && !newArr[idx].en) newArr[idx].en = val;
         setTourists(newArr);
     };
 
-    // Generic Sync Handler (updates EN if EN is empty when BG changes)
     const handleSync = (val, setterBg, setterEn, currentEn) => {
         setterBg(val);
         if (!currentEn) setterEn(val);
@@ -151,32 +141,50 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
     return (
         <div className="flex flex-col items-center min-h-screen bg-slate-100 p-8 pb-20">
             
-            {/* INJECT PRINT STYLES */}
+            {/* ВАЖНО: Тук са вградените стилове. 
+               Те гарантират, че при печат се скрива всичко (body) 
+               и се показва САМО .print-container.
+            */}
             <style>{`
                 @media print {
-                    @page { margin: 0; size: A4 portrait; }
-                    body { background: white; margin: 0; padding: 0; }
-                    .no-print { display: none !important; }
-                    .print-container {
-                        box-shadow: none !important;
-                        margin: 5mm auto !important;
-                        width: 100% !important;
-                        border: none !important;
-                        transform: scale(0.95); /* KEY FIX: Scale down to fit 1 page */
-                        transform-origin: top center;
+                    /* Скриваме всичко */
+                    body * {
+                        visibility: hidden;
                     }
+                    
+                    /* Показваме само нашия контейнер */
+                    .print-container, .print-container * {
+                        visibility: visible;
+                    }
+
+                    /* Позиционираме го най-горе вляво върху листа */
+                    .print-container {
+                        position: absolute;
+                        left: 0;
+                        top: 0;
+                        width: 100%;
+                        margin: 0 !important;
+                        padding: 0 !important;
+                        box-shadow: none !important;
+                        border: none !important;
+                        transform: scale(0.95); 
+                        transform-origin: top left;
+                    }
+
+                    .no-print { display: none !important; }
+
                     input, textarea, select {
                         border: none !important;
                         background: transparent !important;
                         padding: 0 !important;
                         resize: none !important;
                     }
-                    /* Force borders to print */
+                    
                     .voucher-grid, .voucher-row, .voucher-col { border-color: #000 !important; }
-                    .header-bg { background-color: #f1f5f9 !important; -webkit-print-color-adjust: exact; }
+                    .header-bg { background-color: #e2e8f0 !important; color: #000 !important; border-color: #000 !important; -webkit-print-color-adjust: exact; }
                 }
                 
-                /* Custom Grid Classes */
+                /* СТИЛОВЕ ЗА ЕКРАН */
                 .voucher-grid { border: 1px solid #64748b; }
                 .voucher-row { display: flex; border-bottom: 1px solid #64748b; }
                 .voucher-row:last-child { border-bottom: none; }
@@ -187,7 +195,7 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
                 .label-clean { font-size: 0.55rem; font-weight: 800; color: #64748b; text-transform: uppercase; }
             `}</style>
 
-            {/* CONTROLS */}
+            {/* БУТОНИ ЗА УПРАВЛЕНИЕ */}
             <div className="no-print fixed bottom-6 right-6 flex gap-4 z-50">
                 <button onClick={addTourist} className="bg-white text-blue-600 border border-blue-200 px-4 py-3 rounded-full font-bold shadow-lg hover:bg-blue-50 transition">
                     + Турист
@@ -197,7 +205,7 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
                 </button>
             </div>
 
-            {/* A4 PAPER CONTAINER */}
+            {/* ЛИСТ А4 - ТОВА ЩЕ СЕ ПРИНТИРА */}
             <div className="print-container bg-white w-full max-w-[210mm] shadow-2xl rounded-sm overflow-hidden p-8 text-slate-900">
                 
                 {/* LOGO */}
