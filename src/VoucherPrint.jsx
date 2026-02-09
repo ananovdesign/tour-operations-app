@@ -18,94 +18,67 @@ const formatDateTimeForInput = (dateString) => {
 };
 
 const VoucherPrint = ({ reservationData, onPrintFinish }) => {
-    
-    // --- STATE ---
+    // ... (STATE и EFFECT остават абсолютно същите като преди)
     const [voucherNumber, setVoucherNumber] = useState('');
     const [voucherType, setVoucherType] = useState('original');
-    
-    // Destinations
     const [destBg, setDestBg] = useState('');
     const [destEn, setDestEn] = useState('');
-    
-    // Pax
     const [adultsBg, setAdultsBg] = useState(0);
     const [adultsEn, setAdultsEn] = useState(0);
     const [chdRegBg, setChdRegBg] = useState(0);
     const [chdRegEn, setChdRegEn] = useState(0);
     const [chdExtBg, setChdExtBg] = useState(0);
     const [chdExtEn, setChdExtEn] = useState(0);
-
-    // Details
     const [itinBg, setItinBg] = useState('');
     const [itinEn, setItinEn] = useState('');
     const [placeBg, setPlaceBg] = useState('');
     const [placeEn, setPlaceEn] = useState('');
-    
-    // Dates
     const [startBg, setStartBg] = useState('');
     const [endBg, setEndBg] = useState('');
     const [startEn, setStartEn] = useState('');
     const [endEn, setEndEn] = useState('');
-    
-    // Accom & Room
     const [accomBg, setAccomBg] = useState('');
     const [accomEn, setAccomEn] = useState('');
     const [roomBg, setRoomBg] = useState('');
     const [roomEn, setRoomEn] = useState('');
-    
-    // Check In/Out
     const [checkInBg, setCheckInBg] = useState('');
     const [checkInEn, setCheckInEn] = useState('');
     const [checkOutBg, setCheckOutBg] = useState('');
     const [checkOutEn, setCheckOutEn] = useState('');
-
-    // Extras
     const [excBg, setExcBg] = useState('');
     const [excEn, setExcEn] = useState('');
     const [otherBg, setOtherBg] = useState('');
     const [otherEn, setOtherEn] = useState('');
     const [noteBg, setNoteBg] = useState('');
     const [noteEn, setNoteEn] = useState('');
-
-    // Footer
     const [dateIssuedBg, setDateIssuedBg] = useState('');
     const [dateIssuedEn, setDateIssuedEn] = useState('');
     const [payDocNum, setPayDocNum] = useState(''); 
     const [payDocDate, setPayDocDate] = useState('');
-
     const [tourists, setTourists] = useState([]);
 
-    // --- EFFECT: POPULATE DATA ---
     useEffect(() => {
         if (reservationData) {
             setVoucherNumber(reservationData.reservationNumber || '');
-            
             const hotel = reservationData.hotel || '';
             const place = reservationData.place || '';
-            
             setDestBg(hotel); setDestEn(hotel);
             setPlaceBg(place); setPlaceEn(place);
             setItinBg(`${place}, ${hotel}`); setItinEn(`${place}, ${hotel}`);
             setAccomBg(hotel); setAccomEn(hotel);
-            
             setAdultsBg(reservationData.adults || 0); setAdultsEn(reservationData.adults || 0);
             setChdRegBg(reservationData.children || 0); setChdRegEn(reservationData.children || 0);
-            
             setStartBg(formatDateForInput(reservationData.checkIn));
             setStartEn(formatDateForInput(reservationData.checkIn));
             setEndBg(formatDateForInput(reservationData.checkOut));
             setEndEn(formatDateForInput(reservationData.checkOut));
-            
             setCheckInBg(formatDateTimeForInput(reservationData.checkIn));
             setCheckInEn(formatDateTimeForInput(reservationData.checkIn));
             setCheckOutBg(formatDateTimeForInput(reservationData.checkOut));
             setCheckOutEn(formatDateTimeForInput(reservationData.checkOut));
-            
             setRoomBg(reservationData.roomType || ''); setRoomEn(reservationData.roomType || '');
-            
             const today = formatDateForInput(new Date());
             setDateIssuedBg(today); setDateIssuedEn(today);
-
             if (reservationData.tourists && reservationData.tourists.length > 0) {
                 setTourists(reservationData.tourists.map(t => ({
                     bg: `${t.firstName || ''} ${t.familyName || ''}`.trim(),
@@ -117,14 +90,7 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
         }
     }, [reservationData]);
 
-    // --- HANDLERS ---
-    const handlePrint = () => {
-        // Даваме малко време на браузъра да пренареди DOM-а преди print диалога
-        setTimeout(() => {
-            window.print();
-        }, 500);
-    };
-
+    const handlePrint = () => { setTimeout(() => { window.print(); }, 500); };
     const addTourist = () => setTourists([...tourists, { bg: '', en: '' }]);
     const removeTourist = (idx) => setTourists(tourists.filter((_, i) => i !== idx));
     const updateTourist = (idx, field, val) => {
@@ -133,7 +99,6 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
         if (field === 'bg' && !newArr[idx].en) newArr[idx].en = val;
         setTourists(newArr);
     };
-
     const handleSync = (val, setterBg, setterEn, currentEn) => {
         setterBg(val);
         if (!currentEn) setterEn(val);
@@ -142,58 +107,57 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
     return (
         <div className="flex flex-col items-center min-h-screen bg-slate-100 p-8 pb-20">
             
-            {/* CRITICAL FIX: 
-               Използваме 'fixed' позициониране и z-index 99999, 
-               за да сме сигурни, че ваучерът е върху всичко и се вижда от принтера.
-            */}
+            {/* --- FIX START: НОВИ CSS ПРАВИЛА --- */}
             <style>{`
                 @media print {
-                    /* 1. Скриваме всичко в body */
+                    /* Нулиране на основните елементи */
+                    html, body {
+                        height: 100vh; /* force height */
+                        margin: 0 !important; 
+                        padding: 0 !important;
+                        overflow: hidden;
+                    }
+
+                    /* Скриваме всичко */
                     body * {
                         visibility: hidden;
                     }
-                    
-                    /* 2. Показваме само нашия контейнер и неговите деца */
+
+                    /* Показваме само контейнера с ваучера */
                     .print-container, .print-container * {
                         visibility: visible;
                     }
 
-                    /* 3. Фиксираме контейнера върху целия "лист" (viewport) */
+                    /* Залепяме контейнера за екрана */
                     .print-container {
-                        position: fixed !important; /* ТОВА Е КЛЮЧЪТ */
-                        left: 0 !important;
-                        top: 0 !important;
-                        width: 100% !important;
-                        height: auto !important;
+                        position: fixed;
+                        left: 0;
+                        top: 0;
+                        width: 100%;
+                        height: 100%;
+                        z-index: 9999;
+                        background: white; /* Бял фон, за да покрие всичко отдолу */
                         margin: 0 !important;
-                        padding: 10mm !important; /* Малко отстояние от ръба на листа */
-                        box-shadow: none !important;
-                        border: none !important;
-                        background: white !important; /* Бял фон, за да покрие всичко отдолу */
-                        z-index: 99999 !important; /* Най-отгоре */
-                        transform: scale(0.95); /* Леко намаляване, за да се събере */
-                        transform-origin: top center;
+                        padding: 20px !important; /* Леко отстояние от ръба на листа */
                     }
 
-                    /* 4. Скриваме бутоните */
+                    /* Скриваме бутоните */
                     .no-print { display: none !important; }
 
-                    /* 5. Чистим стиловете на inputs */
+                    /* Изчистване на input стиловете */
                     input, textarea, select {
                         border: none !important;
                         background: transparent !important;
                         padding: 0 !important;
                         resize: none !important;
-                        -webkit-appearance: none;
-                        appearance: none;
                     }
                     
-                    /* 6. Принудително принтиране на граници и фонове */
+                    /* Форсиране на цветове */
                     .voucher-grid, .voucher-row, .voucher-col { border-color: #000 !important; }
                     .header-bg { background-color: #e2e8f0 !important; color: #000 !important; border-color: #000 !important; -webkit-print-color-adjust: exact; }
                 }
                 
-                /* СТИЛОВЕ ЗА ЕКРАН */
+                /* Screen Styles */
                 .voucher-grid { border: 1px solid #64748b; }
                 .voucher-row { display: flex; border-bottom: 1px solid #64748b; }
                 .voucher-row:last-child { border-bottom: none; }
@@ -203,8 +167,8 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
                 .input-clean { width: 100%; background: transparent; font-weight: 600; font-size: 0.8rem; outline: none; }
                 .label-clean { font-size: 0.55rem; font-weight: 800; color: #64748b; text-transform: uppercase; }
             `}</style>
+            {/* --- FIX END --- */}
 
-            {/* БУТОНИ ЗА УПРАВЛЕНИЕ */}
             <div className="no-print fixed bottom-6 right-6 flex gap-4 z-50">
                 <button onClick={addTourist} className="bg-white text-blue-600 border border-blue-200 px-4 py-3 rounded-full font-bold shadow-lg hover:bg-blue-50 transition">
                     + Турист
@@ -214,18 +178,13 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
                 </button>
             </div>
 
-            {/* ЛИСТ А4 - ТОВА ЩЕ СЕ ПРИНТИРА */}
             <div className="print-container bg-white w-full max-w-[210mm] shadow-2xl rounded-sm overflow-hidden p-8 text-slate-900">
                 
-                {/* LOGO */}
                 <div className="flex justify-center mb-2">
                     <img src={Logo} alt="Logo" className="h-16 object-contain" onError={(e) => e.target.style.display='none'} />
                 </div>
 
-                {/* GRID START */}
                 <div className="voucher-grid text-sm">
-                    
-                    {/* Header */}
                     <div className="header-bg bg-slate-200 text-center font-black text-[10px] p-1 border-b border-slate-500 uppercase">
                         Република България / Republic of Bulgaria
                     </div>
@@ -243,12 +202,10 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
                         </div>
                     </div>
 
-                    {/* Company Info */}
                     <div className="voucher-row"><div className="voucher-col font-bold text-[10px]">ДАЙНАМЕКС ТУР ЕООД</div><div className="voucher-col font-bold text-[10px]">DYNAMEX TOUR LTD</div></div>
                     <div className="voucher-row"><div className="voucher-col text-[9px]">ЛИЦЕНЗ ЗА ТУРОПЕРАТОР: РК-01-8569/15.04.2025г.</div><div className="voucher-col text-[9px]">TUROPERATOR LICENSE: PK-01-8569/15.04.2025.</div></div>
                     <div className="voucher-row"><div className="voucher-col text-[9px]">ЕИК: 208193140, АДРЕС: БЪЛГАРИЯ, РАКИТОВО, ВАСИЛ КУРТЕВ 12А</div><div className="voucher-col text-[9px]">ID: 208193140, ADDRESS: BULGARIA, RAKITOVO, VASIL KURTEV 12A</div></div>
 
-                    {/* Type */}
                     <div className="voucher-row bg-blue-50/50">
                         <div className="w-full text-center p-1">
                             <select className="bg-transparent font-bold uppercase text-center w-full text-[10px] outline-none appearance-none" value={voucherType} onChange={e => setVoucherType(e.target.value)}>
@@ -258,7 +215,6 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
                         </div>
                     </div>
 
-                    {/* Dest */}
                     <div className="voucher-row">
                         <div className="voucher-col">
                             <span className="label-clean">За представяне в:</span>
@@ -270,12 +226,10 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
                         </div>
                     </div>
 
-                    {/* Tourists Header */}
                     <div className="header-bg bg-slate-200 text-center font-black text-[10px] p-1 border-y border-slate-500 uppercase">
                         Име и Фамилия на Туриста / Name and Surname of Tourist
                     </div>
 
-                    {/* Tourists List */}
                     <div className="voucher-row">
                         <div className="w-full p-1 space-y-1">
                             {tourists.map((t, idx) => (
@@ -289,7 +243,6 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
                         </div>
                     </div>
 
-                    {/* Pax */}
                     <div className="voucher-row">
                         <div className="voucher-col">
                             <div className="flex justify-between"><span className="label-clean">Възрастни:</span><input type="number" className="w-8 text-center font-bold text-xs bg-transparent" value={adultsBg} onChange={e => {setAdultsBg(e.target.value); setAdultsEn(e.target.value)}} /></div>
@@ -309,19 +262,16 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
                         </div>
                     </div>
 
-                    {/* Itinerary */}
                     <div className="voucher-row">
                         <div className="voucher-col"><span className="label-clean">Маршрут:</span><input className="input-clean" value={itinBg} onChange={e => handleSync(e.target.value, setItinBg, setItinEn, itinEn)} /></div>
                         <div className="voucher-col"><span className="label-clean">Itinerary:</span><input className="input-clean" value={itinEn} onChange={e => setItinEn(e.target.value)} /></div>
                     </div>
 
-                    {/* Place */}
                     <div className="voucher-row">
                         <div className="voucher-col"><span className="label-clean">Място:</span><input className="input-clean" value={placeBg} onChange={e => handleSync(e.target.value, setPlaceBg, setPlaceEn, placeEn)} /></div>
                         <div className="voucher-col"><span className="label-clean">Destination:</span><input className="input-clean" value={placeEn} onChange={e => setPlaceEn(e.target.value)} /></div>
                     </div>
 
-                    {/* Dates */}
                     <div className="voucher-row">
                         <div className="voucher-col">
                             <span className="label-clean">Срок (От - До):</span>
@@ -333,19 +283,16 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
                         </div>
                     </div>
 
-                    {/* Accom */}
                     <div className="voucher-row">
                         <div className="voucher-col"><span className="label-clean">Настаняване в:</span><input className="input-clean" value={accomBg} onChange={e => handleSync(e.target.value, setAccomBg, setAccomEn, accomEn)} /></div>
                         <div className="voucher-col"><span className="label-clean">Accommodation at:</span><input className="input-clean" value={accomEn} onChange={e => setAccomEn(e.target.value)} /></div>
                     </div>
 
-                    {/* Room */}
                     <div className="voucher-row">
                         <div className="voucher-col"><span className="label-clean">Категория / Стая:</span><input className="input-clean" value={roomBg} onChange={e => handleSync(e.target.value, setRoomBg, setRoomEn, roomEn)} /></div>
                         <div className="voucher-col"><span className="label-clean">Category / Room:</span><input className="input-clean" value={roomEn} onChange={e => setRoomEn(e.target.value)} /></div>
                     </div>
 
-                    {/* Check In/Out */}
                     <div className="voucher-row">
                         <div className="voucher-col">
                             <span className="label-clean">Пристигане / Заминаване:</span>
@@ -357,31 +304,26 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
                         </div>
                     </div>
 
-                    {/* Excursions */}
                     <div className="voucher-row">
                         <div className="voucher-col"><span className="label-clean">Екскурзии:</span><textarea className="input-clean h-6" value={excBg} onChange={e => handleSync(e.target.value, setExcBg, setExcEn, excEn)} /></div>
                         <div className="voucher-col"><span className="label-clean">Excursions:</span><textarea className="input-clean h-6" value={excEn} onChange={e => setExcEn(e.target.value)} /></div>
                     </div>
 
-                    {/* Other */}
                     <div className="voucher-row">
                         <div className="voucher-col"><span className="label-clean">Други услуги:</span><textarea className="input-clean h-6" value={otherBg} onChange={e => handleSync(e.target.value, setOtherBg, setOtherEn, otherEn)} /></div>
                         <div className="voucher-col"><span className="label-clean">Other Services:</span><textarea className="input-clean h-6" value={otherEn} onChange={e => setOtherEn(e.target.value)} /></div>
                     </div>
 
-                    {/* Notes */}
                     <div className="voucher-row">
                         <div className="voucher-col"><span className="label-clean">Забележки:</span><textarea className="input-clean h-6" value={noteBg} onChange={e => handleSync(e.target.value, setNoteBg, setNoteEn, noteEn)} /></div>
                         <div className="voucher-col"><span className="label-clean">Notes:</span><textarea className="input-clean h-6" value={noteEn} onChange={e => setNoteEn(e.target.value)} /></div>
                     </div>
 
-                    {/* Date Issued */}
                     <div className="voucher-row">
                         <div className="voucher-col"><span className="label-clean">Дата на издаване:</span><input type="date" className="input-clean text-xs" value={dateIssuedBg} onChange={e => {setDateIssuedBg(e.target.value); setDateIssuedEn(e.target.value)}} /></div>
                         <div className="voucher-col"><span className="label-clean">Date Issued:</span><input type="date" className="input-clean text-xs" value={dateIssuedEn} onChange={e => setDateIssuedEn(e.target.value)} /></div>
                     </div>
 
-                    {/* Pay Doc */}
                     <div className="voucher-row">
                         <div className="voucher-col">
                             <span className="label-clean">Документ за плащане (№ / Дата):</span>
@@ -395,7 +337,6 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
 
                 </div>
 
-                {/* SIGNATURES */}
                 <div className="grid grid-cols-2 gap-8 mt-4">
                     <div className="text-center">
                         <div className="border-b border-black h-8 mb-1"></div>
