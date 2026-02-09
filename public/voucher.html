@@ -1,664 +1,447 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="bg">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Travel Voucher</title>
+    <title>Туристически Ваучер</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f3f4f6;
+        body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; }
+        
+        /* Table-like Grid Styling */
+        .voucher-grid {
+            border: 1px solid #94a3b8;
+        }
+        .voucher-row {
             display: flex;
-            flex-direction: column; /* Allow content to stack vertically */
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            padding: 20px;
+            border-bottom: 1px solid #cbd5e1;
         }
-        .voucher-container {
-            background-color: #ffffff;
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-            width: 100%;
-            max-width: 800px;
-            overflow: hidden;
+        .voucher-row:last-child {
+            border-bottom: none;
         }
-        .logo-section {
-            padding: 20px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            background-color: #f9fafb;
-        }
-        .info-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        .info-table th, .info-table td {
-            border: 1px solid #e5e7eb;
-            padding: 12px;
-            text-align: left;
-            font-size: 0.95rem;
-            color: #374151;
-        }
-        .info-table th {
-            background-color: #f3f4f6;
-            font-weight: 600;
-            width: 50%; /* Equal width for Bulgarian and English columns */
-        }
-        .info-table td {
-            background-color: #ffffff;
-        }
-        .header-row {
-            background-color: #e0e7ff; /* Light blue background for header rows */
-            font-weight: 700;
-            text-align: center !important;
-            color: #1f2937;
-        }
-        .input-field, .select-field, .textarea-field {
-            width: 100%;
-            padding: 8px;
-            border: 1px solid #d1d5db;
-            border-radius: 6px;
-            box-sizing: border-box;
-            font-size: 0.95rem;
-        }
-        .flex-container {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .flex-container input, .flex-container textarea {
-            flex-grow: 1;
-        }
-        .add-button {
-            background-color: #4f46e5;
-            color: white;
-            padding: 8px 16px;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: background-color 0.2s;
-            font-size: 0.9rem;
-            margin-top: 10px;
-            display: inline-block;
-        }
-        .add-button:hover {
-            background-color: #4338ca;
-        }
-        .remove-button {
-            background-color: #ef4444; /* Red color for remove */
-            color: white;
-            padding: 8px 12px;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: background-color 0.2s;
-            font-size: 0.85rem;
-            flex-shrink: 0; /* Prevent button from shrinking */
-        }
-        .remove-button:hover {
-            background-color: #dc2626;
-        }
-        .number-input-container {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            width: 100%;
-        }
-        .number-input-container input[type="number"] {
-            width: 60px; /* Smaller width for number inputs */
-            text-align: center;
-            -moz-appearance: textfield; /* Firefox */
-        }
-        /* Hide arrows for Chrome, Safari, Edge */
-        .number-input-container input::-webkit-outer-spin-button,
-        .number-input-container input::-webkit-inner-spin-button {
-            -webkit-appearance: none;
-            margin: 0;
-        }
-        .date-time-container {
-            display: flex;
-            flex-direction: column; /* Stack date and time vertically */
-            gap: 5px;
-            width: 100%;
-        }
-        .date-time-container input {
-            width: 100%;
-        }
-        .date-range-container {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            width: 100%;
-        }
-        .date-range-container input[type="date"] {
-            flex-grow: 1;
-        }
-        .payment-doc-container {
+        .voucher-col {
+            flex: 1;
+            padding: 0.5rem;
+            border-right: 1px solid #cbd5e1;
             display: flex;
             flex-direction: column;
-            gap: 5px;
-            width: 100%;
+            justify-content: center;
         }
-        .payment-doc-container input {
-            width: 100%;
+        .voucher-col:last-child {
+            border-right: none;
         }
-        .signature-line {
-            height: 1px;
-            background-color: #e5e7eb;
-            margin-top: 20px;
-            margin-bottom: 5px;
-        }
-        .signature-text {
+        .header-bg {
+            background-color: #e2e8f0;
+            font-weight: 800;
             text-align: center;
-            font-size: 0.85rem;
-            color: #6b7280;
-            padding-bottom: 10px;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            color: #1e293b;
+            padding: 0.5rem;
         }
 
-        /* Print-specific styles */
+        /* Inputs */
+        .input-field {
+            width: 100%;
+            background: transparent;
+            padding: 4px;
+            font-weight: 600;
+            color: #0f172a;
+            outline: none;
+            border-bottom: 1px dashed #cbd5e1;
+            transition: border 0.2s;
+        }
+        .input-field:focus {
+            border-bottom: 1px solid #3b82f6;
+            background-color: #f8fafc;
+        }
+        
+        .label-text {
+            font-size: 0.65rem;
+            font-weight: 700;
+            color: #64748b;
+            text-transform: uppercase;
+            margin-bottom: 2px;
+        }
+
+        /* Print Optimization */
         @media print {
-            body {
-                background-color: #ffffff; /* White background for print */
+            body { background: white; padding: 0; }
+            .no-print { display: none !important; }
+            .main-container { 
+                box-shadow: none; 
+                margin: 0; 
+                max-width: 100%; 
+                border: none;
+            }
+            .input-field {
+                border-bottom: none; /* Clean look for print */
                 padding: 0;
-                margin: 0;
-                display: block; /* Revert flex for print layout */
-                font-size: 0.8rem; /* Smaller base font size for print */
             }
-            .voucher-container {
-                box-shadow: none; /* Remove shadow for print */
-                border-radius: 0; /* Remove border-radius for print */
-                width: 100%;
-                max-width: none; /* Allow full width */
-                margin: 0; /* Remove any container margins */
+            /* Ensure borders print */
+            .voucher-grid, .voucher-row, .voucher-col {
+                border-color: #000 !important;
             }
-            .print-button, .add-button, .remove-button {
-                display: none !important; /* Hide buttons when printing */
+            .header-bg {
+                background-color: #f1f5f9 !important;
+                color: #000 !important;
+                border-bottom: 1px solid #000;
             }
-            .info-table th, .info-table td {
-                padding: 5px 8px; /* Reduced padding for table cells */
-                font-size: 0.8rem; /* Smaller font size for table content */
-            }
-            .info-table th {
-                width: 50%; /* Maintain equal width for columns */
-            }
-            .input-field, .select-field, .textarea-field {
-                border: none !important; /* Remove borders from inputs */
-                padding: 0 !important; /* Remove padding for cleaner print */
-                background-color: transparent !important; /* Transparent background */
-                -webkit-print-color-adjust: exact; /* Ensure background color is printed if needed */
-                print-color-adjust: exact;
-                font-size: 0.8rem; /* Smaller font size for input values */
-            }
-            /* Ensure text in inputs is visible and not cut off */
-            .input-field:focus, .select-field:focus, .textarea-field:focus {
-                outline: none !important;
-            }
-            /* Adjust flex containers for print to just show content */
-            .flex-container {
-                display: flex; /* Keep flex for inline elements */
-                align-items: center;
-                gap: 3px; /* Smaller gap */
-            }
-            .flex-container span {
-                display: inline-block; /* Keep labels inline */
-                margin-right: 2px; /* Smaller space between label and value */
-                white-space: nowrap; /* Prevent labels from wrapping */
-            }
-            .flex-container input, .flex-container textarea, .flex-container select {
-                display: inline-block; /* Make inputs inline with labels */
-                width: auto; /* Allow content to dictate width */
-                min-width: 50px; /* Ensure enough space for content, adjust as needed */
-                flex-grow: 1; /* Allow inputs to grow */
-            }
-            .date-time-container, .payment-doc-container {
-                display: flex; /* Keep these as flex for vertical stacking if needed, but compact */
-                flex-direction: column;
-                gap: 2px; /* Smaller gap */
-            }
-            .date-time-container input, .payment-doc-container input {
-                width: auto; /* Auto width for inputs within these containers */
-                display: inline-block;
-            }
-            .date-range-container {
-                display: inline-flex; /* Keep date range inline */
-                gap: 2px; /* Smaller gap */
-            }
-            .info-table td {
-                word-wrap: break-word; /* Ensure long text wraps */
-            }
-            .logo-section {
-                padding: 10px; /* Reduce logo section padding */
-            }
-            .logo-section img {
-                height: 60px; /* Smaller logo for print */
-            }
-            .header-row {
-                padding: 8px 12px !important; /* Smaller padding for header rows */
-                font-size: 0.9rem !important; /* Slightly smaller header font */
-            }
-            .signature-line {
-                margin-top: 10px; /* Reduced margin for signature line */
-            }
-            .signature-text {
-                font-size: 0.75rem; /* Smaller font for signature text */
-                padding-bottom: 5px; /* Reduced padding */
+            input[type="date"] {
+                /* Try to show date cleanly on print */
+                min-width: 100px;
             }
         }
     </style>
 </head>
-<body>
-    <div class="voucher-container">
-        <!-- Logo Section -->
-        <div class="logo-section">
-            <img src="https://dynamexres.netlify.app/assets/Logo-BhKKBcxG.png" alt="Company Logo" class="h-24 object-contain rounded-lg">
+<body class="p-4 min-h-screen flex justify-center items-start">
+
+    <div class="main-container bg-white w-full max-w-[210mm] shadow-2xl rounded-sm overflow-hidden">
+        
+        <div class="no-print bg-slate-800 text-white p-4 flex justify-between items-center">
+            <h1 class="font-bold">Генератор на Ваучер</h1>
+            <button onclick="window.print()" class="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded font-bold text-sm transition">
+                🖨️ Принтирай
+            </button>
         </div>
 
-        <!-- Static Information Table -->
-        <table class="info-table">
-            <thead>
-                <tr>
-                    <th colspan="2" class="header-row">
-                        РЕПУБЛИКА БЪЛГАРИЯ / REPUBLIC OF BULGARIA
-                    </th>
-                </tr>
-                <tr>
-                    <th colspan="2" class="header-row">
-                        ВАУЧЕР / VOUCHER:
-                        <input type="text" id="voucherNumber" class="input-field mt-2" placeholder="Enter Voucher Number">
-                    </th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td>ДАЙНАМЕКС ТУР ЕООД</td>
-                    <td>DYNAMEX TOUR LTD</td>
-                </tr>
-                <tr>
-                    <td>ЛИЦЕНЗ ЗА ТУРОПЕРАТОР: РК-01-8569/15.04.2025г.</td>
-                    <td>TUROPERATOR LICENSE: PK-01-8569/15.04.2025.</td>
-                </tr>
-                <tr>
-                    <td>ЕИК: 208193140, АДРЕС: БЪЛГАРИЯ, РАКИТОВО, ВАСИЛ КУРТЕВ 12А</td>
-                    <td>ID: 208193140, ADRESS: BULGARIA, RAKITOVO, VASIL KURTEV 12A</td>
-                </tr>
-                <!-- Dropdown for ORIGINAL / COPY -->
-                <tr>
-                    <td colspan="2" class="header-row">
-                        <select id="voucherType" class="select-field">
+        <div class="p-8">
+            
+            <div class="flex justify-center mb-6">
+                <img src="https://dynamexres.netlify.app/assets/Logo-BhKKBcxG.png" alt="Logo" class="h-24 object-contain">
+            </div>
+
+            <div class="voucher-grid text-sm">
+                
+                <div class="header-bg border-b border-slate-300">
+                    РЕПУБЛИКА БЪЛГАРИЯ / REPUBLIC OF BULGARIA
+                </div>
+
+                <div class="voucher-row bg-slate-50">
+                    <div class="voucher-col items-center flex-row gap-4 justify-between w-full">
+                        <span class="font-black text-lg uppercase">Ваучер / Voucher:</span>
+                        <input type="text" id="voucherNumber" class="text-right text-xl font-black text-red-600 bg-transparent outline-none w-1/2" placeholder="№ 00000">
+                    </div>
+                </div>
+
+                <div class="voucher-row">
+                    <div class="voucher-col"><span class="font-bold">ДАЙНАМЕКС ТУР ЕООД</span></div>
+                    <div class="voucher-col"><span class="font-bold">DYNAMEX TOUR LTD</span></div>
+                </div>
+                <div class="voucher-row">
+                    <div class="voucher-col text-xs">ЛИЦЕНЗ ЗА ТУРОПЕРАТОР: РК-01-8569/15.04.2025г.</div>
+                    <div class="voucher-col text-xs">TUROPERATOR LICENSE: PK-01-8569/15.04.2025.</div>
+                </div>
+                <div class="voucher-row">
+                    <div class="voucher-col text-xs">ЕИК: 208193140, АДРЕС: БЪЛГАРИЯ, РАКИТОВО, ВАСИЛ КУРТЕВ 12А</div>
+                    <div class="voucher-col text-xs">ID: 208193140, ADDRESS: BULGARIA, RAKITOVO, VASIL KURTEV 12A</div>
+                </div>
+
+                <div class="voucher-row bg-blue-50/50">
+                    <div class="w-full p-2 text-center">
+                        <select id="voucherType" class="bg-transparent font-bold uppercase text-center w-full outline-none cursor-pointer appearance-none">
                             <option value="original">ОРИГИНАЛ / ORIGINAL</option>
                             <option value="copy">КОПИЕ / COPY</option>
                         </select>
-                    </td>
-                </tr>
-                <!-- Combined input fields for "ЗА ПРЕДСТАВЯНЕ В" and "TO" -->
-                <tr>
-                    <td>
-                        <div class="flex-container">
-                            <span>ЗА ПРЕДСТАВЯНЕ В:</span>
-                            <input type="text" id="destinationBulgarian" class="input-field" placeholder="Въведете дестинация">
-                        </div>
-                    </td>
-                    <td>
-                        <div class="flex-container">
-                            <span>TO:</span>
-                            <input type="text" id="destinationEnglish" class="input-field" placeholder="Enter Destination">
-                        </div>
-                    </td>
-                </tr>
-                <!-- Tourist Names Section -->
-                <tr>
-                    <td colspan="2" class="header-row">
-                        ИМЕ И ФАМИЛИЯ НА ТУРИСТА / NAME AND SURNAME OF TOURIST
-                    </td>
-                </tr>
-                <tr>
-                    <td colspan="2">
-                        <div id="touristInputsContainer" class="space-y-3">
-                            <!-- Initial tourist input field with remove button -->
-                            <div class="flex-container tourist-row">
-                                <input type="text" class="input-field tourist-name-bg" placeholder="Име и фамилия (Български)">
-                                <input type="text" class="input-field tourist-name-en" placeholder="Name and Surname (English)">
-                                <button type="button" class="remove-button">Remove</button>
-                            </div>
-                        </div>
-                        <button id="addTouristBtn" class="add-button">Add Another Tourist</button>
-                    </td>
-                </tr>
-                <!-- Adults and Children Fields -->
-                <tr>
-                    <td>
-                        <div class="number-input-container">
-                            <span>ВЪЗРАСТНИ:</span>
-                            <input type="number" id="adultsCountBg" class="input-field" value="0" min="0">
-                        </div>
-                    </td>
-                    <td>
-                        <div class="number-input-container">
-                            <span>ADULTS:</span>
-                            <input type="number" id="adultsCountEn" class="input-field" value="0" min="0">
-                        </div>
-                    </td>
-                </tr>
-                <tr>
-                    <td>
-                        <div class="number-input-container">
-                            <span>ДЕЦА (РЕДОВНО ЛЕГЛО):</span>
-                            <input type="number" id="childrenRegularBedCountBg" class="input-field" value="0" min="0">
-                        </div>
-                    </td>
-                    <td>
-                        <div class="number-input-container">
-                            <span>CHILDREN (REGULAR BED):</span>
-                            <input type="number" id="childrenRegularBedCountEn" class="input-field" value="0" min="0">
-                        </div>
-                    </td>
-                </tr>
-                <tr>
-                    <td>
-                        <div class="number-input-container">
-                            <span>ДЕЦА (ДОПЪЛНИТЕЛНО ЛЕГЛО):</span>
-                            <input type="number" id="childrenExtraBedCountBg" class="input-field" value="0" min="0">
-                        </div>
-                    </td>
-                    <td>
-                        <div class="number-input-container">
-                            <span>CHILDREN (EXTRA BED):</span>
-                            <input type="number" id="childrenExtraBedCountEn" class="input-field" value="0" min="0">
-                        </div>
-                    </td>
-                </tr>
-                <!-- Itinerary, Destination, Dates, Accommodation, Room Category -->
-                <tr>
-                    <td>
-                        <div class="flex-container">
-                            <span>МАРШРУТ:</span>
-                            <input type="text" id="itineraryBg" class="input-field" placeholder="Въведете маршрут">
-                        </div>
-                    </td>
-                    <td>
-                        <div class="flex-container">
-                            <span>ITINERARY:</span>
-                            <input type="text" id="itineraryEn" class="input-field" placeholder="Enter Itinerary">
-                        </div>
-                    </td>
-                </tr>
-                <tr>
-                    <td>
-                        <div class="flex-container">
-                            <span>МЯСТО:</span>
-                            <input type="text" id="destinationBg" class="input-field" placeholder="Въведете място">
-                        </div>
-                    </td>
-                    <td>
-                        <div class="flex-container">
-                            <span>DESTINATION:</span>
-                            <input type="text" id="destinationEn" class="input-field" placeholder="Enter Destination">
-                        </div>
-                    </td>
-                </tr>
-                <tr>
-                    <td>
-                        <div class="flex-container">
-                            <span>СРОК:</span>
-                            <div class="date-range-container">
-                                <input type="date" id="dateStartBg" class="input-field">
-                                <span>-</span>
-                                <input type="date" id="dateEndBg" class="input-field">
-                            </div>
-                        </div>
-                    </td>
-                    <td>
-                        <div class="flex-container">
-                            <span>DATES OF ITINERARY:</span>
-                            <div class="date-range-container">
-                                <input type="date" id="dateStartEn" class="input-field">
-                                <span>-</span>
-                                <input type="date" id="dateEndEn" class="input-field">
-                            </div>
-                        </div>
-                    </td>
-                </tr>
-                <tr>
-                    <td>
-                        <div class="flex-container">
-                            <span>НАСТАНЯВАНЕ В:</span>
-                            <input type="text" id="accommodationBg" class="input-field" placeholder="Въведете място на настаняване">
-                        </div>
-                    </td>
-                    <td>
-                        <div class="flex-container">
-                            <span>ACCOMMODATION AT:</span>
-                            <input type="text" id="accommodationEn" class="input-field" placeholder="Enter Accommodation">
-                        </div>
-                    </td>
-                </tr>
-                <tr>
-                    <td>
-                        <div class="flex-container">
-                            <span>КАТЕГОРИЯ И БРОЙ СТАИ:</span>
-                            <input type="text" id="roomCategoryBg" class="input-field" placeholder="Въведете категория и брой стаи">
-                        </div>
-                    </td>
-                    <td>
-                        <div class="flex-container">
-                            <span>CATEGORY AND NUMBER OF ROOMS:</span>
-                            <input type="text" id="roomCategoryEn" class="input-field" placeholder="Enter Category and Number of Rooms">
-                        </div>
-                    </td>
-                </tr>
-                <!-- Check-in/out, Excursions, Other Services, Notes, Date, Payment Doc -->
-                <tr>
-                    <td>
-                        <div class="flex-container">
-                            <span>ДАТА И ЧАС НА ПРИСТИГАНЕ:</span>
-                            <div class="date-time-container">
-                                <input type="datetime-local" id="checkInBg" class="input-field">
-                            </div>
-                        </div>
-                    </td>
-                    <td>
-                        <div class="flex-container">
-                            <span>CHECK IN:</span>
-                            <div class="date-time-container">
-                                <input type="datetime-local" id="checkInEn" class="input-field">
-                            </div>
-                        </div>
-                    </td>
-                </tr>
-                <tr>
-                    <td>
-                        <div class="flex-container">
-                            <span>ДАТА И ЧАС НА ЗАМИНАВАНЕ:</span>
-                            <div class="date-time-container">
-                                <input type="datetime-local" id="checkOutBg" class="input-field">
-                            </div>
-                        </div>
-                    </td>
-                    <td>
-                        <div class="flex-container">
-                            <span>CHECK OUT:</span>
-                            <div class="date-time-container">
-                                <input type="datetime-local" id="checkOutEn" class="input-field">
-                            </div>
-                        </div>
-                    </td>
-                </tr>
-                <tr>
-                    <td>
-                        <div class="flex-container">
-                            <span>ЕКСКУРЗИОННА ПРОГРАМА:</span>
-                            <textarea id="excursionsBg" class="textarea-field" rows="3" placeholder="Въведете екскурзионна програма"></textarea>
-                        </div>
-                    </td>
-                    <td>
-                        <div class="flex-container">
-                            <span>EXCURSIONS:</span>
-                            <textarea id="excursionsEn" class="textarea-field" rows="3" placeholder="Enter excursions"></textarea>
-                        </div>
-                    </td>
-                </tr>
-                <tr>
-                    <td>
-                        <div class="flex-container">
-                            <span>ДРУГИ УСЛУГИ:</span>
-                            <textarea id="otherServicesBg" class="textarea-field" rows="3" placeholder="Въведете други услуги"></textarea>
-                        </div>
-                    </td>
-                    <td>
-                        <div class="flex-container">
-                            <span>OTHER SERVICES:</span>
-                            <textarea id="otherServicesEn" class="textarea-field" rows="3" placeholder="Enter other services"></textarea>
-                        </div>
-                    </td>
-                </tr>
-                <tr>
-                    <td>
-                        <div class="flex-container">
-                            <span>ЗАБЕЛЕЖКИ:</span>
-                            <textarea id="notesBg" class="textarea-field" rows="3" placeholder="Въведете забележки"></textarea>
-                        </div>
-                    </td>
-                    <td>
-                        <div class="flex-container">
-                            <span>NOTES:</span>
-                            <textarea id="notesEn" class="textarea-field" rows="3" placeholder="Enter notes"></textarea>
-                        </div>
-                    </td>
-                </tr>
-                <tr>
-                    <td>
-                        <div class="flex-container">
-                            <span>ДАТА:</span>
-                            <input type="date" id="dateIssuedBg" class="input-field">
-                        </div>
-                    </td>
-                    <td>
-                        <div class="flex-container">
-                            <span>DATE:</span>
-                            <input type="date" id="dateIssuedEn" class="input-field">
-                        </div>
-                    </td>
-                </tr>
-                <tr>
-                    <td>
-                        <div class="flex-container">
-                            <span>НОМЕР И ДАТА НА ДОКУМЕНТА ЗА ПЛАЩАНЕ:</span>
-                            <div class="payment-doc-container">
-                                <input type="text" id="paymentDocNumBg" class="input-field" placeholder="Номер на документ">
-                                <input type="date" id="paymentDocDateBg" class="input-field">
-                            </div>
-                        </div>
-                    </td>
-                    <td>
-                        <div class="flex-container">
-                            <span>PAYMENT DOCUMENT NUMBER AND DATE OF PAYMENT:</span>
-                            <div class="payment-doc-container">
-                                <input type="text" id="paymentDocNumEn" class="input-field" placeholder="Document Number">
-                                <input type="date" id="paymentDocDateEn" class="input-field">
-                            </div>
-                        </div>
-                    </td>
-                </tr>
-                <!-- Signature Lines -->
-                <tr>
-                    <td colspan="2" class="text-center">
-                        <div class="signature-line"></div>
-                        <div class="signature-text">ПОДПИС И ПЕЧАТ НА ФИРМА ИЗПРАЩАЧ / SENDER COMPANY SIGNATURE AND STAMP</div>
-                    </td>
-                </tr>
-                <tr>
-                    <td colspan="2" class="text-center">
-                        <div class="signature-line"></div>
-                        <div class="signature-text">ПОДПИС И ПЕЧАТ НА ПРИЕМАЩА ФИРМА / RECEIVING COMPANY SIGNATURE AND STAMP</div>
-                    </td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
+                    </div>
+                </div>
 
-    <!-- Print Button -->
-    <button id="printVoucherBtn" class="print-button add-button mt-8 mb-8">Print Voucher</button>
+                <div class="voucher-row">
+                    <div class="voucher-col">
+                        <div class="label-text">За представяне в:</div>
+                        <input type="text" id="destinationBulgarian" class="input-field" placeholder="...">
+                    </div>
+                    <div class="voucher-col">
+                        <div class="label-text">To:</div>
+                        <input type="text" id="destinationEnglish" class="input-field" placeholder="...">
+                    </div>
+                </div>
+
+                <div class="header-bg border-y border-slate-300">
+                    ИМЕ И ФАМИЛИЯ НА ТУРИСТА / NAME AND SURNAME OF TOURIST
+                </div>
+
+                <div class="voucher-row">
+                    <div class="w-full p-4">
+                        <div id="touristInputsContainer" class="space-y-2">
+                            </div>
+                        <button id="addTouristBtn" class="no-print mt-4 text-xs bg-green-100 hover:bg-green-200 text-green-700 px-3 py-1 rounded font-bold border border-green-300">
+                            + Добави Турист
+                        </button>
+                    </div>
+                </div>
+
+                <div class="voucher-row">
+                    <div class="voucher-col">
+                        <div class="flex justify-between items-center">
+                            <span class="label-text">Възрастни:</span>
+                            <input type="number" id="adultsCountBg" class="w-12 text-center font-bold bg-transparent border-b border-slate-300" value="0">
+                        </div>
+                    </div>
+                    <div class="voucher-col">
+                        <div class="flex justify-between items-center">
+                            <span class="label-text">Adults:</span>
+                            <input type="number" id="adultsCountEn" class="w-12 text-center font-bold bg-transparent border-b border-slate-300" value="0">
+                        </div>
+                    </div>
+                </div>
+                <div class="voucher-row">
+                    <div class="voucher-col">
+                        <div class="flex justify-between items-center">
+                            <span class="label-text">Деца (Редовно легло):</span>
+                            <input type="number" id="childrenRegularBedCountBg" class="w-12 text-center font-bold bg-transparent border-b border-slate-300" value="0">
+                        </div>
+                    </div>
+                    <div class="voucher-col">
+                        <div class="flex justify-between items-center">
+                            <span class="label-text">Children (Regular Bed):</span>
+                            <input type="number" id="childrenRegularBedCountEn" class="w-12 text-center font-bold bg-transparent border-b border-slate-300" value="0">
+                        </div>
+                    </div>
+                </div>
+                <div class="voucher-row">
+                    <div class="voucher-col">
+                        <div class="flex justify-between items-center">
+                            <span class="label-text">Деца (Доп. легло):</span>
+                            <input type="number" id="childrenExtraBedCountBg" class="w-12 text-center font-bold bg-transparent border-b border-slate-300" value="0">
+                        </div>
+                    </div>
+                    <div class="voucher-col">
+                        <div class="flex justify-between items-center">
+                            <span class="label-text">Children (Extra Bed):</span>
+                            <input type="number" id="childrenExtraBedCountEn" class="w-12 text-center font-bold bg-transparent border-b border-slate-300" value="0">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="voucher-row">
+                    <div class="voucher-col">
+                        <div class="label-text">Маршрут:</div>
+                        <input type="text" id="itineraryBg" class="input-field">
+                    </div>
+                    <div class="voucher-col">
+                        <div class="label-text">Itinerary:</div>
+                        <input type="text" id="itineraryEn" class="input-field">
+                    </div>
+                </div>
+
+                <div class="voucher-row">
+                    <div class="voucher-col">
+                        <div class="label-text">Място:</div>
+                        <input type="text" id="destinationBg" class="input-field">
+                    </div>
+                    <div class="voucher-col">
+                        <div class="label-text">Destination:</div>
+                        <input type="text" id="destinationEn" class="input-field">
+                    </div>
+                </div>
+
+                <div class="voucher-row">
+                    <div class="voucher-col">
+                        <div class="label-text">Срок (От - До):</div>
+                        <div class="flex gap-2">
+                            <input type="date" id="dateStartBg" class="input-field text-xs">
+                            <span class="self-center">-</span>
+                            <input type="date" id="dateEndBg" class="input-field text-xs">
+                        </div>
+                    </div>
+                    <div class="voucher-col">
+                        <div class="label-text">Dates of Itinerary:</div>
+                        <div class="flex gap-2">
+                            <input type="date" id="dateStartEn" class="input-field text-xs">
+                            <span class="self-center">-</span>
+                            <input type="date" id="dateEndEn" class="input-field text-xs">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="voucher-row">
+                    <div class="voucher-col">
+                        <div class="label-text">Настаняване в:</div>
+                        <input type="text" id="accommodationBg" class="input-field">
+                    </div>
+                    <div class="voucher-col">
+                        <div class="label-text">Accommodation at:</div>
+                        <input type="text" id="accommodationEn" class="input-field">
+                    </div>
+                </div>
+
+                <div class="voucher-row">
+                    <div class="voucher-col">
+                        <div class="label-text">Категория и брой стаи:</div>
+                        <input type="text" id="roomCategoryBg" class="input-field">
+                    </div>
+                    <div class="voucher-col">
+                        <div class="label-text">Category and number of rooms:</div>
+                        <input type="text" id="roomCategoryEn" class="input-field">
+                    </div>
+                </div>
+
+                <div class="voucher-row">
+                    <div class="voucher-col">
+                        <div class="label-text">Дата и час на пристигане:</div>
+                        <input type="datetime-local" id="checkInBg" class="input-field text-xs">
+                    </div>
+                    <div class="voucher-col">
+                        <div class="label-text">Check in:</div>
+                        <input type="datetime-local" id="checkInEn" class="input-field text-xs">
+                    </div>
+                </div>
+
+                <div class="voucher-row">
+                    <div class="voucher-col">
+                        <div class="label-text">Дата и час на заминаване:</div>
+                        <input type="datetime-local" id="checkOutBg" class="input-field text-xs">
+                    </div>
+                    <div class="voucher-col">
+                        <div class="label-text">Check out:</div>
+                        <input type="datetime-local" id="checkOutEn" class="input-field text-xs">
+                    </div>
+                </div>
+
+                <div class="voucher-row">
+                    <div class="voucher-col">
+                        <div class="label-text">Екскурзионна програма:</div>
+                        <textarea id="excursionsBg" class="input-field resize-none h-16"></textarea>
+                    </div>
+                    <div class="voucher-col">
+                        <div class="label-text">Excursions:</div>
+                        <textarea id="excursionsEn" class="input-field resize-none h-16"></textarea>
+                    </div>
+                </div>
+
+                <div class="voucher-row">
+                    <div class="voucher-col">
+                        <div class="label-text">Други услуги:</div>
+                        <textarea id="otherServicesBg" class="input-field resize-none h-10"></textarea>
+                    </div>
+                    <div class="voucher-col">
+                        <div class="label-text">Other Services:</div>
+                        <textarea id="otherServicesEn" class="input-field resize-none h-10"></textarea>
+                    </div>
+                </div>
+
+                <div class="voucher-row">
+                    <div class="voucher-col">
+                        <div class="label-text">Забележки:</div>
+                        <textarea id="notesBg" class="input-field resize-none h-10"></textarea>
+                    </div>
+                    <div class="voucher-col">
+                        <div class="label-text">Notes:</div>
+                        <textarea id="notesEn" class="input-field resize-none h-10"></textarea>
+                    </div>
+                </div>
+
+                <div class="voucher-row">
+                    <div class="voucher-col">
+                        <div class="label-text">Дата на издаване:</div>
+                        <input type="date" id="dateIssuedBg" class="input-field text-xs">
+                    </div>
+                    <div class="voucher-col">
+                        <div class="label-text">Date Issued:</div>
+                        <input type="date" id="dateIssuedEn" class="input-field text-xs">
+                    </div>
+                </div>
+
+                <div class="voucher-row">
+                    <div class="voucher-col">
+                        <div class="label-text">Номер и дата на документа за плащане:</div>
+                        <div class="flex gap-2">
+                            <input type="text" id="paymentDocNumBg" class="input-field" placeholder="№">
+                            <input type="date" id="paymentDocDateBg" class="input-field text-xs w-32">
+                        </div>
+                    </div>
+                    <div class="voucher-col">
+                        <div class="label-text">Payment document number and date:</div>
+                        <div class="flex gap-2">
+                            <input type="text" id="paymentDocNumEn" class="input-field" placeholder="No">
+                            <input type="date" id="paymentDocDateEn" class="input-field text-xs w-32">
+                        </div>
+                    </div>
+                </div>
+
+            </div> <div class="grid grid-cols-2 gap-12 mt-12">
+                <div class="text-center">
+                    <div class="border-b border-slate-400 h-10 mb-2"></div>
+                    <p class="text-[9px] font-bold text-slate-500 uppercase">
+                        Подпис и печат на фирма Изпращач<br>Sender Company Signature and Stamp
+                    </p>
+                </div>
+                <div class="text-center">
+                    <div class="border-b border-slate-400 h-10 mb-2"></div>
+                    <p class="text-[9px] font-bold text-slate-500 uppercase">
+                        Подпис и печат на Приемаща фирма<br>Receiving Company Signature and Stamp
+                    </p>
+                </div>
+            </div>
+
+        </div>
+    </div>
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            const touristContainer = document.getElementById('touristInputsContainer');
             const addTouristBtn = document.getElementById('addTouristBtn');
-            const touristInputsContainer = document.getElementById('touristInputsContainer');
-            const printVoucherBtn = document.getElementById('printVoucherBtn');
 
-            // Function to add a new tourist row
+            // 1. Tourist Logic
             function addTouristRow() {
-                // Create a new div for the tourist input pair
-                const newTouristDiv = document.createElement('div');
-                newTouristDiv.className = 'flex-container tourist-row'; // Apply flex styling and a class for easy removal
-
-                // Create Bulgarian input field
-                const bgInput = document.createElement('input');
-                bgInput.type = 'text';
-                bgInput.className = 'input-field tourist-name-bg';
-                bgInput.placeholder = 'Име и фамилия (Български)';
-
-                // Create English input field
-                const enInput = document.createElement('input');
-                enInput.type = 'text';
-                enInput.className = 'input-field tourist-name-en';
-                enInput.placeholder = 'Name and Surname (English)';
-
-                // Create Remove button
-                const removeBtn = document.createElement('button');
-                removeBtn.type = 'button';
-                removeBtn.className = 'remove-button';
-                removeBtn.textContent = 'Remove';
-                removeBtn.addEventListener('click', function() {
-                    newTouristDiv.remove(); // Remove the parent div (the entire tourist row)
+                const div = document.createElement('div');
+                div.className = 'flex gap-4 tourist-row mb-2';
+                div.innerHTML = `
+                    <input type="text" class="input-field flex-1" placeholder="Име на турист (BG)">
+                    <input type="text" class="input-field flex-1" placeholder="Tourist Name (EN)">
+                    <button type="button" class="no-print text-red-500 font-bold px-2 hover:bg-red-50 rounded remove-btn">✕</button>
+                `;
+                
+                div.querySelector('.remove-btn').addEventListener('click', function() {
+                    div.remove();
                 });
 
-                // Append inputs and button to the new div
-                newTouristDiv.appendChild(bgInput);
-                newTouristDiv.appendChild(enInput);
-                newTouristDiv.appendChild(removeBtn);
-
-                // Append the new div to the container
-                touristInputsContainer.appendChild(newTouristDiv);
+                touristContainer.appendChild(div);
             }
 
-            // Add event listener to the "Add Another Tourist" button
+            // Add first row on load
+            addTouristRow();
+
             addTouristBtn.addEventListener('click', addTouristRow);
 
-            // Add event listeners to the initial "Remove" buttons (if any exist on load)
-            // This ensures the pre-existing row also has a working remove button
-            document.querySelectorAll('.tourist-row .remove-button').forEach(button => {
-                button.addEventListener('click', function() {
-                    button.closest('.tourist-row').remove();
-                });
-            });
-
-            // --- Synchronization for Adults and Children fields ---
-            const syncFields = [
-                { bgId: 'adultsCountBg', enId: 'adultsCountEn' },
-                { bgId: 'childrenRegularBedCountBg', enId: 'childrenRegularBedCountEn' },
-                { bgId: 'childrenExtraBedCountBg', enId: 'childrenExtraBedCountEn' }
+            // 2. Sync Logic (BG -> EN)
+            const syncPairs = [
+                ['destinationBulgarian', 'destinationEnglish'],
+                ['adultsCountBg', 'adultsCountEn'],
+                ['childrenRegularBedCountBg', 'childrenRegularBedCountEn'],
+                ['childrenExtraBedCountBg', 'childrenExtraBedCountEn'],
+                ['itineraryBg', 'itineraryEn'],
+                ['destinationBg', 'destinationEn'],
+                ['dateStartBg', 'dateStartEn'],
+                ['dateEndBg', 'dateEndEn'],
+                ['accommodationBg', 'accommodationEn'],
+                ['roomCategoryBg', 'roomCategoryEn'],
+                ['checkInBg', 'checkInEn'],
+                ['checkOutBg', 'checkOutEn'],
+                ['excursionsBg', 'excursionsEn'],
+                ['otherServicesBg', 'otherServicesEn'],
+                ['notesBg', 'notesEn'],
+                ['dateIssuedBg', 'dateIssuedEn'],
+                ['paymentDocNumBg', 'paymentDocNumEn'],
+                ['paymentDocDateBg', 'paymentDocDateEn']
             ];
 
-            syncFields.forEach(pair => {
-                const bgInput = document.getElementById(pair.bgId);
-                const enInput = document.getElementById(pair.enId);
-
-                if (bgInput && enInput) {
-                    bgInput.addEventListener('input', function() {
-                        enInput.value = this.value;
-                    });
-                    enInput.addEventListener('input', function() {
-                        bgInput.value = this.value;
+            syncPairs.forEach(pair => {
+                const bg = document.getElementById(pair[0]);
+                const en = document.getElementById(pair[1]);
+                if (bg && en) {
+                    bg.addEventListener('input', () => {
+                        en.value = bg.value;
                     });
                 }
             });
 
-            // --- Print Functionality ---
-            printVoucherBtn.addEventListener('click', function() {
-                window.print();
-            });
+            // 3. Set Default Date
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('dateIssuedBg').value = today;
+            document.getElementById('dateIssuedEn').value = today;
         });
     </script>
 </body>
