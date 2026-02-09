@@ -119,9 +119,10 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
 
     // --- HANDLERS ---
     const handlePrint = () => {
+        // Даваме малко време на браузъра да пренареди DOM-а преди print диалога
         setTimeout(() => {
             window.print();
-        }, 100);
+        }, 500);
     };
 
     const addTourist = () => setTourists([...tourists, { bg: '', en: '' }]);
@@ -141,45 +142,53 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
     return (
         <div className="flex flex-col items-center min-h-screen bg-slate-100 p-8 pb-20">
             
-            {/* ВАЖНО: Тук са вградените стилове. 
-               Те гарантират, че при печат се скрива всичко (body) 
-               и се показва САМО .print-container.
+            {/* CRITICAL FIX: 
+               Използваме 'fixed' позициониране и z-index 99999, 
+               за да сме сигурни, че ваучерът е върху всичко и се вижда от принтера.
             */}
             <style>{`
                 @media print {
-                    /* Скриваме всичко */
+                    /* 1. Скриваме всичко в body */
                     body * {
                         visibility: hidden;
                     }
                     
-                    /* Показваме само нашия контейнер */
+                    /* 2. Показваме само нашия контейнер и неговите деца */
                     .print-container, .print-container * {
                         visibility: visible;
                     }
 
-                    /* Позиционираме го най-горе вляво върху листа */
+                    /* 3. Фиксираме контейнера върху целия "лист" (viewport) */
                     .print-container {
-                        position: absolute;
-                        left: 0;
-                        top: 0;
-                        width: 100%;
+                        position: fixed !important; /* ТОВА Е КЛЮЧЪТ */
+                        left: 0 !important;
+                        top: 0 !important;
+                        width: 100% !important;
+                        height: auto !important;
                         margin: 0 !important;
-                        padding: 0 !important;
+                        padding: 10mm !important; /* Малко отстояние от ръба на листа */
                         box-shadow: none !important;
                         border: none !important;
-                        transform: scale(0.95); 
-                        transform-origin: top left;
+                        background: white !important; /* Бял фон, за да покрие всичко отдолу */
+                        z-index: 99999 !important; /* Най-отгоре */
+                        transform: scale(0.95); /* Леко намаляване, за да се събере */
+                        transform-origin: top center;
                     }
 
+                    /* 4. Скриваме бутоните */
                     .no-print { display: none !important; }
 
+                    /* 5. Чистим стиловете на inputs */
                     input, textarea, select {
                         border: none !important;
                         background: transparent !important;
                         padding: 0 !important;
                         resize: none !important;
+                        -webkit-appearance: none;
+                        appearance: none;
                     }
                     
+                    /* 6. Принудително принтиране на граници и фонове */
                     .voucher-grid, .voucher-row, .voucher-col { border-color: #000 !important; }
                     .header-bg { background-color: #e2e8f0 !important; color: #000 !important; border-color: #000 !important; -webkit-print-color-adjust: exact; }
                 }
