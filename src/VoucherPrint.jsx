@@ -90,7 +90,7 @@ const VoucherPrint = ({ reservationData, onPrintFinish }) => {
         }
     }, [reservationData]);
 
-    const handlePrint = () => { setTimeout(() => { window.print(); }, 900); };
+    //const handlePrint = () => { setTimeout(() => { window.print(); }, 900); };
     const addTourist = () => setTourists([...tourists, { bg: '', en: '' }]);
     const removeTourist = (idx) => setTourists(tourists.filter((_, i) => i !== idx));
     const updateTourist = (idx, field, val) => {
